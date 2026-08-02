@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>MRT + Meta-Emotion (Interleaved)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
+
+  <!-- Load jsPsych and required plugins (from your existing MRT repo) -->
+  <script src="js/external/jspsych.js"></script>
+  <script src="js/external/plugin-preload.js"></script>
+  <script src="js/external/plugin-html-keyboard-response.js"></script>
+  <script src="https://unpkg.com/@jspsych/plugin-image-keyboard-response@1.1.3"></script>
+
+  <script src="https://unpkg.com/@jspsych/plugin-instructions@1.1.4"></script>
+  <script src="https://unpkg.com/@jspsych-contrib/plugin-pipe@0.3"></script>
+
+  <script src="js/external/plugin-html-multi-keyboard-response.js"></script>
+  <script src="js/external/plugin-audio-multi-keyboard-response.js"></script>
+  <script src="js/external/plugin-html-button-response-custom.js"></script>
+  <script src="js/external/plugin-survey-likert.js"></script>
+  <script src="js/external/plugin-survey-html-form.js"></script>
+
+  <script src="js/scales.js"></script>
+
+  <link rel="stylesheet" href="css/jspsych.css">
+
+  <style>
+    body { background: black; position: relative; }
+    .fixation { color: white; font-size: 64px; text-align:center; }
+    .center { color: white; text-align: center; }
+    .plus { font-family: "Montserrat", sans-serif; font-size: 150px; font-weight: bold; position: absolute; transform: translate(-50%, -50%); color: #bbb;  left: 50%; top: 50%; }
+
+
+    /* Make jsPsych content readable on black background */
+    .jspsych-display-element,
+    .jspsych-content,
+    .jspsych-content-wrapper,
+    .jspsych-instructions-nav,
+    .jspsych-instructions-nav a,
+    .jspsych-btn {
+      color: white !important;
+    }
+
+    .jspsych-content p,
+    .jspsych-content li,
+    .jspsych-content em,
+    .jspsych-content strong,
+    .jspsych-instructions p {
+      color: white !important;
+    }
+
+</style>
+</head>
+<body></body>
+
+<!-- MRT builder (adapted from your original runMetronomeTask) -->
+<script src="mrt.js"></script>
+
+<!-- Main orchestration (ES module) -->
+<script type="module" src="main.js"></script>
+</html>
