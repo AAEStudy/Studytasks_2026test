@@ -52,6 +52,9 @@ var jsPsych = params.jsPsych;
 
       
       // ---------------- Instructions (from original MRT) ----------------
+      const MRT_INSTRUCTION_MIN_VIEW_MS = 10000;
+      let cleanupMrtInstructionLock = null;
+
       let instructions_pages = [
         // Page 1
         `<p>You will now do the same metronome task you did at the beginning of this study but this time for a little over 20 minutes, split into two halves.</p>
@@ -86,55 +89,109 @@ var jsPsych = params.jsPsych;
         <p>If you are ready to begin, press "Next."</p>`
       ];
 
-      // Create a separate instructions trial for each page:
+      // Keep all instruction pages in one instructions trial so Previous works normally.
+      // Keyboard navigation is disabled by the plugin itself, and the clickable controls
+      // are genuinely disabled for the minimum reading time on every page view.
+      let instructionsTrials = [{
+        type: jsPsychInstructions,
+        pages: instructions_pages,
+        show_clickable_nav: true,
+        show_page_number: true,
+        allow_keys: false,
+        allow_backward: true,
+        button_label_previous: "PREVIOUS",
+        button_label_next: "NEXT",
+        button_label_last: "START",
+        on_load: function() {
+          const displayElement = document.querySelector(".jspsych-display-element");
+          if (!displayElement) return;
 
-      // Create a separate instructions trial for each page:
-      let instructionsTrials = instructions_pages.map((pageText, index) => {
-        return {
-          type: jsPsychInstructions,
-          pages: [pageText],
-          show_clickable_nav: true,
-          key_forward: null,     // Disable right arrow navigation
-          key_backward: null,    // Disable left arrow navigation
-          allow_backward: true, // let participants go back on pages > 1
-          button_label_next: "NEXT",
-          button_label_last: (index === instructions_pages.length - 1) ? "START" : "NEXT",
-          on_load: function() {
-            // Wait a brief moment to ensure the navigation container is rendered
-            setTimeout(function(){
-              // Get the navigation container (adjust the selector if needed)
-              let navContainer = document.querySelector(".jspsych-instructions-nav");
-              if(navContainer){
-                // Get its position relative to the viewport
-                let rect = navContainer.getBoundingClientRect();
-                // Create an overlay that covers from the nav container's top to the bottom of the viewport
-                let overlay = document.createElement("div");
-                overlay.id = "instruction-overlay";
-                overlay.style.position = "fixed";
-                overlay.style.top = rect.top + "px";
-                overlay.style.left = "0";
-                overlay.style.width = "100%";
-                overlay.style.height = (window.innerHeight - rect.top) + "px";
-                overlay.style.backgroundColor = "rgba(0, 0, 0, 0.5)";
-                overlay.style.zIndex = "10000";
-                document.body.appendChild(overlay);
-                // Remove the overlay after 10 seconds
-                setTimeout(function(){
-                  let navButtons = document.querySelectorAll(".jspsych-instructions-nav-button");
-                  navButtons.forEach(function(btn) {
-                    btn.style.visibility = "visible";
-                    btn.disabled = false;
-                  });
-                  let ov = document.getElementById("instruction-overlay");
-                  if(ov){
-                    ov.parentNode.removeChild(ov);
-                  }
-                }, 10000);
-              }
-            }, 100); // delay 100ms to ensure the nav is rendered
+          let unlockTimeout = null;
+          let countdownInterval = null;
+          let observedPage = null;
+
+          function clearLockTimers() {
+            if (unlockTimeout !== null) window.clearTimeout(unlockTimeout);
+            if (countdownInterval !== null) window.clearInterval(countdownInterval);
+            unlockTimeout = null;
+            countdownInterval = null;
           }
-        };
-      });
+
+          function getPageKey() {
+            const pageNumber = document.querySelector(".jspsych-instructions-pagenum");
+            if (pageNumber) return pageNumber.textContent.trim();
+
+            const content = document.querySelector("#jspsych-instructions-content");
+            return content ? content.textContent.trim().slice(0, 120) : null;
+          }
+
+          function lockCurrentPage() {
+            const navContainer = document.querySelector(".jspsych-instructions-nav");
+            const pageKey = getPageKey();
+            if (!navContainer || !pageKey || pageKey === observedPage) return;
+
+            observedPage = pageKey;
+            clearLockTimers();
+
+            const nextButton = navContainer.querySelector("#jspsych-instructions-next");
+            if (nextButton) {
+              const pageMatch = pageKey.match(/(\d+)\s*\/\s*(\d+)$/);
+              const isLastPage = pageMatch && Number(pageMatch[1]) === Number(pageMatch[2]);
+              nextButton.innerHTML = `${isLastPage ? "START" : "NEXT"} &gt;`;
+            }
+
+            const navButtons = navContainer.querySelectorAll("button");
+            navButtons.forEach(function(button) {
+              button.dataset.mrtWasDisabled = button.disabled ? "true" : "false";
+              button.disabled = true;
+            });
+
+            let status = document.getElementById("mrt-instruction-lock-status");
+            if (!status) {
+              status = document.createElement("p");
+              status.id = "mrt-instruction-lock-status";
+              status.setAttribute("role", "status");
+              status.setAttribute("aria-live", "polite");
+              navContainer.parentNode.insertBefore(status, navContainer);
+            }
+
+            const unlockAt = Date.now() + MRT_INSTRUCTION_MIN_VIEW_MS;
+            function updateStatus() {
+              const remainingSeconds = Math.max(0, Math.ceil((unlockAt - Date.now()) / 1000));
+              status.textContent = remainingSeconds > 0
+                ? `Please read this page. Navigation unlocks in ${remainingSeconds} second${remainingSeconds === 1 ? "" : "s"}.`
+                : "You may now continue or return to the previous page.";
+            }
+
+            updateStatus();
+            countdownInterval = window.setInterval(updateStatus, 250);
+            unlockTimeout = window.setTimeout(function() {
+              window.clearInterval(countdownInterval);
+              countdownInterval = null;
+              updateStatus();
+
+              document.querySelectorAll(".jspsych-instructions-nav button").forEach(function(button) {
+                if (button.dataset.mrtWasDisabled !== "true") button.disabled = false;
+              });
+            }, MRT_INSTRUCTION_MIN_VIEW_MS);
+          }
+
+          const observer = new MutationObserver(function() {
+            window.requestAnimationFrame(lockCurrentPage);
+          });
+          observer.observe(displayElement, { childList: true, subtree: true });
+          lockCurrentPage();
+
+          cleanupMrtInstructionLock = function() {
+            clearLockTimers();
+            observer.disconnect();
+            cleanupMrtInstructionLock = null;
+          };
+        },
+        on_finish: function() {
+          if (cleanupMrtInstructionLock) cleanupMrtInstructionLock();
+        }
+      }];
 
 
       // ---------------- Countdown Functions ----------------
