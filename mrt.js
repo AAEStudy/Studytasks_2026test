@@ -91,7 +91,7 @@ var jsPsych = params.jsPsych;
 
       // Keep all instruction pages in one instructions trial so Previous works normally.
       // Keyboard navigation is disabled by the plugin itself, and the clickable controls
-      // are genuinely disabled for the minimum reading time on every page view.
+      // are genuinely disabled for the minimum reading time the first time each page is viewed.
       let instructionsTrials = [{
         type: jsPsychInstructions,
         pages: instructions_pages,
@@ -109,6 +109,7 @@ var jsPsych = params.jsPsych;
           let unlockTimeout = null;
           let countdownInterval = null;
           let observedPage = null;
+          const completedPages = new Set();
 
           function clearLockTimers() {
             if (unlockTimeout !== null) window.clearTimeout(unlockTimeout);
@@ -140,12 +141,6 @@ var jsPsych = params.jsPsych;
               nextButton.innerHTML = `${isLastPage ? "START" : "NEXT"} &gt;`;
             }
 
-            const navButtons = navContainer.querySelectorAll("button");
-            navButtons.forEach(function(button) {
-              button.dataset.mrtWasDisabled = button.disabled ? "true" : "false";
-              button.disabled = true;
-            });
-
             let status = document.getElementById("mrt-instruction-lock-status");
             if (!status) {
               status = document.createElement("p");
@@ -154,6 +149,17 @@ var jsPsych = params.jsPsych;
               status.setAttribute("aria-live", "polite");
               navContainer.parentNode.insertBefore(status, navContainer);
             }
+
+            if (completedPages.has(pageKey)) {
+              status.textContent = "You have already read this page. You may continue.";
+              return;
+            }
+
+            const navButtons = navContainer.querySelectorAll("button");
+            navButtons.forEach(function(button) {
+              button.dataset.mrtWasDisabled = button.disabled ? "true" : "false";
+              button.disabled = true;
+            });
 
             const unlockAt = Date.now() + MRT_INSTRUCTION_MIN_VIEW_MS;
             function updateStatus() {
@@ -166,6 +172,7 @@ var jsPsych = params.jsPsych;
             updateStatus();
             countdownInterval = window.setInterval(updateStatus, 250);
             unlockTimeout = window.setTimeout(function() {
+              completedPages.add(pageKey);
               window.clearInterval(countdownInterval);
               countdownInterval = null;
               updateStatus();
