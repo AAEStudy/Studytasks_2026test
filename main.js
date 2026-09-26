@@ -23,11 +23,17 @@ const OSF_PIPE_EXPERIMENT_ID = "YOUR_OSF_ID";
 const REDIRECT_TO_QUALTRICS = false;
 const QUALTRICS_RETURN_PARAM = "return";
 
-// Helper: URL param
-function getParam(name){ return new URLSearchParams(window.location.search).get(name); }
+// Qualtrics-provided participant identifiers.
+const urlParams = new URLSearchParams(window.location.search);
 
-// Qualtrics-provided participant ID (edit key if needed)
-const subjectID = getParam("id") || getParam("PROLIFIC_PID") || "NA";
+function getParam(name){ return urlParams.get(name); }
+
+let subjectID = urlParams.get("subjectID");
+let numericID = urlParams.get("id");
+
+if (!subjectID) {
+  subjectID = "random" + Math.floor(10000 + Math.random() * 90000);
+}
 
 // Qualtrics return link (edit key if needed)
 const qualtricsReturn = getParam(QUALTRICS_RETURN_PARAM) || null;
