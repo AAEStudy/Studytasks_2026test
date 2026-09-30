@@ -189,8 +189,6 @@ async function start(){
   // review + meta lists
   for (const fn of metaState.reviewList){ metaPreload.push("stimuli/formal/" + fn); }
   for (const fn of metaState.metaList){ metaPreload.push("stimuli/formal/" + fn); }
-  // instruction images
-  metaPreload.push("assets/instruction.jpg","assets/endx_prac.jpg","assets/restx.jpg");
 
   timeline.push({
     type: jsPsychPreload,

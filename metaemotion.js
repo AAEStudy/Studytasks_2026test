@@ -9,7 +9,6 @@
 // NOTE: This uses the Matlab-style CSV formats (no header) expected by the original study.
 
 const META_PATHS = {
-  assets: "assets/",
   practice: "stimuli/practice/",
   formal: "stimuli/formal/",
   lists: "lists/"
@@ -112,12 +111,32 @@ function passiveImg(src, ms, extra){
   return { type: jsPsychImageKeyboardResponse, stimulus: src, choices:"NO_KEYS", trial_duration: ms,
     data:{task:"metaemotion", event:"image", stimulus:src, ...extra} };
 }
-function instrImg(src, tag, prompt = ""){
-  return { type: jsPsychImageKeyboardResponse, stimulus: src, prompt, choices: META_KEYS.start, data:{task:"metaemotion", event:tag} };
+function instructionScreen(title, body, tag, action = "begin") {
+  return {
+    type: jsPsychHtmlKeyboardResponse,
+    stimulus: `<section class="emotion-instructions">
+      <h2>${title}</h2>
+      ${body}
+      <p class="emotion-instructions-continue">Press <b>SPACE</b> to ${action}.</p>
+    </section>`,
+    choices: META_KEYS.start,
+    data: { task: "metaemotion", event: tag }
+  };
 }
 
 const META_RESPONSE_FORMAT_VERSION = "emotion-mouse-replay-v1";
-const REPLAY_INSTRUCTIONS = `Across the picture tasks, you may use "View again" up to ${STUDY_RESPONSE_SETTINGS.imageReplayLimit} times if you missed a picture or need another look. For questions comparing two pictures, both pictures will be shown again in the same order. Use this option before submitting your answer.`;
+const REPLAY_INSTRUCTIONS = `If you miss a picture or need another look, click <b>View again</b> in the bottom-right corner before submitting your judgment. You may use it up to ${STUDY_RESPONSE_SETTINGS.imageReplayLimit} times in total across the picture tasks, including practice. The button shows how many uses remain.`;
+const EMOTION_GUIDANCE = `<p>Base your answer on the positive emotion you actually felt, not on how positive or negative the picture itself seems. There is no right or wrong answer; respond intuitively.</p>`;
+
+function comparisonInstructions(tag, practice = false) {
+  return instructionScreen(practice ? "Picture comparisons: practice" : "Picture comparisons", `
+    <p>You will see two pictures, one after the other. After both have appeared, choose which picture elicited stronger <b>positive emotion</b>.</p>
+    <p>Press <b>1</b> for the <b>first</b> picture or <b>2</b> for the <b>second</b> picture.</p>
+    ${EMOTION_GUIDANCE}
+    <h3>Viewing pictures again</h3>
+    <p>${REPLAY_INSTRUCTIONS} For a comparison, both pictures are shown again in the same order; this counts as one use.</p>
+  `, tag);
+}
 
 function responseMetadata() {
   return {
@@ -149,6 +168,7 @@ function withReplay(state, jsPsych, pictures, responseTrial, phase, chunk) {
   ]);
   const trial = {
     ...responseTrial,
+    css_classes: ["emotion-replay-trial"],
     data: { ...responseTrial.data, image_trial_id: trialId, ...responseMetadata() },
     on_start: current => {
       current.stimulus = responseTrial.stimulus + `<div><button type="button" class="study-response-button replay-button" data-study-response="replay" tabindex="-1" ${state.replaysRemaining ? '' : 'disabled'}>View again (${state.replaysRemaining} remaining)</button></div>`;
@@ -198,10 +218,10 @@ function twoIFC(state, jsPsych, pic1, pic2, cat, phase, chunk) {
   let result;
   const responseTrial = {
     type: jsPsychHtmlKeyboardResponse,
-    stimulus: `<div class="center" style="font-size:28px; line-height:1.35;">
-      Which picture elicited stronger <b>positive emotion</b>?<br><br>
-      Press <b>1</b> for the FIRST picture, <b>2</b> for the SECOND picture.
-    </div>`,
+    stimulus: `<section class="emotion-response-screen">
+      <p>Which picture elicited stronger <b>positive emotion</b>?</p>
+      <p>Press <b>1</b> for the FIRST picture, <b>2</b> for the SECOND picture.</p>
+    </section>`,
     choices: META_KEYS.choice12,
     data: { task:"metaemotion", event:"2ifc", phase, chunk, pic1, pic2, pic1_id, pic2_id, cat },
     on_finish: data => {
@@ -247,10 +267,9 @@ function metaTrial(state, jsPsych, pic, chunk) {
   };
   const confidenceTrial = StudyResponses.mouseTrial(jsPsych, {
     stimulus: `<section class="emotion-response-screen">
-      <h2>Confidence</h2>
-      <p>1 = very unconfident … 4 = very confident</p>
+      <p>Confidence (1 = very unconfident … 4 = very confident)</p>
       <div class="emotion-response-options four">${[1,2,3,4].map(value => button(value, value)).join('')}</div>
-      <p>Click your answer.</p>
+      <p>Click <b>1</b> / <b>2</b> / <b>3</b> / <b>4</b>.</p>
     </section>`,
     data: {task:"metaemotion", event:"meta_conf", chunk, pic, pic_id, ...responseMetadata()},
     on_finish: data => {
@@ -309,11 +328,11 @@ export async function initMetaEmotion(params){
 
 export function buildMetaEmotionPractice(state){
   const tl = [];
-  tl.push(instrImg(META_PATHS.assets + "instruction.jpg", "practice_instructions", `<p class="center">${REPLAY_INSTRUCTIONS}</p>`));
+  tl.push(comparisonInstructions("practice_instructions", true));
   for(const t of state.practicePairs){
     tl.push(twoIFC(state, state.jsPsych, META_PATHS.practice + t.p1, META_PATHS.practice + t.p2, t.cat, "practice", 0));
   }
-  tl.push(instrImg(META_PATHS.assets + "endx_prac.jpg", "practice_end"));
+  tl.push(instructionScreen("Practice complete", "<p>You have finished the practice picture comparisons.</p>", "practice_end", "continue"));
   return tl;
 }
 
@@ -324,7 +343,7 @@ export function buildMetaEmotionCalibrationChunk(state, nTrials, chunkIndex){
   const end = Math.min(target, start + nTrials);
   if (start >= end) return tl;
 
-  tl.push(instrImg(META_PATHS.assets + "instruction.jpg", `cali_instructions_chunk_${chunkIndex}`, `<p class="center">${REPLAY_INSTRUCTIONS}</p>`));
+  tl.push(comparisonInstructions(`cali_instructions_chunk_${chunkIndex}`));
   for(let i=start; i<end; i++){
     const t = state.calibrationPairs[i];
     tl.push(twoIFC(state, state.jsPsych, META_PATHS.formal + t.p1, META_PATHS.formal + t.p2, t.cat, "calibration", chunkIndex));
@@ -335,15 +354,10 @@ export function buildMetaEmotionCalibrationChunk(state, nTrials, chunkIndex){
 
 export function buildMetaEmotionReview(state, nItems=20){
   const tl = [];
-  tl.push({
-    type: jsPsychHtmlKeyboardResponse,
-    stimulus: `<div class="center" style="font-size:24px; line-height:1.35;">
-      Next, you will re-view all pictures.<br><br>
-      Press <b>SPACE</b> to begin.
-    </div>`,
-    choices: META_KEYS.start,
-    data: {task:"metaemotion", event:"review_instructions"}
-  });
+  tl.push(instructionScreen("Picture review", `
+    <p>Next, you will see the picture set again, one picture at a time. No response is needed during this review.</p>
+    <p>In the next part, you will judge each picture relative to the middle (median) of the set in terms of the positive emotion it elicited.</p>
+  `, "review_instructions"));
   // Review uses review_list.csv directly; it does not depend on finishing calibration.
   state.reviewList.slice(0,nItems).forEach(fn=>{
     tl.push(passiveImg(META_PATHS.formal + fn, META_TIMING.review_ms, {phase:"review"}));
@@ -353,21 +367,15 @@ export function buildMetaEmotionReview(state, nItems=20){
 
 export function buildMetaEmotionMetaJ(state, nTrials=60){
   const tl = [];
-  tl.push({
-    type: jsPsychHtmlKeyboardResponse,
-    stimulus: `<div class="emotion-response-screen" style="text-align:left;">
-      <p>Judge how positive the emotions of the pictures you see are.</p>
-      <p>If it's higher than the middle of all the images you saw earlier, click Higher; if it is below the middle, click Lower.</p>
-      <p>Then, how confident you are in the decision?</p>
-      <p>A score of 1 is very unconfident and a score of 4 is very confident. Please try to use all the ratings. Click the number for your answer.</p>
-      <p>There is no right answer to the choice of images, so answer intuitively.</p>
-      <p>Please choose "images that give you more positive emotional feelings" instead of judging the positive and negative nature of the picture itself.</p>
-      <p>${REPLAY_INSTRUCTIONS}</p>
-      <p>Each answer requires a new mouse click. Press SPACE to begin.</p>
-    </div>`,
-    choices: META_KEYS.start,
-    data: {task:"metaemotion", event:"meta_instructions"}
-  });
+  tl.push(instructionScreen("Picture judgments", `
+    <p>You will see one picture at a time. Judge whether it elicited <b>higher</b> or <b>lower</b> positive emotion than the middle (median) of the whole picture set.</p>
+    <p>Click <b>Higher</b> or <b>Lower</b> to answer.</p>
+    ${EMOTION_GUIDANCE}
+    <h3>Confidence</h3>
+    <p>After each judgment, rate how confident you are in your decision: <b>1 = very unconfident</b> and <b>4 = very confident</b>. Please try to use all the ratings. Click the number for your answer. Each answer requires a new mouse click.</p>
+    <h3>Viewing pictures again</h3>
+    <p>${REPLAY_INSTRUCTIONS} Here, only the current picture is shown again. This option is not available during the confidence rating.</p>
+  `, "meta_instructions"));
   // Meta-judgment uses meta_list.csv directly; shortened calibration test runs are safe.
   state.metaList.slice(0,nTrials).forEach(fn=>{
     tl.push(metaTrial(state, state.jsPsych, META_PATHS.formal + fn, 0));

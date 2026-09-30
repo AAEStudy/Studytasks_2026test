@@ -6,6 +6,25 @@ Replace `index.html`, `main.js`, `mrt.js`, and `metaemotion.js` together. Add
 `js/response-controls.js` at that exact relative path. No stimulus lists or
 images change in this update.
 
+### Instruction and Layout Follow-Up
+
+The replay control is now smaller and fixed in the bottom-right corner on
+practice, calibration, and final first-judgment screens. The response content
+has a separate scrollable area above it, keeping the control clear of the
+questions even on short screens.
+
+Practice, calibration, practice-end, review, and final-judgment instructions
+now share a text-based layout. Replay directions are integrated into those
+instructions. The outdated image-based claim about rests every ten rounds is
+removed; the actual schedule is unchanged. The old instruction images remain
+in the repository but are no longer used or preloaded.
+
+The final confidence prompt is restored verbatim from the original uploaded
+`metaemotion.js`: "Confidence (1 = very unconfident ... 4 = very confident)"
+(displayed with the original ellipsis character). Only the response direction
+changes from "Press" to "Click" for the mouse controls. No codes, response
+methods, timing, replay limits, or export columns change in this follow-up.
+
 ## Behavior
 
 - MRT source question: "When you chose your task-focus rating, what did you mainly base it on?"

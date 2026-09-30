@@ -83,7 +83,53 @@
     .study-response-button { min-height: 64px; padding: 12px 20px; font: inherit; color: white; background: #242424; border: 2px solid #ddd; border-radius: 4px; cursor: pointer; }
     .study-response-button:hover { background: #444; }
     .study-response-button:disabled { color: #999; border-color: #555; cursor: not-allowed; background: #121212; }
-    .replay-button { margin-top: 24px; font-size: 18px; }
+    .jspsych-content.emotion-replay-trial {
+      box-sizing: border-box;
+      width: 100%;
+      max-width: 100%;
+      height: 100vh;
+      height: 100dvh;
+      padding-bottom: 80px;
+    }
+    .emotion-replay-trial #jspsych-html-keyboard-response-stimulus {
+      box-sizing: border-box;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      padding: 24px 0;
+    }
+    .emotion-replay-trial .emotion-response-screen { margin: auto; }
+    .replay-button {
+      position: fixed;
+      right: max(16px, env(safe-area-inset-right));
+      bottom: max(16px, env(safe-area-inset-bottom));
+      box-sizing: border-box;
+      min-height: 40px;
+      max-width: calc(100vw - 32px);
+      padding: 8px 12px;
+      font-size: 14px;
+      line-height: 1.4;
+      color: #aaa;
+      border: 1px solid #555;
+      background: #111;
+    }
+    .replay-button:hover:not(:disabled) { color: #fff; background: #242424; }
+    .replay-button:disabled { color: #777; border-color: #333; background: #080808; }
+    .emotion-instructions {
+      box-sizing: border-box;
+      width: min(860px, calc(100vw - 40px));
+      margin: 24px auto;
+      color: white;
+      font-size: 22px;
+      line-height: 1.5;
+      letter-spacing: 0;
+      text-align: left;
+    }
+    .emotion-instructions h2 { margin: 0 0 24px; font-size: 26px; line-height: 1.3; }
+    .emotion-instructions h3 { margin: 24px 0 8px; font-size: 22px; line-height: 1.4; }
+    .emotion-instructions p { margin: 0 0 16px; }
+    .emotion-instructions .emotion-instructions-continue { margin: 28px 0 0; text-align: center; }
     .speed-reminder { max-width: 850px; margin: 24px auto; font-size: 22px; line-height: 1.5; }
     @media (max-width: 600px) {
       .mrt-certainty-screen, .mrt-basis-screen, .emotion-response-screen {
@@ -92,6 +138,9 @@
       }
       .mrt-certainty-options { gap: 4px; }
       .mrt-certainty-option { font-size: 14px; padding: 2px; }
+      .emotion-instructions { width: calc(100vw - 32px); font-size: 18px; }
+      .emotion-instructions h2 { font-size: 24px; }
+      .emotion-instructions h3 { font-size: 20px; }
     }
     @media (max-width: 360px) {
       .mrt-certainty-option { font-size: 13px; }
