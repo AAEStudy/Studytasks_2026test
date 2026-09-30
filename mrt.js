@@ -1,6 +1,6 @@
 const MRT_CERTAINTY_MIN_MS = 600;
 const MRT_CERTAINTY_MIN_MOVE_PX = 20;
-const MRT_RESPONSE_FORMAT_VERSION = "mrt-probes-v2";
+const MRT_RESPONSE_FORMAT_VERSION = "mrt-probes-v3";
 const MRT_CERTAINTY_LABELS = ["Very uncertain", "Somewhat uncertain", "Somewhat certain", "Very certain"];
 
 // Track the cursor across screens, before a certainty question takes its baseline.
@@ -16,7 +16,10 @@ function mrtResponseMetadata() {
   return {
     response_format_version: MRT_RESPONSE_FORMAT_VERSION,
     certainty_min_ms: MRT_CERTAINTY_MIN_MS,
-    certainty_min_move_px: MRT_CERTAINTY_MIN_MOVE_PX
+    certainty_min_move_px: MRT_CERTAINTY_MIN_MOVE_PX,
+    fast_threshold_ms: STUDY_RESPONSE_SETTINGS.fastThresholdMs,
+    fast_streak_length: STUDY_RESPONSE_SETTINGS.fastStreakLength,
+    speed_reminder_limit: STUDY_RESPONSE_SETTINGS.maxSpeedReminders
   };
 }
 
@@ -142,7 +145,14 @@ var jsPsych = params.jsPsych;
           probe3_rt: [],
           response_format_version: [],
           certainty_min_ms: [],
-          certainty_min_move_px: []
+          certainty_min_move_px: [],
+          fast_threshold_ms: [],
+          fast_streak_length: [],
+          speed_reminder_limit: [],
+          probe1_fast: [],
+          probe3_fast: [],
+          speed_reminder_shown: [],
+          speed_reminder_kinds: []
         };
         params._state.customData = customData;
       }
@@ -154,6 +164,9 @@ var jsPsych = params.jsPsych;
       let tempProbeRT2 = null;
       let tempConfidence = null;
       let tempConfidenceLabel = null;
+      let tempFocusFast = false;
+      let tempBasisFast = false;
+      let lastProbeRow = null;
       let pause = false;
       let pauseStart = 0;
       let justPaused = false;
@@ -202,7 +215,8 @@ var jsPsych = params.jsPsych;
 
         // Page 6
         `<h2>Main basis</h2>
-        <p>You will then be asked what mainly informed your task-focus rating: what you remembered thinking about, a general feeling of how focused or unfocused you had been, or something other than these two.</p>
+        <p>You will then be asked: “When you chose your task-focus rating, what did you mainly base it on?” The options are your memory of what you had been thinking about, a feeling of how focused or unfocused you had been, or something other than these two.</p>
+        <p>Refer to how you chose your task-focus rating for the same period just before the task-focus question appeared. A feeling here means a feeling about your level of focus; you do not need to recall particular thoughts to have that feeling.</p>
         <p>Both remembering your thoughts and having a general feeling may contribute to your rating. When both contribute, choose whichever influenced your rating more.</p>
         <p>Your memory does not need to be clear or detailed—it may be partial or vague—but it should include something about what you were thinking about. Remembered thoughts can be related or unrelated to the task. Choose based on what influenced your rating most, rather than simply which experience was clearest or strongest.</p>
         <p>Choose “Something other than these two” only when another source influenced your rating more than either of these. Use C for remembered thoughts, F for a general feeling, or O for something else.</p>
@@ -352,6 +366,10 @@ var jsPsych = params.jsPsych;
         customData.confidence_label.push(label);
         customData.main_basis.push(basis);
         customData.probe3_rt.push(basisRT);
+        customData.probe1_fast.push(basis === "NA" ? "NA" : tempFocusFast);
+        customData.probe3_fast.push(basis === "NA" ? "NA" : tempBasisFast);
+        customData.speed_reminder_shown.push(false);
+        customData.speed_reminder_kinds.push("");
         const metadata = mrtResponseMetadata();
         for (const key of Object.keys(metadata)) customData[key].push(metadata[key]);
       }
@@ -388,6 +406,7 @@ var jsPsych = params.jsPsych;
         //customData.instructed_response.push("instructed_response"); 
         customData.pause_time.push("NA");
         saveProbeMetadata(tempConfidenceLabel, basis, basisRT);
+        lastProbeRow = customData.subject.length - 1;
         tempPerformance = null;
         tempProbeRT1 = null;
         tempProbeRT2 = null;
@@ -720,6 +739,8 @@ var jsPsych = params.jsPsych;
             on_finish: function(data) {
               tempPerformance = data.response;
               tempProbeRT1 = (data.rt / 1000).toFixed(3);
+              Object.assign(data, StudyResponses.recordSpeed('mrt_focus', data.rt));
+              tempFocusFast = data.fast_response;
             }
           },
           buildMrtCertaintyTrial(jsPsych, data => {
@@ -731,10 +752,10 @@ var jsPsych = params.jsPsych;
             type: jsPsychHtmlKeyboardResponse,
             stimulus: `<section class="mrt-basis-screen">
               <h2>Main basis</h2>
-              <p>What mainly informed the task-focus rating you just provided?</p>
+              <p>When you chose your task-focus rating, what did you mainly base it on?</p>
               <ul class="mrt-basis-options">
-                <li>[C] What I remembered thinking about.</li>
-                <li>[F] A general feeling of how focused or unfocused I had been.</li>
+                <li>[C] My memory of what I had been thinking about.</li>
+                <li>[F] A feeling of how focused or unfocused I had been.</li>
                 <li>[O] Something other than these two.</li>
               </ul>
             </section>`,
@@ -743,6 +764,8 @@ var jsPsych = params.jsPsych;
             on_finish: data => {
               data.main_basis = { c: "remembered_thoughts", f: "general_feeling", o: "other" }[data.response.toLowerCase()];
               data.probe3_rt = (data.rt / 1000).toFixed(3);
+              Object.assign(data, StudyResponses.recordSpeed('mrt_basis', data.rt));
+              tempBasisFast = data.fast_response;
               saveThoughtProbeTrial(data.main_basis, data.probe3_rt);
             }
           },
@@ -757,7 +780,17 @@ var jsPsych = params.jsPsych;
           {
             type: jsPsychHtmlKeyboardResponse,
             stimulus: `<p style="font-size:24pt; text-align:center;">Press the spacebar to continue and resume clicking along to the metronome.</p>`,
-            choices: [" "]
+            choices: [" "],
+            data: { task: 'mrt', event: 'probe_resume' },
+            on_start: trial => {
+              const kinds = StudyResponses.takeReminder('mrt_');
+              trial.stimulus = `${kinds.length ? StudyResponses.reminderHtml() : ''}<p style="font-size:24pt; text-align:center;">Press the spacebar to continue and resume clicking along to the metronome.</p>`;
+              trial.data = { ...trial.data, speed_reminder_shown: kinds.length > 0, reminder_kinds: kinds };
+              if (lastProbeRow !== null) {
+                customData.speed_reminder_shown[lastProbeRow] = kinds.length > 0;
+                customData.speed_reminder_kinds[lastProbeRow] = kinds.join('|');
+              }
+            }
           },
           {
             type: jsPsychHtmlKeyboardResponse,

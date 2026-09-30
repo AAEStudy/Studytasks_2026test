@@ -30,7 +30,7 @@
     body { background: black; position: relative; }
     .fixation { color: white; font-size: 64px; text-align:center; }
     .center { color: white; text-align: center; }
-    .mrt-certainty-screen, .mrt-basis-screen {
+    .mrt-certainty-screen, .mrt-basis-screen, .emotion-response-screen {
       width: min(1050px, calc(100vw - 40px));
       box-sizing: border-box;
       margin: 0 auto;
@@ -78,8 +78,15 @@
       text-align: left;
     }
     .mrt-basis-options li { margin: 20px 0; }
+    .emotion-response-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin: 28px 0; }
+    .emotion-response-options.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .study-response-button { min-height: 64px; padding: 12px 20px; font: inherit; color: white; background: #242424; border: 2px solid #ddd; border-radius: 4px; cursor: pointer; }
+    .study-response-button:hover { background: #444; }
+    .study-response-button:disabled { color: #999; border-color: #555; cursor: not-allowed; background: #121212; }
+    .replay-button { margin-top: 24px; font-size: 18px; }
+    .speed-reminder { max-width: 850px; margin: 24px auto; font-size: 22px; line-height: 1.5; }
     @media (max-width: 600px) {
-      .mrt-certainty-screen, .mrt-basis-screen {
+      .mrt-certainty-screen, .mrt-basis-screen, .emotion-response-screen {
         width: calc(100vw - 24px);
         font-size: 18px;
       }
@@ -132,6 +139,7 @@
 <body></body>
 
 <!-- MRT builder (adapted from your original runMetronomeTask) -->
+<script src="js/response-controls.js"></script>
 <script src="mrt.js"></script>
 
 <!-- Main orchestration (ES module) -->

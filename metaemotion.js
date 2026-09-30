@@ -112,82 +112,172 @@ function passiveImg(src, ms, extra){
   return { type: jsPsychImageKeyboardResponse, stimulus: src, choices:"NO_KEYS", trial_duration: ms,
     data:{task:"metaemotion", event:"image", stimulus:src, ...extra} };
 }
-function instrImg(src, tag){
-  return { type: jsPsychImageKeyboardResponse, stimulus: src, choices: META_KEYS.start, data:{task:"metaemotion", event:tag} };
+function instrImg(src, tag, prompt = ""){
+  return { type: jsPsychImageKeyboardResponse, stimulus: src, prompt, choices: META_KEYS.start, data:{task:"metaemotion", event:tag} };
 }
 
-// cache type1 response for confidence
-const lastType1ByPic = {};
+const META_RESPONSE_FORMAT_VERSION = "emotion-mouse-replay-v1";
+const REPLAY_INSTRUCTIONS = `Across the picture tasks, you may use "View again" up to ${STUDY_RESPONSE_SETTINGS.imageReplayLimit} times if you missed a picture or need another look. For questions comparing two pictures, both pictures will be shown again in the same order. Use this option before submitting your answer.`;
 
-function twoIFC(pic1, pic2, cat, phase, chunk){
+function responseMetadata() {
+  return {
+    response_format_version: META_RESPONSE_FORMAT_VERSION,
+    fast_threshold_ms: STUDY_RESPONSE_SETTINGS.fastThresholdMs,
+    fast_streak_length: STUDY_RESPONSE_SETTINGS.fastStreakLength,
+    speed_reminder_limit: STUDY_RESPONSE_SETTINGS.maxSpeedReminders,
+    replay_limit: STUDY_RESPONSE_SETTINGS.imageReplayLimit
+  };
+}
+
+function button(value, label) {
+  return `<button type="button" class="study-response-button" data-study-response="${value}" tabindex="-1">${label}</button>`;
+}
+
+// Repeat only the viewing + first judgment sequence. Requests never create
+// extra scored responses, and confidence cannot request a replay.
+function withReplay(state, jsPsych, pictures, responseTrial, phase, chunk) {
+  const trialId = ++state.nextImageTrialId;
+  let firstOnset = null;
+  let screenOnset = null;
+  let replayRequested = false;
+  let cleanup = () => {};
+  let finished = false;
+  const requests = [];
+  const viewing = pictures.flatMap(pic => [
+    passiveImg(pic, META_TIMING.pic_ms, { phase, chunk, image_trial_id: trialId }),
+    fixation(META_TIMING.fix_ms)
+  ]);
+  const trial = {
+    ...responseTrial,
+    data: { ...responseTrial.data, image_trial_id: trialId, ...responseMetadata() },
+    on_start: current => {
+      current.stimulus = responseTrial.stimulus + `<div><button type="button" class="study-response-button replay-button" data-study-response="replay" tabindex="-1" ${state.replaysRemaining ? '' : 'disabled'}>View again (${state.replaysRemaining} remaining)</button></div>`;
+    },
+    on_load: () => {
+      screenOnset = performance.now();
+      if (firstOnset === null) firstOnset = screenOnset;
+      finished = false;
+      cleanup = StudyResponses.freshClicks(jsPsych.getDisplayElement(), response => {
+        if (finished || (response === 'replay' && state.replaysRemaining <= 0)) return;
+        finished = true;
+        cleanup();
+        StudyResponses.finishMouseTrial(jsPsych, { response, rt: performance.now() - screenOnset });
+      });
+    },
+    on_finish: data => {
+      cleanup();
+      replayRequested = data.response === 'replay';
+      if (replayRequested) {
+        state.replaysRemaining--;
+        const request = {
+          request_index: requests.length + 1, image_trial_id: trialId,
+          elapsed_ms: performance.now() - firstOnset, screen_rt_ms: data.rt,
+          remaining: state.replaysRemaining, pictures: [...pictures]
+        };
+        requests.push(request);
+        data.event = 'replay_request';
+        data.response = null;
+        Object.assign(data, request);
+      } else {
+        Object.assign(data, {
+          replay_count: requests.length, replay_requests: requests.slice(),
+          replays_remaining: state.replaysRemaining,
+          total_response_rt_s: (performance.now() - firstOnset) / 1000,
+          final_response_rt_s: data.rt / 1000,
+          speed_reminder_shown: false, speed_reminder_kinds: ''
+        });
+        responseTrial.on_finish(data);
+      }
+    }
+  };
+  return { timeline: [...viewing, trial], loop_function: () => replayRequested };
+}
+
+function twoIFC(state, jsPsych, pic1, pic2, cat, phase, chunk) {
   const pic1_id = picIdFromFilename(pic1), pic2_id = picIdFromFilename(pic2);
-  return {
-    timeline: [
-      passiveImg(pic1, META_TIMING.pic_ms, {phase, chunk}),
-      fixation(META_TIMING.fix_ms),
-      passiveImg(pic2, META_TIMING.pic_ms, {phase, chunk}),
-      fixation(META_TIMING.fix_ms),
-      {
-        type: jsPsychHtmlKeyboardResponse,
-        stimulus: `<div class="center" style="font-size:28px; line-height:1.35;">
-          Which picture elicited stronger <b>positive emotion</b>?<br><br>
-          Press <b>1</b> for the FIRST picture, <b>2</b> for the SECOND picture.
-        </div>`,
-        choices: META_KEYS.choice12,
-        data: { task:"metaemotion", event:"2ifc", phase, chunk, pic1, pic2, pic1_id, pic2_id, cat },
-        on_finish: (d)=>{
-          d.choice_key = d.response;
-          d.chosen_id = (d.response==="1") ? pic1_id : pic2_id;
-          d.timestamp_s = getSecs();
-          d.rt_s = d.rt/1000;
-        }
-      },
-      iti(META_TIMING.iti_ms)
-    ]
+  let result;
+  const responseTrial = {
+    type: jsPsychHtmlKeyboardResponse,
+    stimulus: `<div class="center" style="font-size:28px; line-height:1.35;">
+      Which picture elicited stronger <b>positive emotion</b>?<br><br>
+      Press <b>1</b> for the FIRST picture, <b>2</b> for the SECOND picture.
+    </div>`,
+    choices: META_KEYS.choice12,
+    data: { task:"metaemotion", event:"2ifc", phase, chunk, pic1, pic2, pic1_id, pic2_id, cat },
+    on_finish: data => {
+      data.choice_key = data.response;
+      data.chosen_id = data.response === "1" ? pic1_id : pic2_id;
+      data.timestamp_s = getSecs();
+      data.rt_s = data.rt / 1000;
+      Object.assign(data, StudyResponses.recordSpeed(`emotion_${phase}_comparison`, data.rt));
+      result = data;
+    }
   };
+  return { timeline: [
+    withReplay(state, jsPsych, [pic1, pic2], responseTrial, phase, chunk),
+    StudyResponses.reminderTrial(jsPsych, kinds => {
+      result.speed_reminder_shown = true;
+      result.speed_reminder_kinds = kinds.join('|');
+    }),
+    iti(META_TIMING.iti_ms)
+  ] };
 }
 
-function metaTrial(pic, chunk){
+function metaTrial(state, jsPsych, pic, chunk) {
   const pic_id = picIdFromFilename(pic);
-  return {
-    timeline: [
-      passiveImg(pic, META_TIMING.pic_ms, {phase:"meta", chunk}),
-      fixation(META_TIMING.fix_ms),
-      {
-        type: jsPsychHtmlKeyboardResponse,
-        stimulus: `<div class="center" style="font-size:28px; line-height:1.35;">
-          Compared to the <b>median</b> of the whole picture set,<br>
-          did this picture induce <b>higher</b> or <b>lower</b> positive emotion?<br><br>
-          Press <b>1</b> = Higher, <b>2</b> = Lower
-        </div>`,
-        choices: META_KEYS.choice12,
-        data: {task:"metaemotion", event:"meta_type1", chunk, pic, pic_id},
-        on_finish:(d)=>{
-          d.type1_key = d.response;
-          d.type1_rt_s = d.rt/1000;
-          d.type1_time_s = getSecs();
-          lastType1ByPic[pic_id] = {type1_key:d.type1_key, type1_rt_s:d.type1_rt_s, type1_time_s:d.type1_time_s};
-        }
-      },
-      {
-        type: jsPsychHtmlKeyboardResponse,
-        stimulus: `<div class="center" style="font-size:28px; line-height:1.35;">
-          Confidence (1 = very unconfident … 4 = very confident)<br><br>
-          Press <b>1</b> / <b>2</b> / <b>3</b> / <b>4</b>
-        </div>`,
-        choices: META_KEYS.conf1234,
-        data: {task:"metaemotion", event:"meta_conf", chunk, pic, pic_id},
-        on_finish:(d)=>{
-          const prev = lastType1ByPic[pic_id];
-          d.conf_key = d.response;
-          d.conf_rt_s = d.rt/1000;
-          d.conf_time_s = getSecs();
-          if(prev){ d.type1_key=prev.type1_key; d.type1_rt_s=prev.type1_rt_s; d.type1_time_s=prev.type1_time_s; }
-        }
-      },
-      iti(META_TIMING.iti_ms)
-    ]
+  let judgment;
+  let confidence;
+  const responseTrial = {
+    type: jsPsychHtmlKeyboardResponse,
+    stimulus: `<section class="emotion-response-screen">
+      <p>Compared to the <b>median</b> of the whole picture set,<br>
+      did this picture induce <b>higher</b> or <b>lower</b> positive emotion?</p>
+      <div class="emotion-response-options">${button('1', 'Higher')}${button('2', 'Lower')}</div>
+      <p>Click your answer.</p>
+    </section>`,
+    choices: "NO_KEYS",
+    data: {task:"metaemotion", event:"meta_type1", chunk, pic, pic_id},
+    on_finish: data => {
+      data.type1_key = data.response;
+      data.type1_rt_s = data.rt / 1000;
+      data.type1_time_s = getSecs();
+      Object.assign(data, StudyResponses.recordSpeed('emotion_judgment', data.rt));
+      judgment = data;
+    }
   };
+  const confidenceTrial = StudyResponses.mouseTrial(jsPsych, {
+    stimulus: `<section class="emotion-response-screen">
+      <h2>Confidence</h2>
+      <p>1 = very unconfident … 4 = very confident</p>
+      <div class="emotion-response-options four">${[1,2,3,4].map(value => button(value, value)).join('')}</div>
+      <p>Click your answer.</p>
+    </section>`,
+    data: {task:"metaemotion", event:"meta_conf", chunk, pic, pic_id, ...responseMetadata()},
+    on_finish: data => {
+      data.conf_key = data.response;
+      data.conf_rt_s = data.rt / 1000;
+      data.conf_time_s = getSecs();
+      data.type1_key = judgment.type1_key;
+      data.type1_rt_s = judgment.type1_rt_s;
+      data.type1_time_s = judgment.type1_time_s;
+      for (const key of ['image_trial_id', 'replay_count', 'replay_requests', 'replays_remaining', 'total_response_rt_s', 'final_response_rt_s']) data[key] = judgment[key];
+      data.type1_fast = judgment.fast_response;
+      data.type1_fast_streak = judgment.fast_streak;
+      Object.assign(data, StudyResponses.recordSpeed('emotion_confidence', data.rt));
+      data.speed_reminder_shown = false;
+      data.speed_reminder_kinds = '';
+      confidence = data;
+    }
+  });
+  return { timeline: [
+    withReplay(state, jsPsych, [pic], responseTrial, "meta", chunk),
+    confidenceTrial,
+    StudyResponses.reminderTrial(jsPsych, kinds => {
+      confidence.speed_reminder_shown = true;
+      confidence.speed_reminder_kinds = kinds.join('|');
+    }),
+    iti(META_TIMING.iti_ms)
+  ] };
 }
 
 export async function initMetaEmotion(params){
@@ -204,6 +294,9 @@ export async function initMetaEmotion(params){
 
   const state = {
     subject: params.subject,
+    jsPsych: params.jsPsych,
+    nextImageTrialId: 0,
+    replaysRemaining: STUDY_RESPONSE_SETTINGS.imageReplayLimit,
     practicePairs,
     calibrationPairs,
     calibrationTargetCount,
@@ -216,9 +309,9 @@ export async function initMetaEmotion(params){
 
 export function buildMetaEmotionPractice(state){
   const tl = [];
-  tl.push(instrImg(META_PATHS.assets + "instruction.jpg", "practice_instructions"));
+  tl.push(instrImg(META_PATHS.assets + "instruction.jpg", "practice_instructions", `<p class="center">${REPLAY_INSTRUCTIONS}</p>`));
   for(const t of state.practicePairs){
-    tl.push(twoIFC(META_PATHS.practice + t.p1, META_PATHS.practice + t.p2, t.cat, "practice", 0));
+    tl.push(twoIFC(state, state.jsPsych, META_PATHS.practice + t.p1, META_PATHS.practice + t.p2, t.cat, "practice", 0));
   }
   tl.push(instrImg(META_PATHS.assets + "endx_prac.jpg", "practice_end"));
   return tl;
@@ -231,10 +324,10 @@ export function buildMetaEmotionCalibrationChunk(state, nTrials, chunkIndex){
   const end = Math.min(target, start + nTrials);
   if (start >= end) return tl;
 
-  tl.push(instrImg(META_PATHS.assets + "instruction.jpg", `cali_instructions_chunk_${chunkIndex}`));
+  tl.push(instrImg(META_PATHS.assets + "instruction.jpg", `cali_instructions_chunk_${chunkIndex}`, `<p class="center">${REPLAY_INSTRUCTIONS}</p>`));
   for(let i=start; i<end; i++){
     const t = state.calibrationPairs[i];
-    tl.push(twoIFC(META_PATHS.formal + t.p1, META_PATHS.formal + t.p2, t.cat, "calibration", chunkIndex));
+    tl.push(twoIFC(state, state.jsPsych, META_PATHS.formal + t.p1, META_PATHS.formal + t.p2, t.cat, "calibration", chunkIndex));
   }
   state.caliCursor = end;
   return tl;
@@ -260,26 +353,52 @@ export function buildMetaEmotionReview(state, nItems=20){
 
 export function buildMetaEmotionMetaJ(state, nTrials=60){
   const tl = [];
-  tl.push(instrImg(META_PATHS.assets + "instruction2.jpg", "meta_instructions"));
+  tl.push({
+    type: jsPsychHtmlKeyboardResponse,
+    stimulus: `<div class="emotion-response-screen" style="text-align:left;">
+      <p>Judge how positive the emotions of the pictures you see are.</p>
+      <p>If it's higher than the middle of all the images you saw earlier, click Higher; if it is below the middle, click Lower.</p>
+      <p>Then, how confident you are in the decision?</p>
+      <p>A score of 1 is very unconfident and a score of 4 is very confident. Please try to use all the ratings. Click the number for your answer.</p>
+      <p>There is no right answer to the choice of images, so answer intuitively.</p>
+      <p>Please choose "images that give you more positive emotional feelings" instead of judging the positive and negative nature of the picture itself.</p>
+      <p>${REPLAY_INSTRUCTIONS}</p>
+      <p>Each answer requires a new mouse click. Press SPACE to begin.</p>
+    </div>`,
+    choices: META_KEYS.start,
+    data: {task:"metaemotion", event:"meta_instructions"}
+  });
   // Meta-judgment uses meta_list.csv directly; shortened calibration test runs are safe.
   state.metaList.slice(0,nTrials).forEach(fn=>{
-    tl.push(metaTrial(META_PATHS.formal + fn, 0));
+    tl.push(metaTrial(state, state.jsPsych, META_PATHS.formal + fn, 0));
   });
   return tl;
 }
 
 export function exportMetaEmotion(state, jsPsych){
   const subj = state.subject;
-  const rowsToCSV = rows => rows.map(r=>r.join(",")).join("\n") + "\n";
+  const csvCell = value => {
+    const text = String(value ?? "");
+    return /[",\r\n]/.test(text) ? '"' + text.replace(/"/g, '""') + '"' : text;
+  };
+  const rowsToCSV = rows => rows.map(r=>r.map(csvCell).join(",")).join("\n") + "\n";
+  // Append provenance without changing the original response/RT column positions.
+  const details = d => [
+    d.response_format_version??"", d.image_trial_id??"", d.replay_count??"", d.replays_remaining??"",
+    d.total_response_rt_s??"", d.final_response_rt_s??"", d.replay_requests ? JSON.stringify(d.replay_requests) : "",
+    d.fast_response??"", d.fast_streak??"", d.type1_fast??"", d.type1_fast_streak??"",
+    d.speed_reminder_shown??"", d.speed_reminder_kinds??"",
+    d.fast_threshold_ms??"", d.fast_streak_length??"", d.speed_reminder_limit??"", d.replay_limit??""
+  ];
 
   const prac = jsPsych.data.get().filter({task:"metaemotion", event:"2ifc", phase:"practice"}).values()
-    .map(d=>[subj, d.timestamp_s??"", d.pic1_id??"", d.pic2_id??"", d.cat??"", d.choice_key??"", d.chosen_id??"", d.rt_s??""]);
+    .map(d=>[subj, d.timestamp_s??"", d.pic1_id??"", d.pic2_id??"", d.cat??"", d.choice_key??"", d.chosen_id??"", d.rt_s??"", ...details(d)]);
 
   const cali = jsPsych.data.get().filter({task:"metaemotion", event:"2ifc", phase:"calibration"}).values()
-    .map(d=>[subj, d.timestamp_s??"", d.pic1_id??"", d.pic2_id??"", d.cat??"", d.choice_key??"", d.chosen_id??"", d.rt_s??""]);
+    .map(d=>[subj, d.timestamp_s??"", d.pic1_id??"", d.pic2_id??"", d.cat??"", d.choice_key??"", d.chosen_id??"", d.rt_s??"", ...details(d)]);
 
   const meta = jsPsych.data.get().filter({task:"metaemotion", event:"meta_conf"}).values()
-    .map(d=>[subj, d.type1_time_s??d.conf_time_s??"", d.pic_id??"", d.type1_key??"", d.type1_rt_s??"", d.conf_key??"", d.conf_rt_s??""]);
+    .map(d=>[subj, d.type1_time_s??d.conf_time_s??"", d.pic_id??"", d.type1_key??"", d.type1_rt_s??"", d.conf_key??"", d.conf_rt_s??"", ...details(d)]);
 
   return {
     pracCsvText: prac.length ? rowsToCSV(prac) : "",

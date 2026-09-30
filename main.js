@@ -173,7 +173,7 @@ window.__jsPsychInstance = jsPsych;
 
 async function start(){
   // Init Meta-Emotion lists
-  const metaState = await initMetaEmotion({ subject: subjectID, calibrationLimit: META_CALIBRATION_COMPARISONS });
+  const metaState = await initMetaEmotion({ subject: subjectID, calibrationLimit: META_CALIBRATION_COMPARISONS, jsPsych });
   window.__metaState = metaState;
 
   const timeline = [];
@@ -190,7 +190,7 @@ async function start(){
   for (const fn of metaState.reviewList){ metaPreload.push("stimuli/formal/" + fn); }
   for (const fn of metaState.metaList){ metaPreload.push("stimuli/formal/" + fn); }
   // instruction images
-  metaPreload.push("assets/instruction.jpg","assets/endx_prac.jpg","assets/restx.jpg","assets/instruction2.jpg");
+  metaPreload.push("assets/instruction.jpg","assets/endx_prac.jpg","assets/restx.jpg");
 
   timeline.push({
     type: jsPsychPreload,
