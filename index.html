@@ -30,7 +30,7 @@
     body { background: black; position: relative; }
     .fixation { color: white; font-size: 64px; text-align:center; }
     .center { color: white; text-align: center; }
-    .mrt-certainty-screen, .mrt-basis-screen, .meta-certainty-screen, .meta-judgment-instructions {
+    .mrt-certainty-screen, .mrt-basis-screen {
       width: min(1050px, calc(100vw - 40px));
       box-sizing: border-box;
       margin: 0 auto;
@@ -39,7 +39,7 @@
       line-height: 1.45;
       letter-spacing: 0;
     }
-    .mrt-certainty-screen h2, .mrt-basis-screen h2, .meta-certainty-screen h2 {
+    .mrt-certainty-screen h2, .mrt-basis-screen h2 {
       font-size: 24px;
       margin: 0 0 24px;
     }
@@ -72,15 +72,14 @@
     }
     .mrt-certainty-option[aria-disabled="false"]:hover { background: #444; }
     .mrt-certainty-hint { font-size: 18px; }
-    .mrt-basis-options, .meta-certainty-options {
+    .mrt-basis-options {
       list-style: none;
       padding: 0;
       text-align: left;
     }
-    .mrt-basis-options li, .meta-certainty-options li { margin: 20px 0; }
-    .meta-judgment-instructions { text-align: left; font-size: 22px; }
+    .mrt-basis-options li { margin: 20px 0; }
     @media (max-width: 600px) {
-      .mrt-certainty-screen, .mrt-basis-screen, .meta-certainty-screen, .meta-judgment-instructions {
+      .mrt-certainty-screen, .mrt-basis-screen {
         width: calc(100vw - 24px);
         font-size: 18px;
       }

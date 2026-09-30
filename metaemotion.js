@@ -18,8 +18,6 @@ const META_PATHS = {
 const META_TIMING = { pic_ms: 500, fix_ms: 500, iti_ms: 500, review_ms: 500 };
 
 const META_KEYS = { start: [" "], choice12: ["1","2"], conf1234: ["1","2","3","4"] };
-const META_CERTAINTY_LABELS = ["Very uncertain", "Somewhat uncertain", "Somewhat certain", "Very certain"];
-const META_RESPONSE_FORMAT_VERSION = "meta-certainty-v2";
 
 // GetSecs-like clock for timestamps (seconds)
 const GETSECS_OFFSET = 8000;
@@ -173,22 +171,15 @@ function metaTrial(pic, chunk){
       },
       {
         type: jsPsychHtmlKeyboardResponse,
-        stimulus: `<section class="meta-certainty-screen">
-          <h2>Certainty</h2>
-          <p>How certain are you that the task-focus judgment you just provided is accurate?</p>
-          <ul class="meta-certainty-options">
-            ${META_CERTAINTY_LABELS.map((label, index) => `<li>[${index + 1}] ${label}</li>`).join("")}
-          </ul>
-          <p>Press <b>1</b> / <b>2</b> / <b>3</b> / <b>4</b></p>
-        </section>`,
+        stimulus: `<div class="center" style="font-size:28px; line-height:1.35;">
+          Confidence (1 = very unconfident … 4 = very confident)<br><br>
+          Press <b>1</b> / <b>2</b> / <b>3</b> / <b>4</b>
+        </div>`,
         choices: META_KEYS.conf1234,
-        data: {task:"metaemotion", event:"meta_conf", chunk, pic, pic_id,
-          response_format_version: META_RESPONSE_FORMAT_VERSION, certainty_min_ms: 0, certainty_min_move_px: 0},
+        data: {task:"metaemotion", event:"meta_conf", chunk, pic, pic_id},
         on_finish:(d)=>{
           const prev = lastType1ByPic[pic_id];
           d.conf_key = d.response;
-          d.confidence_rating = Number(d.response);
-          d.confidence_label = META_CERTAINTY_LABELS[d.confidence_rating - 1];
           d.conf_rt_s = d.rt/1000;
           d.conf_time_s = getSecs();
           if(prev){ d.type1_key=prev.type1_key; d.type1_rt_s=prev.type1_rt_s; d.type1_time_s=prev.type1_time_s; }
@@ -269,20 +260,7 @@ export function buildMetaEmotionReview(state, nItems=20){
 
 export function buildMetaEmotionMetaJ(state, nTrials=60){
   const tl = [];
-  tl.push({
-    type: jsPsychHtmlKeyboardResponse,
-    stimulus: `<div class="meta-judgment-instructions">
-      <p>Judge how positive the emotions of the pictures you see are.</p>
-      <p>If it's higher than the middle of all the images you saw earlier, press 1; if it is below the middle, press 2.</p>
-      <p>After each judgment, you will indicate how certain you are that the judgment you just provided is accurate.</p>
-      <p>Use 1 for “Very uncertain,” 2 for “Somewhat uncertain,” 3 for “Somewhat certain,” or 4 for “Very certain.” Please try to use all the ratings.</p>
-      <p>There is no right answer to the choice of images, so answer intuitively.</p>
-      <p>Please choose “images that give you more positive emotional feelings” instead of judging the positive and negative nature of the picture itself.</p>
-      <p>Press <b>SPACE</b> to begin.</p>
-    </div>`,
-    choices: META_KEYS.start,
-    data: {task:"metaemotion", event:"meta_instructions"}
-  });
+  tl.push(instrImg(META_PATHS.assets + "instruction2.jpg", "meta_instructions"));
   // Meta-judgment uses meta_list.csv directly; shortened calibration test runs are safe.
   state.metaList.slice(0,nTrials).forEach(fn=>{
     tl.push(metaTrial(META_PATHS.formal + fn, 0));
@@ -301,9 +279,7 @@ export function exportMetaEmotion(state, jsPsych){
     .map(d=>[subj, d.timestamp_s??"", d.pic1_id??"", d.pic2_id??"", d.cat??"", d.choice_key??"", d.chosen_id??"", d.rt_s??""]);
 
   const meta = jsPsych.data.get().filter({task:"metaemotion", event:"meta_conf"}).values()
-    // Keep the original seven columns in place; append label and format metadata.
-    .map(d=>[subj, d.type1_time_s??d.conf_time_s??"", d.pic_id??"", d.type1_key??"", d.type1_rt_s??"", d.conf_key??"", d.conf_rt_s??"",
-      d.confidence_label??"", d.response_format_version??"", d.certainty_min_ms??"", d.certainty_min_move_px??""]);
+    .map(d=>[subj, d.type1_time_s??d.conf_time_s??"", d.pic_id??"", d.type1_key??"", d.type1_rt_s??"", d.conf_key??"", d.conf_rt_s??""]);
 
   return {
     pracCsvText: prac.length ? rowsToCSV(prac) : "",
