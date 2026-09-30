@@ -1,7 +1,7 @@
 // main.js (ES module)
 // Orchestrates interleaving MRT and Meta-Emotion calibration while producing ONE file per task.
 //
-// Data saving uses local downloads by default; OSF Pipe + Qualtrics switches are below.
+// Data saving uses DataPipe and local downloads; Qualtrics redirect is optional.
 
 import { initMetaEmotion, buildMetaEmotionPractice, buildMetaEmotionCalibrationChunk, buildMetaEmotionReview, buildMetaEmotionMetaJ, exportMetaEmotion } from "./metaemotion.js";
 
@@ -16,10 +16,10 @@ const MRT_TOTAL_BLOCKS = 1;
 const META_CALIBRATION_COMPARISONS_PER_CHUNK = 10;
 const MRT_BLOCKS_PER_CHUNK = 2;
 
-// Local testing downloads result files at the end. For OSF/Qualtrics, switch these.
+// Keep local downloads during testing as a backup for the DataPipe saves.
 const DOWNLOAD_RESULTS_AT_END = true;
-const SAVE_TO_OSF_PIPE = false;
-const OSF_PIPE_EXPERIMENT_ID = "YOUR_OSF_ID";
+const SAVE_TO_DATA_PIPE = true;
+const DATA_PIPE_EXPERIMENT_ID = "9XShb2sstH1d";
 const REDIRECT_TO_QUALTRICS = false;
 const QUALTRICS_RETURN_PARAM = "return";
 
@@ -107,7 +107,7 @@ function buildPipeSaveTrials(jsPsych){
   return fileDefs.map(file => ({
     type: jsPsychPipe,
     action: "save",
-    experiment_id: OSF_PIPE_EXPERIMENT_ID,
+    experiment_id: DATA_PIPE_EXPERIMENT_ID,
     filename: file.filename,
     data_string: file.getText,
     data: { task: "system", event: "pipe_save", file: file.key }
@@ -246,7 +246,7 @@ async function start(){
   timeline.push(...buildMetaEmotionReview(metaState, 20));
   timeline.push(...buildMetaEmotionMetaJ(metaState, 60));
 
-  if (SAVE_TO_OSF_PIPE) {
+  if (SAVE_TO_DATA_PIPE) {
     timeline.push(...buildPipeSaveTrials(jsPsych));
   }
 
