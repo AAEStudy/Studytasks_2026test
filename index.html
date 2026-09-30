@@ -30,6 +30,66 @@
     body { background: black; position: relative; }
     .fixation { color: white; font-size: 64px; text-align:center; }
     .center { color: white; text-align: center; }
+    .mrt-certainty-screen, .mrt-basis-screen, .meta-certainty-screen, .meta-judgment-instructions {
+      width: min(1050px, calc(100vw - 40px));
+      box-sizing: border-box;
+      margin: 0 auto;
+      color: white;
+      font-size: 24px;
+      line-height: 1.45;
+      letter-spacing: 0;
+    }
+    .mrt-certainty-screen h2, .mrt-basis-screen h2, .meta-certainty-screen h2 {
+      font-size: 24px;
+      margin: 0 0 24px;
+    }
+    .mrt-certainty-options {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin: 36px 0 24px;
+    }
+    .mrt-certainty-option {
+      box-sizing: border-box;
+      width: 100%;
+      height: 104px;
+      padding: 8px;
+      border: 2px solid #ddd;
+      border-radius: 4px;
+      background: #242424;
+      color: #fff;
+      font: inherit;
+      font-size: 22px;
+      line-height: 1.3;
+      letter-spacing: 0;
+      cursor: pointer;
+    }
+    .mrt-certainty-option[aria-disabled="true"] {
+      border-color: #555;
+      background: #121212;
+      color: #999;
+      cursor: not-allowed;
+    }
+    .mrt-certainty-option[aria-disabled="false"]:hover { background: #444; }
+    .mrt-certainty-hint { font-size: 18px; }
+    .mrt-basis-options, .meta-certainty-options {
+      list-style: none;
+      padding: 0;
+      text-align: left;
+    }
+    .mrt-basis-options li, .meta-certainty-options li { margin: 20px 0; }
+    .meta-judgment-instructions { text-align: left; font-size: 22px; }
+    @media (max-width: 600px) {
+      .mrt-certainty-screen, .mrt-basis-screen, .meta-certainty-screen, .meta-judgment-instructions {
+        width: calc(100vw - 24px);
+        font-size: 18px;
+      }
+      .mrt-certainty-options { gap: 4px; }
+      .mrt-certainty-option { font-size: 14px; padding: 2px; }
+    }
+    @media (max-width: 360px) {
+      .mrt-certainty-option { font-size: 13px; }
+    }
     .plus { font-family: "Montserrat", sans-serif; font-size: 150px; font-weight: bold; position: absolute; transform: translate(-50%, -50%); color: #bbb;  left: 50%; top: 50%; }
 
 

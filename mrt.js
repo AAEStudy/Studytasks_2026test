@@ -1,3 +1,108 @@
+const MRT_CERTAINTY_MIN_MS = 600;
+const MRT_CERTAINTY_MIN_MOVE_PX = 20;
+const MRT_RESPONSE_FORMAT_VERSION = "mrt-probes-v2";
+const MRT_CERTAINTY_LABELS = ["Very uncertain", "Somewhat uncertain", "Somewhat certain", "Very certain"];
+
+// Track the cursor across screens, before a certainty question takes its baseline.
+let mrtCursorPosition = null;
+function trackMrtCursor(event) {
+  if (event.pointerType === "mouse") mrtCursorPosition = { x: event.clientX, y: event.clientY };
+}
+document.addEventListener("pointermove", trackMrtCursor, true);
+document.addEventListener("pointerdown", trackMrtCursor, true);
+document.addEventListener("pointerup", trackMrtCursor, true);
+
+function mrtResponseMetadata() {
+  return {
+    response_format_version: MRT_RESPONSE_FORMAT_VERSION,
+    certainty_min_ms: MRT_CERTAINTY_MIN_MS,
+    certainty_min_move_px: MRT_CERTAINTY_MIN_MOVE_PX
+  };
+}
+
+function buildMrtCertaintyTrial(jsPsych, onResponse) {
+  let cleanup = () => {};
+  return {
+    type: jsPsychHtmlKeyboardResponse,
+    stimulus: `<section class="mrt-certainty-screen">
+      <h2>Certainty</h2>
+      <p>How certain are you that the task-focus rating you just provided is accurate?</p>
+      <div class="mrt-certainty-options">
+        ${MRT_CERTAINTY_LABELS.map((label, index) => `<button type="button" class="mrt-certainty-option" data-value="${index + 1}" aria-disabled="true" tabindex="-1">${label}</button>`).join("")}
+      </div>
+      <p class="mrt-certainty-hint">Move the mouse to your answer and click.</p>
+    </section>`,
+    choices: "NO_KEYS",
+    data: { probe_question: 2, thought_probe: 1, ...mrtResponseMetadata() },
+    on_load: () => {
+      const onset = performance.now();
+      let origin = mrtCursorPosition ? { ...mrtCursorPosition } : null;
+      let maxDistance = 0;
+      let pendingPress = null;
+      let finished = false;
+      const buttons = [...jsPsych.getDisplayElement().querySelectorAll(".mrt-certainty-option")];
+      const ready = () => performance.now() - onset >= MRT_CERTAINTY_MIN_MS && maxDistance >= MRT_CERTAINTY_MIN_MOVE_PX;
+      const refresh = () => buttons.forEach(button => button.setAttribute("aria-disabled", String(!ready())));
+      const move = event => {
+        if (event.pointerType !== "mouse") return;
+        // If no cursor event preceded this screen, the first event establishes its origin.
+        if (!origin) origin = { x: event.clientX, y: event.clientY };
+        maxDistance = Math.max(maxDistance, Math.hypot(event.clientX - origin.x, event.clientY - origin.y));
+        refresh();
+      };
+      const press = event => {
+        pendingPress = null;
+        if (event.pointerType !== "mouse" || event.button !== 0 || !buttons.includes(event.target)) return;
+        event.preventDefault();
+        if (ready()) pendingPress = event.target;
+      };
+      const cancelPress = () => { pendingPress = null; };
+      const click = event => {
+        const pressed = pendingPress;
+        pendingPress = null;
+        // A new mouse-down on this screen must itself meet both activation conditions.
+        if (finished || event.detail === 0 || event.button !== 0 || pressed !== event.target || !pressed || !ready()) return;
+        const response = Number(pressed.dataset.value);
+        finished = true;
+        cleanup();
+        jsPsych.finishTrial({
+          response,
+          rt: performance.now() - onset,
+          confidence_rating: response,
+          confidence_label: MRT_CERTAINTY_LABELS[response - 1],
+          certainty_max_move_px: maxDistance,
+          ...mrtResponseMetadata()
+        });
+      };
+      document.addEventListener("pointermove", move, true);
+      document.addEventListener("pointerdown", press, true);
+      document.addEventListener("click", click, true);
+      document.addEventListener("pointercancel", cancelPress, true);
+      window.addEventListener("blur", cancelPress);
+      let timer;
+      const activateWhenDue = () => {
+        const remaining = MRT_CERTAINTY_MIN_MS - (performance.now() - onset);
+        if (remaining > 0) timer = window.setTimeout(activateWhenDue, Math.ceil(remaining));
+        else refresh();
+      };
+      activateWhenDue();
+      cleanup = () => {
+        window.clearTimeout(timer);
+        document.removeEventListener("pointermove", move, true);
+        document.removeEventListener("pointerdown", press, true);
+        document.removeEventListener("click", click, true);
+        document.removeEventListener("pointercancel", cancelPress, true);
+        window.removeEventListener("blur", cancelPress);
+      };
+      refresh();
+    },
+    on_finish: data => {
+      cleanup();
+      onResponse(data);
+    }
+  };
+}
+
 function buildMRTChunk(params){
 const subjectID = params.subjectID;
 const metronomeAudio = params.metronomeAudio;
@@ -31,7 +136,13 @@ var jsPsych = params.jsPsych;
           confidence_rating: [],
           pause_time: [],
           break_time: [],
-          instructed_response: []
+          instructed_response: [],
+          confidence_label: [],
+          main_basis: [],
+          probe3_rt: [],
+          response_format_version: [],
+          certainty_min_ms: [],
+          certainty_min_move_px: []
         };
         params._state.customData = customData;
       }
@@ -41,6 +152,8 @@ var jsPsych = params.jsPsych;
       let tempPerformance = null;
       let tempProbeRT1 = null;
       let tempProbeRT2 = null;
+      let tempConfidence = null;
+      let tempConfidenceLabel = null;
       let pause = false;
       let pauseStart = 0;
       let justPaused = false;
@@ -70,7 +183,7 @@ var jsPsych = params.jsPsych;
           <p>A plus sign will display after each time you press the spacebar to indicate that your key press registered.</p>`,
         
         // Page 3
-        `<p>Every so often, the task and the metronome will temporarily stop, and you will be presented with two questions.</p>
+        `<p>Every so often, the task and the metronome will temporarily stop, and you will be presented with three questions.</p>
         <p>First, a screen will ask you to indicate how on task you were just prior to us asking (within the last 15 seconds or so) on a scale from 1 (“Least on Task”) to 6 (“Most on Task”).</p>
         <p>The term “on task” refers to how focused you were on keeping your clicks in sync with the metronome versus the extent to which you were distracted or “zoned out.”</p>
         <p>This question should be answered based on your own relative levels of focus throughout this task. ‘Most on Task’ represents what you consider to be your own highest level of focus, and ‘Least on Task’ represents your lowest level of focus when clicking along to the metronome in sync at a constant rate.</p>`,
@@ -82,10 +195,18 @@ var jsPsych = params.jsPsych;
         <p>If you were less focused than what you consider your middle or average level of focus, choose from 1–3; if more focused, choose from 4–6.</p>`,
         
         // Page 5
-        `<p>Lastly, you will be presented with a screen asking you to indicate your level of confidence in your task focus response, from 1 (“Least Confident”) to 6 (“Most Confident”).</p>
-        <p>Here, 1 means you were guessing and 6 means you are completely sure your response reflects your mental state just before we asked.</p>
-        <p>Please use the full range of options (1–6) to indicate your relative degree of focus on clicking in time to the metronome when we ask and your level of confidence in that rating.<br></p>
-         <p>This part of the experiment will take about 20 minutes. You will begin with practice trials, and then you will be notified when the main trials start.</p>
+        `<h2>Certainty</h2>
+        <p>After each task-focus rating, you will indicate how certain you are that your rating was accurate. This is different from rating how high or low your task focus was. You can be certain or uncertain about either a high or a low task-focus rating. Choose the response that best describes how certain you are about that particular rating.</p>
+        <p>The response options are “Very uncertain,” “Somewhat uncertain,” “Somewhat certain,” and “Very certain.”</p>
+        <p>Move the mouse to your answer and click. Each response requires a new mouse movement, and the choices become available after a brief pause.</p>`,
+
+        // Page 6
+        `<h2>Main basis</h2>
+        <p>You will then be asked what mainly informed your task-focus rating: what you remembered thinking about, a general feeling of how focused or unfocused you had been, or something other than these two.</p>
+        <p>Both remembering your thoughts and having a general feeling may contribute to your rating. When both contribute, choose whichever influenced your rating more.</p>
+        <p>Your memory does not need to be clear or detailed—it may be partial or vague—but it should include something about what you were thinking about. Remembered thoughts can be related or unrelated to the task. Choose based on what influenced your rating most, rather than simply which experience was clearest or strongest.</p>
+        <p>Choose “Something other than these two” only when another source influenced your rating more than either of these. Use C for remembered thoughts, F for a general feeling, or O for something else.</p>
+        <p>This part of the experiment will take about 20 minutes. You will begin with practice trials, and then you will be notified when the main trials start.</p>
         <p>If you are ready to begin, press "Next."</p>`
       ];
 
@@ -227,6 +348,13 @@ var jsPsych = params.jsPsych;
       }
 
       // ---------------- Data Saving Functions ----------------
+      function saveProbeMetadata(label = "NA", basis = "NA", basisRT = "NA") {
+        customData.confidence_label.push(label);
+        customData.main_basis.push(basis);
+        customData.probe3_rt.push(basisRT);
+        const metadata = mrtResponseMetadata();
+        for (const key of Object.keys(metadata)) customData[key].push(metadata[key]);
+      }
       function saveTappingTrial(score, taskType = "metronome") {
         const trialNum = ++params._state.trialNum;
         customData.subject.push(subjectID);
@@ -242,10 +370,10 @@ var jsPsych = params.jsPsych;
         //customData.probe_text.push("NA");
         customData.pause_time.push("NA");
         customData.instructed_response.push("NA"); // Not applicable for tapping trials
+        saveProbeMetadata();
       }
-      function saveThoughtProbeTrial(confidence) {
+      function saveThoughtProbeTrial(basis, basisRT) {
         const trialNum = ++params._state.trialNum;
-        let probeText = (tempPerformance > 3) ? "On Task" : "Confident";
         customData.subject.push(subjectID);
         customData.trial.push(trialNum);
         customData.task.push("thought_probe");
@@ -255,14 +383,16 @@ var jsPsych = params.jsPsych;
         customData.performance_rating.push(tempPerformance);
         customData.probe1_rt.push(tempProbeRT1);
         customData.probe2_rt.push(tempProbeRT2);
-        customData.confidence_rating.push(confidence);
+        customData.confidence_rating.push(tempConfidence);
         customData.instructed_response.push("NA");
         //customData.instructed_response.push("instructed_response"); 
-        //customData.probe_text.push(probeText);
         customData.pause_time.push("NA");
+        saveProbeMetadata(tempConfidenceLabel, basis, basisRT);
         tempPerformance = null;
         tempProbeRT1 = null;
         tempProbeRT2 = null;
+        tempConfidence = null;
+        tempConfidenceLabel = null;
       }
       function savePauseTrial(pauseDuration) {
         const trialNum = ++params._state.trialNum;
@@ -279,6 +409,7 @@ var jsPsych = params.jsPsych;
         //customData.probe_text.push("NA");
         customData.pause_time.push(pauseDuration.toFixed(3));
         customData.instructed_response.push("NA"); // Not applicable for pause trial
+        saveProbeMetadata();
       }
       function convertToCSV(dataObj) {
         let columns = Object.keys(dataObj);
@@ -463,7 +594,7 @@ var jsPsych = params.jsPsych;
                   <!-- Wrap the question text in the same container -->
                   <div style="display: inline-block; white-space: nowrap; width: 1050px; text-align: left; margin-bottom: 50px;">
                     <p style="font-size: 20pt; margin: 0;">
-                      3. Select option six so we can ensure the quality of your responses.
+                      4. Select option six so we can ensure the quality of your responses.
                       </p>
                   </div>
                   <!-- The response options container -->
@@ -517,6 +648,7 @@ var jsPsych = params.jsPsych;
 
               // The key line: push the actual response
               customData.instructed_response.push(data.response);
+              saveProbeMetadata();
             }
           };
       let main_miss_node = {
@@ -584,57 +716,37 @@ var jsPsych = params.jsPsych;
                   </div>
                 </div>`,
             choices: ["1", "2", "3", "4", "5", "6"],
-            data: { probe_question: 1, thought_probe: 1 },
+            data: { probe_question: 1, thought_probe: 1, ...mrtResponseMetadata() },
             on_finish: function(data) {
               tempPerformance = data.response;
               tempProbeRT1 = (data.rt / 1000).toFixed(3);
             }
           },
+          buildMrtCertaintyTrial(jsPsych, data => {
+            tempProbeRT2 = (data.rt / 1000).toFixed(3);
+            tempConfidence = data.confidence_rating;
+            tempConfidenceLabel = data.confidence_label;
+          }),
           {
             type: jsPsychHtmlKeyboardResponse,
-            stimulus: `
-                
-                <div style="text-align: center; color: white;">
-                  <!-- Wrap the question text in the same container -->
-                  <div style="display: inline-block; white-space: nowrap; width: 1050px; text-align: left; margin-bottom: 50px;">
-                    <p style="font-size: 20pt; margin: 0;">
-                      2. How confident are you in the task focus rating you just provided?
-                    </p>
-                  </div>
-                  <!-- The response options container -->
-                  <div style="display: inline-block; width: 1050px; margin-top: 100px;">
-                      <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
-                          <div style="width: 150px; text-align: center; font-size:20pt;">Least Confident</div>
-                          <div style="width: 225px;"></div>
-                          <div style="width: 150px; text-align: center; font-size:20pt; display: flex; align-items: center; justify-content: center">Middle</div>
-                          <div style="width: 225px;"></div>
-                          <div style="width: 150px; text-align: center; font-size:20pt;">Most Confident</div>
-                      </div>
-                      <div style="display: flex; justify-content: space-evenly; align-items: center;">
-                          <div style="width: 150px; text-align: center; font-size:20pt;">[1]</div>
-                          <div style="width: 150px; text-align: center; font-size:20pt;">[2]</div>
-                          <div style="width: 150px; text-align: center; font-size:20pt;">[3]</div>
-                          <div style="width: 71.5px; text-align: center; font-size:20pt;"></div>
-                          <div style="width: 2px; height: 25px; background-color: white;"></div>
-                          <div style="width: 71.5px; text-align: center; font-size:20pt;"></div>
-                          <div style="width: 150px; text-align: center; font-size:20pt;">[4]</div>
-                          <div style="width: 150px; text-align: center; font-size:20pt;">[5]</div>
-                          <div style="width: 150px; text-align: center; font-size:20pt;">[6]</div>
-                      </div>
-                      <div style="display: flex; justify-content: center; margin-top: 150px;">
-                          <div style="width: 600px; text-align: center; font-size:16pt;">
-                            Indicate how certain you are your prior response accurately reflects how focused you were. Press a key (1–6) for your response.</div>
-                      </div>
-                  </div>
-                </div>`,
-            choices: ["1", "2", "3", "4", "5", "6"],
-            data: { probe_question: 2, thought_probe: 1 },
-            on_finish: function(data) {
-              tempProbeRT2 = (data.rt / 1000).toFixed(3);
-              saveThoughtProbeTrial(data.response);
+            stimulus: `<section class="mrt-basis-screen">
+              <h2>Main basis</h2>
+              <p>What mainly informed the task-focus rating you just provided?</p>
+              <ul class="mrt-basis-options">
+                <li>[C] What I remembered thinking about.</li>
+                <li>[F] A general feeling of how focused or unfocused I had been.</li>
+                <li>[O] Something other than these two.</li>
+              </ul>
+            </section>`,
+            choices: ["c", "f", "o", "C", "F", "O"],
+            data: { probe_question: 3, thought_probe: 1, ...mrtResponseMetadata() },
+            on_finish: data => {
+              data.main_basis = { c: "remembered_thoughts", f: "general_feeling", o: "other" }[data.response.toLowerCase()];
+              data.probe3_rt = (data.rt / 1000).toFixed(3);
+              saveThoughtProbeTrial(data.main_basis, data.probe3_rt);
             }
           },
-                // Conditionally include the instructed-response trial as the third question,
+          // Keep the existing instructed-response check after the three ratings,
           // but only on every 10th probe block.
           {
 	            timeline: [instructed_response_trial],
@@ -738,7 +850,7 @@ var jsPsych = params.jsPsych;
       
       
       // ---- Build MRT blocks so we can interleave with meta-emotion calibration ----
-      // Each block ends with the same thought-probe + confidence sequence as the original task.
+      // Each block ends with task focus, certainty, main basis, and the existing resume routine.
       let mrt_blocks = [];
       const numBlocks = (params.numBlocks !== undefined) ? params.numBlocks : 6; //35 was original number
       const baseTime = 40;
