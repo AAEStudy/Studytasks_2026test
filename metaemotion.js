@@ -8,6 +8,8 @@
 //
 // NOTE: This uses the Matlab-style CSV formats (no header) expected by the original study.
 
+import { IMAGE_SCHEDULE_VERSION, SCHEDULE_FIELDS, sessionSeed, createCalibrationSchedule, createReviewSchedule, createMetaSchedule, assertSameImages } from "./js/image-schedule.mjs";
+
 const META_PATHS = {
   practice: "stimuli/practice/",
   formal: "stimuli/formal/",
@@ -47,7 +49,7 @@ async function loadCSV(url){
   return (await r.text()).replace(/^\uFEFF/,"").replace(/\r\n/g,"\n").replace(/\r/g,"\n");
 }
 
-function parseCSV(text){
+export function parseCSV(text){
   const rows=[]; let row=[]; let cell=""; let inQ=false;
   for(let i=0;i<text.length;i++){
     const c=text[i], n=text[i+1];
@@ -213,7 +215,7 @@ function withReplay(state, jsPsych, pictures, responseTrial, phase, chunk) {
   return { timeline: [...viewing, trial], loop_function: () => replayRequested };
 }
 
-function twoIFC(state, jsPsych, pic1, pic2, cat, phase, chunk) {
+function twoIFC(state, jsPsych, pic1, pic2, cat, phase, chunk, schedule = {}) {
   const pic1_id = picIdFromFilename(pic1), pic2_id = picIdFromFilename(pic2);
   let result;
   const responseTrial = {
@@ -223,7 +225,7 @@ function twoIFC(state, jsPsych, pic1, pic2, cat, phase, chunk) {
       <p>Press <b>1</b> for the FIRST picture, <b>2</b> for the SECOND picture.</p>
     </section>`,
     choices: META_KEYS.choice12,
-    data: { task:"metaemotion", event:"2ifc", phase, chunk, pic1, pic2, pic1_id, pic2_id, cat },
+    data: { task:"metaemotion", event:"2ifc", phase, chunk, pic1, pic2, pic1_id, pic2_id, cat, ...state.scheduleMetadata, schedule_stage: phase, ...schedule },
     on_finish: data => {
       data.choice_key = data.response;
       data.chosen_id = data.response === "1" ? pic1_id : pic2_id;
@@ -243,7 +245,7 @@ function twoIFC(state, jsPsych, pic1, pic2, cat, phase, chunk) {
   ] };
 }
 
-function metaTrial(state, jsPsych, pic, chunk) {
+function metaTrial(state, jsPsych, pic, chunk, schedule) {
   const pic_id = picIdFromFilename(pic);
   let judgment;
   let confidence;
@@ -256,7 +258,7 @@ function metaTrial(state, jsPsych, pic, chunk) {
       <p>Click your answer.</p>
     </section>`,
     choices: "NO_KEYS",
-    data: {task:"metaemotion", event:"meta_type1", chunk, pic, pic_id},
+    data: {task:"metaemotion", event:"meta_type1", chunk, pic, pic_id, ...state.scheduleMetadata, ...schedule},
     on_finish: data => {
       data.type1_key = data.response;
       data.type1_rt_s = data.rt / 1000;
@@ -279,6 +281,7 @@ function metaTrial(state, jsPsych, pic, chunk) {
       data.type1_key = judgment.type1_key;
       data.type1_rt_s = judgment.type1_rt_s;
       data.type1_time_s = judgment.type1_time_s;
+      for (const key of SCHEDULE_FIELDS) if (judgment[key] !== undefined) data[key] = judgment[key];
       for (const key of ['image_trial_id', 'replay_count', 'replay_requests', 'replays_remaining', 'total_response_rt_s', 'final_response_rt_s']) data[key] = judgment[key];
       data.type1_fast = judgment.fast_response;
       data.type1_fast_streak = judgment.fast_streak;
@@ -306,10 +309,25 @@ export async function initMetaEmotion(params){
   const metaCSV = await loadCSV(META_PATHS.lists + "meta_list.csv");
 
   const practicePairs = parsePracticePairs(practiceCSV);
-  const calibrationPairs = parsePairsWithCat(calibrationCSV);
-  const reviewList = parseSingle(reviewCSV);
-  const metaList = parseSingle(metaCSV);
+  const sourceCalibrationPairs = parsePairsWithCat(calibrationCSV);
+  const sourceReviewList = parseSingle(reviewCSV);
+  const sourceMetaList = parseSingle(metaCSV);
+  assertSameImages(sourceCalibrationPairs, sourceReviewList, sourceMetaList);
+  const seed = sessionSeed(params.imageScheduleSeed);
+  const shuffleFollowups = params.shuffleFollowupStages ?? true;
+  const calibrationPairs = createCalibrationSchedule(sourceCalibrationPairs, seed);
   const calibrationTargetCount = resolveTrialLimit(params.calibrationLimit, calibrationPairs.length);
+  const reviewSchedule = shuffleFollowups
+    ? createReviewSchedule(sourceReviewList, seed)
+    : sourceReviewList.map((pic, i) => ({ pic, schedule: { schedule_stage: "review", schedule_position: i + 1, schedule_source_row: i + 1 } }));
+  const metaSchedule = shuffleFollowups
+    ? createMetaSchedule(sourceMetaList, seed, reviewSchedule.at(-1)?.pic)
+    : sourceMetaList.map((pic, i) => ({ pic, schedule: { schedule_stage: "meta", schedule_position: i + 1, schedule_source_row: i + 1 } }));
+  for (const [rows, source] of [[calibrationPairs, calibrationCSV], [reviewSchedule, reviewCSV], [metaSchedule, metaCSV]]) {
+    const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(source));
+    const hash = [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, "0")).join("");
+    rows.forEach(row => { row.schedule.schedule_source_sha256 = hash; });
+  }
 
   const state = {
     subject: params.subject,
@@ -317,10 +335,16 @@ export async function initMetaEmotion(params){
     nextImageTrialId: 0,
     replaysRemaining: STUDY_RESPONSE_SETTINGS.imageReplayLimit,
     practicePairs,
+    sourceCalibrationPairs,
+    sourceReviewList,
+    sourceMetaList,
+    scheduleMetadata: { schedule_version: IMAGE_SCHEDULE_VERSION, schedule_seed: seed, schedule_followup_shuffle: shuffleFollowups },
     calibrationPairs,
     calibrationTargetCount,
-    reviewList,
-    metaList,
+    reviewSchedule,
+    metaSchedule,
+    reviewList: reviewSchedule.map(row => row.pic),
+    metaList: metaSchedule.map(row => row.pic),
     caliCursor: 0
   };
   return state;
@@ -346,7 +370,7 @@ export function buildMetaEmotionCalibrationChunk(state, nTrials, chunkIndex){
   tl.push(comparisonInstructions(`cali_instructions_chunk_${chunkIndex}`));
   for(let i=start; i<end; i++){
     const t = state.calibrationPairs[i];
-    tl.push(twoIFC(state, state.jsPsych, META_PATHS.formal + t.p1, META_PATHS.formal + t.p2, t.cat, "calibration", chunkIndex));
+    tl.push(twoIFC(state, state.jsPsych, META_PATHS.formal + t.p1, META_PATHS.formal + t.p2, t.cat, "calibration", chunkIndex, t.schedule));
   }
   state.caliCursor = end;
   return tl;
@@ -358,9 +382,10 @@ export function buildMetaEmotionReview(state, nItems=20){
     <p>Next, you will see the picture set again, one picture at a time. No response is needed during this review.</p>
     <p>In the next part, you will judge each picture relative to the middle (median) of the set in terms of the positive emotion it elicited.</p>
   `, "review_instructions"));
-  // Review uses review_list.csv directly; it does not depend on finishing calibration.
-  state.reviewList.slice(0,nItems).forEach(fn=>{
-    tl.push(passiveImg(META_PATHS.formal + fn, META_TIMING.review_ms, {phase:"review"}));
+  // Review keeps its own source list and does not depend on completing calibration.
+  state.reviewPresented = state.reviewSchedule.slice(0, nItems).map(row => row.pic);
+  state.reviewSchedule.slice(0,nItems).forEach(row=>{
+    tl.push(passiveImg(META_PATHS.formal + row.pic, META_TIMING.review_ms, {phase:"review", ...state.scheduleMetadata, ...row.schedule}));
   });
   return tl;
 }
@@ -376,9 +401,11 @@ export function buildMetaEmotionMetaJ(state, nTrials=60){
     <h3>Viewing pictures again</h3>
     <p>${REPLAY_INSTRUCTIONS} Here, only the current picture is shown again. This option is not available during the confidence rating.</p>
   `, "meta_instructions"));
-  // Meta-judgment uses meta_list.csv directly; shortened calibration test runs are safe.
-  state.metaList.slice(0,nTrials).forEach(fn=>{
-    tl.push(metaTrial(state, state.jsPsych, META_PATHS.formal + fn, 0));
+  // Final judgments retain their own stimulus multiset in shortened calibration tests.
+  state.metaSchedule.slice(0,nTrials).forEach((row, i)=>{
+    tl.push(metaTrial(state, state.jsPsych, META_PATHS.formal + row.pic, 0, {
+      ...row.schedule, schedule_review_order: i === 0 ? JSON.stringify(state.reviewPresented || []) : ""
+    }));
   });
   return tl;
 }
@@ -396,7 +423,8 @@ export function exportMetaEmotion(state, jsPsych){
     d.total_response_rt_s??"", d.final_response_rt_s??"", d.replay_requests ? JSON.stringify(d.replay_requests) : "",
     d.fast_response??"", d.fast_streak??"", d.type1_fast??"", d.type1_fast_streak??"",
     d.speed_reminder_shown??"", d.speed_reminder_kinds??"",
-    d.fast_threshold_ms??"", d.fast_streak_length??"", d.speed_reminder_limit??"", d.replay_limit??""
+    d.fast_threshold_ms??"", d.fast_streak_length??"", d.speed_reminder_limit??"", d.replay_limit??"",
+    ...SCHEDULE_FIELDS.map(key => d[key] ?? "")
   ];
 
   const prac = jsPsych.data.get().filter({task:"metaemotion", event:"2ifc", phase:"practice"}).values()

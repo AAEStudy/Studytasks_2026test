@@ -16,6 +16,10 @@ const MRT_TOTAL_BLOCKS = 1;
 const META_CALIBRATION_COMPARISONS_PER_CHUNK = 10;
 const MRT_BLOCKS_PER_CHUNK = 2;
 
+// null = a fresh reproducible image order each session; use an integer for a fixed test order.
+const IMAGE_SCHEDULE_SEED = null;
+const SHUFFLE_REVIEW_AND_META_JUDGMENTS = true;
+
 // Keep local downloads during testing as a backup for the DataPipe saves.
 const DOWNLOAD_RESULTS_AT_END = true;
 const SAVE_TO_DATA_PIPE = true;
@@ -173,7 +177,10 @@ window.__jsPsychInstance = jsPsych;
 
 async function start(){
   // Init Meta-Emotion lists
-  const metaState = await initMetaEmotion({ subject: subjectID, calibrationLimit: META_CALIBRATION_COMPARISONS, jsPsych });
+  const metaState = await initMetaEmotion({
+    subject: subjectID, calibrationLimit: META_CALIBRATION_COMPARISONS, jsPsych,
+    imageScheduleSeed: IMAGE_SCHEDULE_SEED, shuffleFollowupStages: SHUFFLE_REVIEW_AND_META_JUDGMENTS
+  });
   window.__metaState = metaState;
 
   const timeline = [];

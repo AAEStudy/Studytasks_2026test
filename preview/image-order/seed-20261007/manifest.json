@@ -1,0 +1,61 @@
+{
+  "seed": 20261007,
+  "version": "image-order-v1",
+  "sourceGitCommit": "b58c55397e610e63dce4c87389cc5728e01e4121",
+  "originalSHA256": {
+    "calibration_pairs.csv": "8b5b306efe6b159d30b041e5908f0a895a6f5acb117fa8f47fdf69f0367f5abd",
+    "review_list.csv": "75e1b4e0d775d95fab552fe95a7083ed9e34afdcc4bed0e0148a98c93fb1c8c3",
+    "meta_list.csv": "b13abfde96005f7eacaa39b713067d92165a8ead89044b270b36e440e8eb7b2f",
+    "practice_pairs.csv": "0e0442c1a6d5c6f621d9abf5d9ec4880bda0e5a7fbf9a75f2d5170adadc8f4c9"
+  },
+  "original": {
+    "trials": 380,
+    "distinctImages": 20,
+    "uniquePairs": 190,
+    "minPairIntervening": 18,
+    "maxPairIntervening": 342,
+    "minImageIntervening": 0,
+    "maxImageIntervening": 18,
+    "adjacentTrialsSharingImage": 362,
+    "minDistinctImagesPerChunk": 11,
+    "maxDistinctImagesPerChunk": 11
+  },
+  "shuffled": {
+    "trials": 380,
+    "distinctImages": 20,
+    "uniquePairs": 190,
+    "minPairIntervening": 63,
+    "maxPairIntervening": 276,
+    "minImageIntervening": 2,
+    "maxImageIntervening": 18,
+    "adjacentTrialsSharingImage": 0,
+    "minDistinctImagesPerChunk": 20,
+    "maxDistinctImagesPerChunk": 20
+  },
+  "reviewCount": 20,
+  "metaJudgmentCount": 60,
+  "images": [
+    "1740.jpg",
+    "1810.jpg",
+    "1942.jpg",
+    "2019.jpg",
+    "2055.jpg",
+    "2217.jpg",
+    "2250.jpg",
+    "2339.jpg",
+    "2342.jpg",
+    "2373.jpg",
+    "2442.jpg",
+    "4616.jpg",
+    "4700.jpg",
+    "5300.jpg",
+    "5990.jpg",
+    "7530.jpg",
+    "8032.jpg",
+    "8205.jpg",
+    "8330.jpg",
+    "8600.jpg"
+  ],
+  "sourceFilesUnchanged": true,
+  "note": "Illustrative full-run schedule only. Runtime uses a fresh saved seed per session; source lists stay unchanged."
+}

@@ -106,7 +106,9 @@ order:
 | 16 | speed_reminder_limit |
 | 17 | replay_limit |
 
-Thus, current pair CSVs contain 25 columns and final-judgment CSVs contain 24.
+These response-control fields occupy the first 25 columns of pair CSVs and the
+first 24 columns of final-judgment CSVs. The image-order update described
+below appends 12 more columns, for totals of 37 and 36 respectively.
 Use a CSV parser rather than splitting on commas, because replay JSON contains
 commas. Older rows are not rescaled or rewritten; their missing metadata stays
 blank when exported.
@@ -143,3 +145,76 @@ Firefox have not been tested in this update.
 The short-run settings in `main.js` remain six calibration comparisons and one
 MRT block, with the original full settings commented beside them. Review and
 final judgments still use their own complete configured lists.
+
+## Image-Order Update
+
+All four `lists/` CSVs and every image asset remain unchanged. `js/image-schedule.mjs`
+creates presentation orders in memory from the existing source rows. It never
+independently samples pairs or constructs a different comparison pool.
+
+- Calibration retains all 380 directed rows: 190 unordered pairs, each presented
+  twice with reversed first/second positions. Each image is first 19 times and
+  second 19 times.
+- Every ten-comparison coverage block contains all 20 images exactly once. At the
+  current ten-comparison chunk size, these coincide with calibration chunks.
+- Repeated pairs have at least 60 intervening scheduled calibration comparisons.
+  Any image has at least two intervening comparisons before appearing again,
+  including coverage-block boundaries. The short test limit is applied only after
+  generating the complete schedule; a six-trial test prefix is not a full calibration.
+- The default follow-up order independently shuffles review and final
+  judgments. Review still shows all 20 images once. Final judgments still have 60
+  items, with each image once in each independently shuffled 20-item coverage block
+  and at least five intervening judgments between repeats. No new break or instruction
+  marks those coverage blocks. Practice remains unchanged.
+- Optional participant-requested replays remain an explicitly logged exception to
+  spacing rules. They intentionally replay the same image(s) immediately.
+
+Construction starts with a randomized round-robin factorization and reverses each
+pair on its other appearance. Random alternating-cycle exchanges between blocks,
+plus block-order exchanges, break up the initial matching groups while retaining
+image coverage and pair spacing. Trial order is then randomized within blocks,
+subject to boundary image spacing. This is constrained randomization, not a uniform
+sample of all permutations. The spacing thresholds are design choices, not validated
+memory-erasure intervals.
+
+`IMAGE_SCHEDULE_SEED = null` in `main.js` chooses a new saved unsigned 32-bit seed
+per session; set it to `20261007` to reproduce the example preview. A local seeded
+PRNG leaves `Math.random` and MRT's randomization stream untouched.
+`SHUFFLE_REVIEW_AND_META_JUDGMENTS = false` keeps the original review/final order
+while still shuffling calibration. Neither option changes stimuli or counts.
+
+The 12 added export fields follow the previous response-control fields:
+
+1. schedule_version
+2. schedule_seed
+3. schedule_stage
+4. schedule_position
+5. schedule_source_row
+6. schedule_block
+7. schedule_pair_occurrence
+8. schedule_min_pair_intervening
+9. schedule_min_image_intervening
+10. schedule_source_sha256
+11. schedule_followup_shuffle
+12. schedule_review_order
+
+Positions, blocks and source data-row indices are one-based (excluding the CSV
+header). `schedule_block` identifies the fixed coverage block, while the existing
+`chunk` field remains the actual interleaved calibration chunk. Source hashes are
+SHA-256 of CSV text after the existing BOM/newline normalization. The first final
+judgment's completed confidence row includes the actual review order as JSON;
+later rows leave that field blank. Final confidence rows carry their first judgment's
+schedule metadata through replays. Earlier export columns and response codes stay
+in place; old rows with no schedule information retain blank schedule fields.
+
+Audit previews and byte-identical source copies are generated with:
+`node scripts/preview-image-order.mjs 20261007`
+
+Run invariant and shortened-run checks with:
+`node --test tests/image-schedule.test.mjs`
+
+The preview is illustrative. Do not replace source lists with preview lists.
+Nothing in this update changes MRT timing, number of blocks, task ordering, replay
+limits, confidence wording, or DataPipe/Qualtrics settings. Reducing systematic
+order cues does not establish that learned rankings or prior-response memories
+cannot influence final judgments.
