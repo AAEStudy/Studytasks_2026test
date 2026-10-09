@@ -16,7 +16,9 @@ const META_PATHS = {
   lists: "lists/"
 };
 
-const META_TIMING = { pic_ms: 500, fix_ms: 500, iti_ms: 500, review_ms: 500 };
+// Extra viewing time applies to pairwise comparisons and their practice/replays.
+// Keep the final single-image judgments and passive set review at their existing timing.
+const META_TIMING = { comparison_pic_ms: 750, pic_ms: 500, fix_ms: 500, iti_ms: 500, review_ms: 500 };
 
 const META_KEYS = { start: [" "], choice12: ["1","2"], conf1234: ["1","2","3","4"] };
 
@@ -164,8 +166,11 @@ function withReplay(state, jsPsych, pictures, responseTrial, phase, chunk) {
   let cleanup = () => {};
   let finished = false;
   const requests = [];
+  const pictureDuration = phase === "practice" || phase === "calibration"
+    ? META_TIMING.comparison_pic_ms
+    : META_TIMING.pic_ms;
   const viewing = pictures.flatMap(pic => [
-    passiveImg(pic, META_TIMING.pic_ms, { phase, chunk, image_trial_id: trialId }),
+    passiveImg(pic, pictureDuration, { phase, chunk, image_trial_id: trialId }),
     fixation(META_TIMING.fix_ms)
   ]);
   const trial = {

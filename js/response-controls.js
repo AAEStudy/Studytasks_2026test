@@ -3,7 +3,7 @@ const STUDY_RESPONSE_SETTINGS = Object.freeze({
   fastThresholdMs: 250,
   fastStreakLength: 3,
   maxSpeedReminders: 2,
-  imageReplayLimit: 3
+  imageReplayLimit: 5
 });
 
 const StudyResponses = (() => {

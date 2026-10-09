@@ -1,5 +1,22 @@
 # Judgment Controls and Image Replays
 
+## Viewing and Neutral Labels (October 9, 2026)
+
+Practice and calibration comparison images now last 750 ms each, including
+participant-requested replays. Final single-image judgments and their replays,
+and the passive whole-set review, retain 500 ms presentations. Fixations and
+inter-trial intervals remain 500 ms.
+
+The shared replay allowance is now five requests across practice, calibration,
+and final judgments. This is not five requests per comparison or five full-set
+review passes. Instructions, the remaining-use button, and exported replay-limit
+metadata all read the same setting.
+
+The browser tab is `FAE Study`. Participant-facing transition labels are
+`Tapping task` and `Picture comparisons`; researcher-facing data labels remain
+unchanged. The existing image schedule, MRT settings, confidence wording,
+short-run controls, and saving/redirect settings are unchanged.
+
 ## Files
 
 Replace `index.html`, `main.js`, `mrt.js`, and `metaemotion.js` together. Add
@@ -51,7 +68,7 @@ const STUDY_RESPONSE_SETTINGS = Object.freeze({
   fastThresholdMs: 250,
   fastStreakLength: 3,
   maxSpeedReminders: 2,
-  imageReplayLimit: 3
+  imageReplayLimit: 5
 });
 ```
 
@@ -68,9 +85,10 @@ across the entire session; a presentation can cover more than one question type.
 
 ## Replays
 
-Three replay requests are shared across practice, calibration, and final emotion
+Five replay requests are shared across practice, calibration, and final emotion
 judgments. They do not reset between chunks. A request repeats the original
-image(s), same order and same 500 ms image / 500 ms fixation timing. A two-image
+image(s) in the same order: 750 ms per image for practice/calibration and 500 ms
+for final judgments, with 500 ms fixations in both cases. A two-image
 comparison costs one request, not two. Requests create no additional scored
 responses and do not change the planned trial count.
 
@@ -214,7 +232,8 @@ Run invariant and shortened-run checks with:
 `node --test tests/image-schedule.test.mjs`
 
 The preview is illustrative. Do not replace source lists with preview lists.
-Nothing in this update changes MRT timing, number of blocks, task ordering, replay
-limits, confidence wording, or DataPipe/Qualtrics settings. Reducing systematic
+The image-order update did not change MRT timing, number of blocks, task ordering,
+replay limits, confidence wording, or DataPipe/Qualtrics settings. The later viewing
+and replay changes are described above. Reducing systematic
 order cues does not establish that learned rankings or prior-response memories
 cannot influence final judgments.

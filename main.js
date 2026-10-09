@@ -136,7 +136,7 @@ function audioUnlockTrial(){
   return {
     type: jsPsychHtmlKeyboardResponse,
     stimulus: `<div class="center" style="font-size:22px; line-height:1.35;">
-      <p><b>Metronome Task</b></p>
+      <p><b>Tapping task</b></p>
       <p>Press <b>SPACE</b> to continue (this enables audio).</p>
     </div>`,
     choices: [" "],
@@ -223,7 +223,7 @@ async function start(){
   while (metaState.caliCursor < metaState.calibrationTargetCount || sharedState.mrtCursor < MRT_TOTAL_BLOCKS) {
     if (metaState.caliCursor < metaState.calibrationTargetCount) {
       if (calibrationChunkIndex > 1) {
-        timeline.push(transitionScreen("<p><b>Meta-Emotion Calibration</b></p><p>Press <b>SPACE</b> to continue.</p>", {next:"calibration"}));
+        timeline.push(transitionScreen("<p><b>Picture comparisons</b></p><p>Press <b>SPACE</b> to continue.</p>", {next:"calibration"}));
       }
       timeline.push(...buildMetaEmotionCalibrationChunk(metaState, calibrationChunkSize, calibrationChunkIndex));
       calibrationChunkIndex++;
