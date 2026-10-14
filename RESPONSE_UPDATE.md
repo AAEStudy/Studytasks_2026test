@@ -1,5 +1,35 @@
 # Judgment Controls and Image Replays
 
+## Restored metronome directions and pause behavior (October 14, 2026)
+
+The opening sound check states that headphones or speakers are required. Four
+recap pages, each requiring 10 seconds on first viewing, explain synchronizing
+SPACEBAR presses with the constant-paced sounds, accuracy as temporal closeness,
+focus ratings for the last 15 seconds or so, the basis question, and confidence.
+The focus and confidence pages ask participants to use the full response range
+as appropriate. The existing focus, basis, confidence order, numeric options,
+and confidence prompt are unchanged.
+
+Participants are reminded to press P for an external interruption and P again
+to resume. P now works during both the response window and the + feedback in
+practice and main tapping. Pausing cancels the pending sound and stops any
+sound already playing. A valid tap before a pause is saved once; a partial
+cycle interrupted before a tap does not create an omission. Resuming begins a
+fresh cycle. Ordinary early taps still receive the scheduled sound, preserving
+the normal 1300-ms cycle and signed timing scores.
+
+Pause rows retain their existing format, with duration in seconds. The restored
+participant warning says: "If you pause for too long or more than 3 times, we
+won't be able to use your data." This is an instruction; the task does not
+automatically terminate or exclude data at a duration or count threshold, and
+no numeric definition of "too long" has been introduced. Current MRT response
+format: `mrt-probes-v12-recap-pause`.
+
+The comparison replay page now says: "You may use it up to **5 times during the
+main trials**. Practice uses **do not count**." The practice-complete screen
+uses the same short explanation. The separate five-use practice allowance and
+the two-use cap for final judgments remain in place.
+
 ## Practice replay allowance (October 14, 2026)
 
 Picture practice now has its own allowance of five View again uses. Spending
@@ -30,7 +60,7 @@ start of each trial and suppress confirmation after a pause. Successful taps
 retain their remaining-cycle feedback and signed timing score.
 
 Omissions were already saved as omissions; the misleading practice feedback
-did not create scored SPACE presses. Current MRT response format:
+did not create scored SPACE presses. MRT response format at that update:
 `mrt-probes-v11-tap-feedback`.
 
 ## Final instructions, confidence movement, and response checks (October 14, 2026)

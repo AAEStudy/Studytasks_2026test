@@ -256,7 +256,7 @@ function comparisonInstructions(tag, practice = false, jsPsych) {
       title: "Viewing pictures again",
       body: `<p>If you need to view the images again, click the <b>View again</b> button in the bottom-right corner before submitting your comparison. Both images are shown again in the same order; this counts as one use.</p>
         <p>Only use the <b>View again</b> option when you absolutely need to: you did not see an image or cannot remember what one of the images was, so you cannot accurately make the comparison without seeing the images again.</p>
-        <p>${practice ? `You may use it up to <b>${STUDY_RESPONSE_SETTINGS.imageReplayLimit} times during practice</b>. Practice uses <b>do not count</b> toward the <b>${STUDY_RESPONSE_SETTINGS.imageReplayLimit} uses available for the main picture tasks</b>.` : `You may use it up to <b>${STUDY_RESPONSE_SETTINGS.imageReplayLimit} times in total</b> across the main picture tasks. Practice uses do not count.`} The button shows how many uses remain.</p>`
+        <p>You may use it up to <b>${STUDY_RESPONSE_SETTINGS.imageReplayLimit} times during the main trials</b>. Practice uses <b>do not count</b>.</p>`
     }
   ], [20000, 10000], tag, jsPsych);
 }
@@ -593,7 +593,7 @@ export function buildMetaEmotionPractice(state){
   for(const t of state.practicePairs){
     tl.push(twoIFC(state, state.jsPsych, META_PATHS.practice + t.p1, META_PATHS.practice + t.p2, t.cat, "practice", 0));
   }
-  tl.push(instructionScreen("Practice complete", `<p>You have finished the practice image comparisons.</p><p>Practice uses of <b>View again</b> do not count toward the <b>${STUDY_RESPONSE_SETTINGS.imageReplayLimit} uses available for the main picture tasks</b>.</p><p>The main trials will alternate between image comparisons and the Metronome Task.</p>`, "practice_end", "begin the first set of image comparisons"));
+  tl.push(instructionScreen("Practice complete", `<p>You have finished the practice image comparisons.</p><p>You may use <b>View again</b> up to <b>${STUDY_RESPONSE_SETTINGS.imageReplayLimit} times during the main trials</b>. Practice uses <b>do not count</b>.</p><p>The main trials will alternate between image comparisons and the Metronome Task.</p>`, "practice_end", "begin the first set of image comparisons"));
   return tl;
 }
 

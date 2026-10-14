@@ -1,6 +1,6 @@
 const MRT_CERTAINTY_MIN_MS = 600;
 const MRT_CERTAINTY_MIN_MOVE_PX = 100;
-const MRT_RESPONSE_FORMAT_VERSION = "mrt-probes-v11-tap-feedback";
+const MRT_RESPONSE_FORMAT_VERSION = "mrt-probes-v12-recap-pause";
 const MRT_PROBE_ORDER = "focus,basis,confidence";
 const MRT_CERTAINTY_LABELS = ["Very unconfident", "Unconfident", "Confident", "Very confident"];
 const MRT_FOCUS_RESPONSE_HTML = `
@@ -226,7 +226,7 @@ var jsPsych = params.jsPsych;
       let lastProbeRow = null;
       let pause = false;
       let pauseStart = 0;
-      let justPaused = false;
+      let pendingTapTick = null;
       let repeatPractice = false;
       let practiceConsecutiveMisses = 0;
       let mainConsecutiveMisses = 0;
@@ -242,9 +242,16 @@ var jsPsych = params.jsPsych;
         `<section class="mrt-instructions">
           <h2><u>Metronome Task</u></h2>
           <p><strong>Quick Recap:</strong></p>
-          <p>Press <strong>SPACE</strong> in time with the start of each metronome sound. A <strong>+</strong> confirms that your key press registered.</p>
-          <p>Occasionally, the metronome will pause for three questions about the period just before the pause:</p>
+          <p>The metronome plays at a <strong>constant pace</strong>. Press the <strong>SPACEBAR in exact synchrony with the start of each sound</strong>. Your accuracy depends on how close your key press is to the start of the sound. A <strong>+</strong> confirms that your key press registered.</p>
+          <p>If an external interruption occurs while you are tapping, press <strong>P</strong> to pause. Press <strong>P</strong> again to resume.</p>
+          <p><strong>If you pause for too long or more than 3 times, we won't be able to use your data.</strong></p>
+        </section>`,
+        `<section class="mrt-instructions">
+          <h2><u>Metronome Task</u></h2>
+          <p>Occasionally, the metronome will automatically pause for three questions, in this order: <strong>focus, main basis, and confidence</strong>.</p>
+          <p>For your focus rating, think back to the <strong>last 15 seconds or so of tapping before the questions appeared</strong>.</p>
           <p>First, press <strong>1–6</strong> to indicate how focused you were on keeping your presses synchronized with the metronome. Rate your focus relative to your <strong>own</strong> levels throughout the task: <strong>1 = least on task; 6 = most on task</strong>. Choose <strong>1–3</strong> for below your middle level and <strong>4–6</strong> for above it.</p>
+          <p>Use the <strong>full range of focus ratings</strong> as appropriate.</p>
         </section>`,
         `<section class="mrt-instructions">
           <h2><u>Metronome Task</u></h2>
@@ -263,6 +270,7 @@ var jsPsych = params.jsPsych;
             <li><strong>4 = Very confident</strong></li>
           </ul>
           <p>You can be confident or unconfident about either a high or a low focus rating.</p>
+          <p>Use the <strong>full range of confidence ratings</strong> as appropriate.</p>
           <p>Please respond honestly and effortfully. Practice trials will begin next.</p>
         </section>`
       ];
@@ -365,11 +373,24 @@ var jsPsych = params.jsPsych;
             window.requestAnimationFrame(lockCurrentPage);
           });
           observer.observe(displayElement, { childList: true, subtree: true });
+          // A rapid second click can arrive before the observer paints the new page's lock.
+          // Check its current page synchronously before the instructions plugin handles navigation.
+          function guardInstructionNavigation(event) {
+            const button = event.target?.closest?.(".jspsych-instructions-nav button");
+            if (!button) return;
+            lockCurrentPage();
+            if (button.disabled) {
+              event.preventDefault();
+              event.stopImmediatePropagation();
+            }
+          }
+          document.addEventListener("click", guardInstructionNavigation, true);
           lockCurrentPage();
 
           cleanupMrtInstructionLock = function() {
             clearLockTimers();
             observer.disconnect();
+            document.removeEventListener("click", guardInstructionNavigation, true);
             cleanupMrtInstructionLock = null;
           };
         },
@@ -525,8 +546,26 @@ var jsPsych = params.jsPsych;
         return rows.join("\n") + "\n";
       }
       function play_metronome_tick() {
+        if (pause) return;
         metronomeAudio.currentTime = 0;
         metronomeAudio.play();
+      }
+      function cancelPendingTapTick() {
+        if (pendingTapTick !== null) clearTimeout(pendingTapTick);
+        pendingTapTick = null;
+      }
+      function scheduleTapTick() {
+        cancelPendingTapTick();
+        pendingTapTick = setTimeout(function() {
+          pendingTapTick = null;
+          play_metronome_tick();
+        }, lag_time);
+      }
+      function pauseTapping() {
+        pause = true;
+        cancelPendingTapTick();
+        metronomeAudio.pause();
+        metronomeAudio.currentTime = 0;
       }
 
       // ---------------- Pause Functionality ----------------
@@ -542,7 +581,6 @@ var jsPsych = params.jsPsych;
         },
         on_finish: function() {
           pause = false;
-          justPaused = true;
           let pauseEnd = performance.now();
           let pauseSec = (pauseEnd - pauseStart) / 1000;
           savePauseTrial(pauseSec);
@@ -562,11 +600,11 @@ var jsPsych = params.jsPsych;
         trial_duration: 1300,
         on_start: function() {
           practiceLastRT = null;
-          setTimeout(() => { play_metronome_tick(); }, 650);
+          scheduleTapTick();
         },
         on_finish: function(data) {
           if(data.response === "p") {
-            pause = true;
+            pauseTapping();
             practiceLastRT = null; 
           } else if(data.response === " " && Number.isFinite(data.rt) && data.rt >= 0) {
             practiceLastRT = data.rt;
@@ -578,11 +616,12 @@ var jsPsych = params.jsPsych;
       let practice_tapping_pad = {
         type: jsPsychHtmlKeyboardResponse,
         stimulus: function() {
-          if (practiceLastRT === null || pause || justPaused) return "";
+          if (practiceLastRT === null || pause) return "";
           return '<div class="plus">+</div>';
         },
-        choices: [" "],
-        response_ends_trial: false,
+        // SPACE has already been accepted for this cycle; only P may interrupt feedback.
+        choices: ["p"],
+        response_ends_trial: true,
         trial_duration: function() {
           if (practiceLastRT === null) {
             return 0;
@@ -590,19 +629,18 @@ var jsPsych = params.jsPsych;
           let leftover = 1300 - practiceLastRT;
           return leftover > 0 ? leftover : 0;
         },
-        on_finish: function() {
-          if (pause || justPaused) {
-            justPaused = false;
-            return;
-          }
+        on_finish: function(data) {
           if(practiceLastRT === null) {
-            saveTappingTrial("", "practice trial");
-            practiceConsecutiveMisses++;
+            if (data.response !== "p") {
+              saveTappingTrial("", "practice trial");
+              practiceConsecutiveMisses++;
+            }
           } else {
             let score = practiceLastRT - lag_time;
             saveTappingTrial(score, "practice trial");
             practiceConsecutiveMisses = 0;
           }
+          if (data.response === "p") pauseTapping();
         }
       };
       let practice_pad_node = {
@@ -613,7 +651,7 @@ var jsPsych = params.jsPsych;
       };
 
       let practice_tapping_trial = {
-        timeline: [practice_tapping_main, pause_node, practice_pad_node]
+        timeline: [practice_tapping_main, practice_pad_node, pause_node]
       };
 
       let break_trial = {
@@ -906,11 +944,11 @@ var jsPsych = params.jsPsych;
         trial_duration: 1300,
         on_start: function() {
           mainLastRT = null;
-          setTimeout(() => { play_metronome_tick(); }, 650);
+          scheduleTapTick();
         },
         on_finish: function(data) {
           if(data.response === "p") {
-            pause = true;
+            pauseTapping();
             mainLastRT = null;
           } else if(data.response === " " && Number.isFinite(data.rt) && data.rt >= 0) {
             mainLastRT = data.rt;
@@ -922,13 +960,13 @@ var jsPsych = params.jsPsych;
       let tapping_pad = {
         type: jsPsychHtmlKeyboardResponse,
         stimulus: function() {
-          if(mainLastRT === null || pause || justPaused) {
+          if(mainLastRT === null || pause) {
             return "";
           }
           return '<div class="plus">+</div>';
         },
-        choices: [" "],
-        response_ends_trial: false,
+        choices: ["p"],
+        response_ends_trial: true,
         trial_duration: function() {
           if(mainLastRT === null) {
             return 0;
@@ -936,19 +974,18 @@ var jsPsych = params.jsPsych;
           let leftover = 1300 - mainLastRT;
           return leftover > 0 ? leftover : 0;
         },
-        on_finish: function() {
-          if (pause || justPaused) {
-            justPaused = false;
-            return;
-          }
+        on_finish: function(data) {
           if(mainLastRT === null) {
-            saveTappingTrial("");
-            mainConsecutiveMisses++; // Increment counter on a no response
+            if (data.response !== "p") {
+              saveTappingTrial("");
+              mainConsecutiveMisses++; // Increment counter on a no response
+            }
           } else {
             let score = mainLastRT - lag_time;
             saveTappingTrial(score);
             mainConsecutiveMisses = 0;  // Reset counter on a valid response
           }
+          if (data.response === "p") pauseTapping();
         }
       };
       let main_pad_node = {
@@ -958,7 +995,7 @@ var jsPsych = params.jsPsych;
         }
       };
       let tapping_trial = {
-        timeline: [tapping_main, pause_node, main_pad_node]
+        timeline: [tapping_main, main_pad_node, pause_node]
       };
       let countdown_main = [
         add_countdown("Main trials starting in 3..."),
