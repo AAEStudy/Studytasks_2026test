@@ -468,16 +468,44 @@ var jsPsych = params.jsPsych;
         customData.instructed_response.push("NA"); // Not applicable for pause trial
         saveProbeMetadata();
       }
-      function convertToCSV(dataObj) {
-        let columns = Object.keys(dataObj);
-        let header = columns.join("\t") + "\n";
-        let numRows = dataObj[columns[0]].length;
-        let rows = [];
-        for (let i = 0; i < numRows; i++) {
-          let row = columns.map(col => dataObj[col][i]);
-          rows.push(row.join("\t"));
+      function convertToCSV(dataObj, metadata = {}) {
+        if (!dataObj || typeof dataObj !== "object" || Array.isArray(dataObj)) {
+          throw new TypeError("MRT export data must be an object of column arrays.");
         }
-        return header + rows.join("\n");
+        if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
+          throw new TypeError("MRT export metadata must be an object.");
+        }
+        const columns = Object.keys(dataObj);
+        for (const column of columns) {
+          if (!Array.isArray(dataObj[column])) {
+            throw new TypeError(`MRT export column "${column}" must be an array.`);
+          }
+        }
+        const metadataColumns = Object.keys(metadata);
+        const usedColumns = new Set(columns);
+        if (usedColumns.has("row_index")) {
+          throw new Error('MRT export data cannot contain the reserved column "row_index".');
+        }
+        usedColumns.add("row_index");
+        for (const column of metadataColumns) {
+          if (usedColumns.has(column)) {
+            throw new Error(`MRT export metadata column "${column}" duplicates an export column.`);
+          }
+          usedColumns.add(column);
+        }
+        const cell = value => {
+          if (value == null || (typeof value === "number" && !Number.isFinite(value))) return "";
+          const text = String(value);
+          return /[\t\r\n"]/.test(text) ? '"' + text.replace(/"/g, '""') + '"' : text;
+        };
+        const header = [...columns, "row_index", ...metadataColumns];
+        const numRows = columns.reduce((count, column) => Math.max(count, dataObj[column].length), 0);
+        const metadataValues = metadataColumns.map(column => metadata[column]);
+        const rows = [header.map(cell).join("\t")];
+        for (let i = 0; i < numRows; i++) {
+          rows.push([...columns.map(column => dataObj[column][i]), i + 1, ...metadataValues].map(cell).join("\t"));
+        }
+        return rows.join("\n") + "\n";
       }
       function play_metronome_tick() {
         metronomeAudio.currentTime = 0;

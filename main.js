@@ -3,7 +3,7 @@
 //
 // Data saving uses DataPipe and local downloads; Qualtrics redirect is optional.
 
-import { initMetaEmotion, buildMetaEmotionPractice, buildMetaEmotionCalibrationChunk, buildMetaEmotionReview, buildMetaEmotionMetaJ, exportMetaEmotion } from "./metaemotion.js?v=20261014-confidence";
+import { initMetaEmotion, buildMetaEmotionPractice, buildMetaEmotionCalibrationChunk, buildMetaEmotionReview, buildMetaEmotionMetaJ, exportMetaEmotion } from "./metaemotion.js?v=20261014-data-v2";
 
 // ===================== QUICK TEST CONTROLS =====================
 // Full study: const META_CALIBRATION_COMPARISONS = "ALL";
@@ -42,36 +42,81 @@ if (!subjectID) {
 // Qualtrics return link (edit key if needed)
 const qualtricsReturn = getParam(QUALTRICS_RETURN_PARAM) || null;
 
-function pad2(n){ return String(n).padStart(2, "0"); }
 function sessionStamp(d=new Date()){
-  return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}_${pad2(d.getHours())}.${pad2(d.getMinutes())}`;
+  return d.toISOString().replace("T", "_").replace(/:/g, ".");
 }
 function safeFilenamePart(value){
   return String(value || "NA").replace(/[^A-Za-z0-9._-]+/g, "_");
 }
 
-const SESSION_STAMP = sessionStamp();
+const EXPORT_SCHEMA_VERSION = "fae-export-v2";
+const STUDY_VERSION = "FAE-2026-10-14-data-v2";
+const SESSION_STARTED_AT_UTC = new Date().toISOString();
+const SESSION_STAMP = sessionStamp(new Date(SESSION_STARTED_AT_UTC));
+const SESSION_RANDOM_ID = globalThis.crypto?.randomUUID?.()
+  ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+const SESSION_ID = `${SESSION_STAMP}_${SESSION_RANDOM_ID}`;
+const RUN_MODE = MRT_TOTAL_BLOCKS === 35 && (META_CALIBRATION_COMPARISONS === "ALL" || META_CALIBRATION_COMPARISONS === 380)
+  ? "full" : "test";
 const SAFE_SUBJECT_ID = safeFilenamePart(subjectID);
 
 const RESULT_FILENAMES = {
-  mrt: `MRT_${SAFE_SUBJECT_ID}_${SESSION_STAMP}.tsv`,
-  metaPractice: `Meta_emotion_practice_${SAFE_SUBJECT_ID}_${SESSION_STAMP}.csv`,
-  metaCalibration: `Meta_emotion_cali_${SAFE_SUBJECT_ID}_${SESSION_STAMP}.csv`,
-  metaJudgment: `Meta_emotion_metaJ_${SAFE_SUBJECT_ID}_${SESSION_STAMP}.csv`
+  mrt: `MRT_${RUN_MODE}_${SAFE_SUBJECT_ID}_${SESSION_ID}.tsv`,
+  metaPractice: `Meta_emotion_practice_${RUN_MODE}_${SAFE_SUBJECT_ID}_${SESSION_ID}.csv`,
+  metaCalibration: `Meta_emotion_cali_${RUN_MODE}_${SAFE_SUBJECT_ID}_${SESSION_ID}.csv`,
+  metaJudgment: `Meta_emotion_metaJ_${RUN_MODE}_${SAFE_SUBJECT_ID}_${SESSION_ID}.csv`
 };
 
+function getSessionMetadata(jsPsych){
+  const state = window.__metaState;
+  const rows = jsPsych.data.get().values();
+  const count = predicate => rows.filter(predicate).length;
+  const practiceCompleted = count(d => d.task === "metaemotion" && d.event === "2ifc" && d.phase === "practice");
+  const calibrationCompleted = count(d => d.task === "metaemotion" && d.event === "2ifc" && d.phase === "calibration");
+  const metaCompleted = count(d => d.task === "metaemotion" && d.event === "meta_conf");
+  const reviewCompleted = count(d => d.task === "metaemotion" && d.event === "image" && d.phase === "review");
+  const mrtCompleted = (sharedState.customData?.task || []).filter(task => task === "thought_probe").length;
+  const configuredComplete = practiceCompleted === state.practicePairs.length
+    && calibrationCompleted === state.calibrationTargetCount
+    && metaCompleted === 60 && reviewCompleted === 20 && mrtCompleted === MRT_TOTAL_BLOCKS;
+  return {
+    export_schema_version: EXPORT_SCHEMA_VERSION,
+    study_version: STUDY_VERSION,
+    session_id: SESSION_ID,
+    session_started_at_utc: SESSION_STARTED_AT_UTC,
+    run_mode: RUN_MODE,
+    practice_trials_planned: state.practicePairs.length,
+    practice_trials_completed: practiceCompleted,
+    calibration_trials_planned: state.calibrationTargetCount,
+    calibration_trials_completed: calibrationCompleted,
+    calibration_trials_full: state.calibrationPairs.length,
+    meta_trials_planned: 60,
+    meta_trials_completed: metaCompleted,
+    review_images_planned: 20,
+    review_images_completed: reviewCompleted,
+    mrt_blocks_planned: MRT_TOTAL_BLOCKS,
+    mrt_blocks_completed: mrtCompleted,
+    configured_tasks_complete: configuredComplete,
+    full_protocol_complete: RUN_MODE === "full" && configuredComplete
+  };
+}
+
 function getResultExports(jsPsych){
-  const metaOut = exportMetaEmotion(window.__metaState, jsPsych);
+  // Freeze one completed-task snapshot so downloads and uploads use identical bytes.
+  if (sharedState.resultExports) return sharedState.resultExports;
+  const metadata = getSessionMetadata(jsPsych);
+  const metaOut = exportMetaEmotion(window.__metaState, jsPsych, metadata);
   const mrtTsv = (sharedState.convertToCSV && sharedState.customData)
-    ? sharedState.convertToCSV(sharedState.customData)
+    ? sharedState.convertToCSV(sharedState.customData, metadata)
     : "";
 
-  return {
+  sharedState.resultExports = {
     mrtTsv,
     pracCsvText: metaOut.pracCsvText,
     caliCsvText: metaOut.caliCsvText,
     metaJCsvText: metaOut.metaJCsvText
   };
+  return sharedState.resultExports;
 }
 
 function getResultFiles(jsPsych){

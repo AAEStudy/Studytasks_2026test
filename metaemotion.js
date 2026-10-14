@@ -21,6 +21,12 @@ const META_PATHS = {
 const META_TIMING = { comparison_pic_ms: 750, pic_ms: 500, fix_ms: 500, iti_ms: 500, review_ms: 500 };
 
 const META_KEYS = { start: [" "], choice12: ["1","2"], conf1234: ["1","2","3","4"] };
+const META_CONFIDENCE_LABELS = ["Very unconfident", "Unconfident", "Confident", "Very confident"];
+
+function confidenceLabel(key) {
+  const index = Number(key) - 1;
+  return Number.isInteger(index) ? META_CONFIDENCE_LABELS[index] ?? "" : "";
+}
 
 // GetSecs-like clock for timestamps (seconds)
 const GETSECS_OFFSET = 8000;
@@ -276,12 +282,13 @@ function metaTrial(state, jsPsych, pic, chunk, schedule) {
   const confidenceTrial = StudyResponses.mouseTrial(jsPsych, {
     stimulus: `<section class="emotion-response-screen emotion-confidence-screen">
       <p>How confident are you in the decision you just made?</p>
-      <div class="emotion-response-options four">${['Very unconfident', 'Unconfident', 'Confident', 'Very confident'].map((label, i) => button(i + 1, `<span class="confidence-option-number">${i + 1}</span><span class="confidence-option-label">${label}</span>`)).join('')}</div>
+      <div class="emotion-response-options four">${META_CONFIDENCE_LABELS.map((label, i) => button(i + 1, `<span class="confidence-option-number">${i + 1}</span><span class="confidence-option-label">${label}</span>`)).join('')}</div>
       <p>Click your answer.</p>
     </section>`,
     data: {task:"metaemotion", event:"meta_conf", chunk, pic, pic_id, ...responseMetadata()},
     on_finish: data => {
       data.conf_key = data.response;
+      data.confidence_label = confidenceLabel(data.response);
       data.conf_rt_s = data.rt / 1000;
       data.conf_time_s = getSecs();
       data.type1_key = judgment.type1_key;
@@ -415,13 +422,35 @@ export function buildMetaEmotionMetaJ(state, nTrials=60){
   return tl;
 }
 
-export function exportMetaEmotion(state, jsPsych){
+export function exportMetaEmotion(state, jsPsych, metadata = {}){
   const subj = state.subject;
   const csvCell = value => {
-    const text = String(value ?? "");
+    const text = value === undefined || value === null || (typeof value === "number" && !Number.isFinite(value))
+      ? "" : String(value);
     return /[",\r\n]/.test(text) ? '"' + text.replace(/"/g, '""') + '"' : text;
   };
-  const rowsToCSV = rows => rows.map(r=>r.map(csvCell).join(",")).join("\n") + "\n";
+  // Exact names assigned by Lee's pre/post metaEmotion.R scripts.
+  const comparisonHeaders = ["subject", "systemtime", "pic1", "pic2", "category", "rawchoice", "picchoice", "RT"];
+  const metaHeaders = ["subject", "systemtime", "pic", "higherlower", "firstRT", "confidence", "secondRT"];
+  const detailHeaders = [
+    "response_format_version", "image_trial_id", "replay_count", "replays_remaining",
+    "total_response_rt_s", "final_response_rt_s", "replay_requests",
+    "fast_response", "fast_streak", "type1_fast", "type1_fast_streak",
+    "speed_reminder_shown", "speed_reminder_kinds",
+    "fast_threshold_ms", "fast_streak_length", "speed_reminder_limit", "replay_limit",
+    ...SCHEDULE_FIELDS
+  ];
+  const stableHeaders = ["row_index", "phase", "chunk", "trial_index", "time_elapsed_ms", "pair_key", "confidence_label", "response_time_s"];
+  const metadataKeys = Object.keys(metadata);
+  const headers = core => [...core, ...detailHeaders, ...stableHeaders, ...metadataKeys];
+  const schemas = { practice: headers(comparisonHeaders), calibration: headers(comparisonHeaders), meta: headers(metaHeaders) };
+  const rowsToCSV = (schema, rows) => {
+    if (new Set(schema).size !== schema.length) throw new Error("Meta-emotion CSV headers must be unique; metadata keys must not duplicate existing fields.");
+    rows.forEach((row, i) => {
+      if (row.length !== schema.length) throw new Error(`Meta-emotion CSV row ${i + 1} has ${row.length} values for ${schema.length} columns.`);
+    });
+    return [schema, ...rows].map(row => row.map(csvCell).join(",")).join("\n") + "\n";
+  };
   // Append provenance without changing the original response/RT column positions.
   const details = d => [
     d.response_format_version??"", d.image_trial_id??"", d.replay_count??"", d.replays_remaining??"",
@@ -431,20 +460,40 @@ export function exportMetaEmotion(state, jsPsych){
     d.fast_threshold_ms??"", d.fast_streak_length??"", d.speed_reminder_limit??"", d.replay_limit??"",
     ...SCHEDULE_FIELDS.map(key => d[key] ?? "")
   ];
-
-  const prac = jsPsych.data.get().filter({task:"metaemotion", event:"2ifc", phase:"practice"}).values()
-    .map(d=>[subj, d.timestamp_s??"", d.pic1_id??"", d.pic2_id??"", d.cat??"", d.choice_key??"", d.chosen_id??"", d.rt_s??"", ...details(d)]);
-
-  const cali = jsPsych.data.get().filter({task:"metaemotion", event:"2ifc", phase:"calibration"}).values()
-    .map(d=>[subj, d.timestamp_s??"", d.pic1_id??"", d.pic2_id??"", d.cat??"", d.choice_key??"", d.chosen_id??"", d.rt_s??"", ...details(d)]);
-
+  const numericImageId = value => value === undefined || value === null || String(value).trim() === ""
+    ? NaN : Number(value);
+  const unorderedPairKey = d => {
+    const ids = [numericImageId(d.pic1_id), numericImageId(d.pic2_id)];
+    return ids.every(Number.isFinite) ? ids.sort((a, b) => a - b).join("_") : "";
+  };
+  const stableDetails = (d, index, phase) => [
+    index + 1, phase, d.chunk, d.trial_index, d.time_elapsed,
+    phase === "meta" ? "" : unorderedPairKey(d),
+    phase === "meta" ? confidenceLabel(d.conf_key) : "",
+    phase === "meta" ? (d.type1_time_s ?? d.conf_time_s) : d.timestamp_s,
+    ...metadataKeys.map(key => metadata[key])
+  ];
+  const comparisonRows = phase => jsPsych.data.get().filter({task:"metaemotion", event:"2ifc", phase}).values()
+    .map((d, i) => [
+      subj, d.timestamp_s, d.pic1_id, d.pic2_id,
+      // The source's optional pair code is not an emotion category.
+      Number.isFinite(d.cat) ? d.cat : "", d.choice_key, d.chosen_id, d.rt_s,
+      ...details(d), ...stableDetails(d, i, phase)
+    ]);
+  const prac = comparisonRows("practice");
+  const cali = comparisonRows("calibration");
   const meta = jsPsych.data.get().filter({task:"metaemotion", event:"meta_conf"}).values()
-    .map(d=>[subj, d.type1_time_s??d.conf_time_s??"", d.pic_id??"", d.type1_key??"", d.type1_rt_s??"", d.conf_key??"", d.conf_rt_s??"", ...details(d)]);
+    .map((d, i) => [
+      subj, d.type1_time_s ?? d.conf_time_s, d.pic_id, d.type1_key, d.type1_rt_s, d.conf_key, d.conf_rt_s,
+      ...details(d), ...stableDetails(d, i, "meta")
+    ]);
 
   return {
-    pracCsvText: prac.length ? rowsToCSV(prac) : "",
-    caliCsvText: cali.length ? rowsToCSV(cali) : "",
-    metaJCsvText: meta.length ? rowsToCSV(meta) : "",
+    pracCsvText: rowsToCSV(schemas.practice, prac),
+    caliCsvText: rowsToCSV(schemas.calibration, cali),
+    metaJCsvText: rowsToCSV(schemas.meta, meta),
+    schemas,
+    counts: { practice: prac.length, calibration: cali.length, meta: meta.length },
     stamp: matlabTimestamp(new Date())
   };
 }

@@ -1,5 +1,10 @@
 # Judgment Controls and Image Replays
 
+**Current export format:** the October 14 `fae-export-v2` update supersedes the
+headerless format described in the historical sections below. See
+[DATA_FORMAT.md](DATA_FORMAT.md) for exact Lee-derived headers, session fields,
+and current file organization. Four task files are still saved.
+
 ## Viewing and Neutral Labels (October 9, 2026)
 
 Practice and calibration comparison images now last 750 ms each, including
@@ -99,7 +104,8 @@ scored row's replay log, including repeated requests on the same item.
 
 ## Export Compatibility
 
-The same four files and saving workflow remain. Emotion CSVs are headerless.
+The same four files and saving workflow remain. The earlier emotion CSVs were headerless;
+current exports include named headers as documented in `DATA_FORMAT.md`.
 Their original first eight columns (practice/calibration) and first seven columns
 (final judgments) retain their order and coding. New fields are appended in this
 order:
