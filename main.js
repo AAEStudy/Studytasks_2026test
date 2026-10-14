@@ -160,7 +160,7 @@ function audioUnlockTrial(){
 
 
 // Global shared state for interleaving
-const sharedState = { mrtCursor: 0, mrtInitialized: false, trialNum: 0, probeBlockCounter: 0 };
+const sharedState = { mrtCursor: 0, mrtInitialized: false, mrtMainStarted: false, trialNum: 0, probeBlockCounter: 0 };
 
 const jsPsych = initJsPsych({
   on_finish: async () => {
@@ -197,25 +197,25 @@ async function start(){
   for (const fn of metaState.reviewList){ metaPreload.push("stimuli/formal/" + fn); }
   for (const fn of metaState.metaList){ metaPreload.push("stimuli/formal/" + fn); }
 
+  // Start with MRT immediately; its SPACE gesture unlocks audio for practice.
+  timeline.push(audioUnlockTrial());
+  timeline.push(...buildMRTPractice({
+    jsPsych,
+    subjectID,
+    metronomeAudio,
+    _state: sharedState,
+    includeMidBreak: false,
+    numBlocks: MRT_TOTAL_BLOCKS
+  }).timeline);
+
+  // Load picture assets after MRT practice so they cannot delay the first task.
   timeline.push({
     type: jsPsychPreload,
     images: [...new Set(metaPreload)],
     show_progress_bar: true
   });
 
-
-  // Start screen
-  timeline.push({
-    type: jsPsychHtmlKeyboardResponse,
-    stimulus: `<div class="center" style="font-size:24px; line-height:1.35;">
-      <p><b>Session</b></p>
-      <p>Press <b>SPACE</b> to begin.</p>
-    </div>`,
-    choices: [" "],
-    data: {task:"system", event:"start"}
-  });
-
-  // Optional: Meta-Emotion practice
+  // Picture instructions and practice follow the completed MRT practice.
   timeline.push(...buildMetaEmotionPractice(metaState));
 
   // -------- Interleaving plan --------

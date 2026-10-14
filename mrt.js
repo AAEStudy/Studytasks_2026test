@@ -138,9 +138,15 @@ function buildMrtCertaintyTrial(jsPsych, onResponse) {
   };
 }
 
+// Schedule instruction/practice without generating or consuming main MRT blocks.
+function buildMRTPractice(params){
+  return buildMRTChunk({ ...params, practiceOnly: true, blocksToTake: 0 });
+}
+
 function buildMRTChunk(params){
 const subjectID = params.subjectID;
 const metronomeAudio = params.metronomeAudio;
+const practiceOnly = params.practiceOnly === true;
 var jsPsych = params.jsPsych;
       // Prevent accidental page unload.
       function handleBeforeUnload(e) {
@@ -402,11 +408,11 @@ var jsPsych = params.jsPsych;
         customData.instructed_response.push("NA"); // Not applicable for tapping trials
         saveProbeMetadata();
       }
-      function saveThoughtProbeTrial(basis, basisRT) {
+      function saveThoughtProbeTrial(basis, basisRT, isPractice = false) {
         const trialNum = ++params._state.trialNum;
         customData.subject.push(subjectID);
         customData.trial.push(trialNum);
-        customData.task.push("thought_probe");
+        customData.task.push(isPractice ? "practice_probe" : "thought_probe");
         customData.trial_num.push(trialNum);
         customData.RT_from_metronome.push("NA");
         customData.omission.push("FALSE");
@@ -418,7 +424,13 @@ var jsPsych = params.jsPsych;
         //customData.instructed_response.push("instructed_response"); 
         customData.pause_time.push("NA");
         saveProbeMetadata(tempConfidenceLabel, basis, basisRT);
-        lastProbeRow = customData.subject.length - 1;
+        const probeRow = customData.subject.length - 1;
+        if (isPractice) {
+          customData.probe1_fast[probeRow] = "NA";
+          customData.probe3_fast[probeRow] = "NA";
+        } else {
+          lastProbeRow = probeRow;
+        }
         tempPerformance = null;
         tempProbeRT1 = null;
         tempProbeRT2 = null;
@@ -599,9 +611,63 @@ var jsPsych = params.jsPsych;
           }
         ]
       };
+      let practiceProbeAttempt = 0;
+      const practiceProbeData = { task: "mrt", phase: "practice", practice_probe: 1, thought_probe: 0 };
+      const practiceCertaintyTrial = buildMrtCertaintyTrial(jsPsych, data => {
+        tempProbeRT2 = (data.rt / 1000).toFixed(3);
+        tempConfidence = data.confidence_rating;
+        tempConfidenceLabel = data.confidence_label;
+      });
+      practiceCertaintyTrial.data = {
+        ...practiceCertaintyTrial.data, ...practiceProbeData, event: "practice_probe_certainty"
+      };
+      practiceCertaintyTrial.on_start = trial => {
+        trial.data = { ...trial.data, practice_attempt: practiceProbeAttempt };
+      };
+      // Practice the same three controls, with separate records and no main-task
+      // probe counter, instructed-response check, or fast-response tracking.
+      const practice_probe = {
+        timeline: [
+          {
+            type: jsPsychHtmlKeyboardResponse,
+            stimulus: `<section class="mrt-probe-screen mrt-focus-screen">
+              <p class="mrt-probe-question">How on task were you just before this screen appeared?</p>
+              ${MRT_FOCUS_RESPONSE_HTML}
+            </section>`,
+            choices: ["1", "2", "3", "4", "5", "6"],
+            data: { ...practiceProbeData, event: "practice_probe_focus", probe_question: 1, ...mrtResponseMetadata() },
+            on_start: trial => {
+              practiceProbeAttempt++;
+              trial.data = { ...trial.data, practice_attempt: practiceProbeAttempt };
+            },
+            on_finish: data => {
+              tempPerformance = data.response;
+              tempProbeRT1 = (data.rt / 1000).toFixed(3);
+            }
+          },
+          practiceCertaintyTrial,
+          {
+            type: jsPsychHtmlKeyboardResponse,
+            stimulus: `<section class="mrt-probe-screen mrt-basis-screen">
+              <p class="mrt-probe-question">When you chose your task-focus rating, what did you mainly base it on?</p>
+              ${MRT_BASIS_OPTIONS_HTML}
+            </section>`,
+            choices: ["c", "f", "o", "C", "F", "O"],
+            data: { ...practiceProbeData, event: "practice_probe_basis", probe_question: 3, ...mrtResponseMetadata() },
+            on_start: trial => {
+              trial.data = { ...trial.data, practice_attempt: practiceProbeAttempt };
+            },
+            on_finish: data => {
+              data.main_basis = { c: "remembered_thoughts", f: "general_feeling", o: "other" }[data.response.toLowerCase()];
+              data.probe3_rt = (data.rt / 1000).toFixed(3);
+              saveThoughtProbeTrial(data.main_basis, data.probe3_rt, true);
+            }
+          }
+        ]
+      };
       let practice_prompt = {
         type: jsPsychHtmlKeyboardResponse,
-        stimulus: "<p>The practice trials are now over.<br><br>If you would like to redo the practice trials, press <strong>[Left Arrow]</strong>.<br><br>If you are ready to begin the main experiment, press <strong>[Right Arrow]</strong>.</p>",
+        stimulus: `<p>The practice trials are now over.<br><br>If you would like to redo the practice trials, press <strong>[Left Arrow]</strong>.<br><br>If you are ready to ${practiceOnly ? "continue" : "begin the main experiment"}, press <strong>[Right Arrow]</strong>.</p>`,
         choices: ["arrowleft", "arrowright"],
         on_finish: function(data) {
 	          if(data.response === "arrowleft") {
@@ -615,7 +681,7 @@ var jsPsych = params.jsPsych;
         }
       };
       let practice_node = {
-        timeline: [practice_block, practice_prompt],
+        timeline: [practice_block, practice_probe, practice_prompt],
         loop_function: function() { return repeatPractice; }
       };
       let instructedResponseExpected = "c";
@@ -855,9 +921,9 @@ var jsPsych = params.jsPsych;
       const baseTime = 40;
       const jitterRange = 15;
 
-      const intervals = generateJitteredIntervals(numBlocks, baseTime, jitterRange);
+      const intervals = practiceOnly ? [] : generateJitteredIntervals(numBlocks, baseTime, jitterRange);
 
-      for (let i = 0; i < numBlocks; i++) {
+      for (let i = 0; i < intervals.length; i++) {
         let blockTimeline = [];
         let intervalSeconds = intervals[i];
         let nTappingTrials = Math.round((intervalSeconds * 1000) / 1300);
@@ -892,15 +958,14 @@ var jsPsych = params.jsPsych;
       }
 
       // Build the MRT portion requested for this call
-      // Build the MRT portion requested for this call
       const blocksToTake = params.blocksToTake ?? mrt_blocks.length;
-      const mrt_main = takeMrtBlocks(blocksToTake);
+      const mrt_main = practiceOnly ? [] : takeMrtBlocks(blocksToTake);
 
       let timeline = [];
 
       // ---- Run MRT instructions + practice only on first entry ----
       if (!params._state.mrtInitialized) {
-        // 1. Instructions (exact original)
+        // 1. Approved recap
         timeline = timeline.concat(instructionsTrials);
 
         // 2. Countdown before practice (exact original)
@@ -910,14 +975,19 @@ var jsPsych = params.jsPsych;
         timeline.push(add_countdown("Practice trials starting in 1..."));
         timeline.push(add_countdown("Go!", 650));
 
-        // 3. Practice node (exact original)
+        // 3. Tapping practice and one three-question practice probe
         timeline.push(practice_node);
 
-        // Transition to main trials (explicit user gesture for audio resume)
+        params._state.mrtInitialized = true;
+      }
+
+      // The first main countdown is scheduled separately from early practice.
+      if (!practiceOnly && mrt_main.length > 0 && !params._state.mrtMainStarted) {
+        // Explicit user gesture for audio resume after the picture task.
         timeline.push({
           type: jsPsychHtmlKeyboardResponse,
           stimulus: `<div class="center" style="font-size:22px; line-height:1.35;">
-            <p>Practice complete.</p>
+            <p>Metronome Task</p>
             <p>Press <b>SPACE</b> to begin the main trials.</p>
           </div>`,
           choices: [" "],
@@ -932,7 +1002,7 @@ var jsPsych = params.jsPsych;
         timeline.push(add_countdown_pad());
         timeline = timeline.concat(countdown_main);
 
-        params._state.mrtInitialized = true;
+        params._state.mrtMainStarted = true;
       }
 
       // ---- Append the requested MRT blocks for this chunk ----
