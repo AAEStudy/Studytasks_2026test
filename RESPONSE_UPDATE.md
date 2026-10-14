@@ -1,5 +1,20 @@
 # Judgment Controls and Image Replays
 
+## Practice replay allowance (October 14, 2026)
+
+Picture practice now has its own allowance of five View again uses. Spending
+them leaves all five main-task uses available. The main allowance is shared
+by calibration and final judgments, with at most two uses during final
+judgments. Neither allowance resets when a new chunk is built.
+
+The practice replay page, practice-complete screen, and final instruction page
+state that practice uses do not count toward the main-task allowance. The
+button and saved remaining count use the relevant allowance for that phase;
+replay-request JSON also identifies the practice/main budget. CSV column names
+are unchanged. Current image response format:
+`emotion-mouse-replay-v6-practice-budget`. This supersedes earlier descriptions
+of one allowance shared with practice below.
+
 ## Metronome tap feedback and confidence wording (October 14, 2026)
 
 The MRT confidence question now reads: "How confident are you that the level of
@@ -39,7 +54,7 @@ requirements are met. Earlier movement, a stationary click, a held press, and
 keyboard-generated clicks cannot submit the response. Normal image-comparison
 key responses and Higher/Lower mouse judgments retain their response methods.
 
-The final phase allows at most two replay requests, within the overall shared
+The final phase allows at most two replay requests, within the shared main-task
 five-request allowance. Its button displays the actual usable count. Each
 request still repeats only the current image and cannot be made during
 confidence.
@@ -104,11 +119,11 @@ the pages do not advance automatically. Previous pages can be reread.
 
 The replay explanation now states that View again should be used only when
 absolutely needed because a missed or forgotten picture prevents an accurate
-comparison. The shared allowance remains five replay requests across picture
-practice, calibration, and final judgments. Stimulus timing and response codes
+comparison. Practice has five uses of its own; the main allowance is five
+across calibration and final judgments. Stimulus timing and response codes
 are unchanged. Image response format at that update:
 `emotion-mouse-replay-v3-timed-instructions`; the current update uses
-`emotion-mouse-replay-v5-final-checks`.
+`emotion-mouse-replay-v6-practice-budget`.
 
 The MRT confidence prompt is now: "How confident are you that the level of focus to the task you indicated was accurate?" Practice and main probes use this same wording.
 
@@ -204,8 +219,9 @@ across the entire session; a presentation can cover more than one question type.
 
 ## Replays
 
-Five replay requests are shared across practice, calibration, and final emotion
-judgments. They do not reset between chunks. A request repeats the original
+Practice has five replay requests of its own. Five main-task requests are shared
+across calibration and final emotion judgments. They do not reset between chunks.
+A request repeats the original
 image(s) in the same order: 750 ms per image for practice/calibration and 500 ms
 for final judgments, with 500 ms fixations in both cases. A two-image
 comparison costs one request, not two. Requests create no additional scored

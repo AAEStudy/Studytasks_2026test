@@ -1,6 +1,6 @@
 # FAE data exports and Lee archive audit
 
-Current schema: `fae-export-v2`. Study version: `FAE-2026-10-14-tap-feedback`.
+Current schema: `fae-export-v2`. Study version: `FAE-2026-10-14-practice-replays`.
 
 The experiment still saves four files per completed browser session: MRT TSV,
 image-practice CSV, calibration CSV, and final-judgment CSV. All have one header
@@ -74,11 +74,17 @@ fast_threshold_ms, fast_streak_length, speed_reminder_limit, replay_limit
 On final rows, `fast_response` and `fast_streak` concern confidence;
 `type1_fast` and `type1_fast_streak` concern Higher/Lower. Comparison rows leave
 the type1-specific fields blank. Fast responses are flagged, not removed.
-Replay requests are saved as properly quoted JSON. The allowance remains five
-requests across picture practice, calibration, and final judgments together.
-Final judgments additionally allow at most two of those requests; no allowance
-is replenished at the phase transition. The final button shows the smaller of
-the remaining overall allowance and the remaining final-phase allowance.
+Replay requests are saved as properly quoted JSON. Practice has its own five
+requests and does not consume the five requests shared by main calibration and
+final judgments. `replays_remaining` and each request's `remaining` refer to the
+practice allowance on practice rows and the main allowance on calibration/final
+rows. Each new replay request also identifies its `budget` as `practice` or
+`main`. Existing CSV headers and positions are unchanged.
+
+Final judgments additionally allow at most two requests within the main five;
+the main allowance is not replenished at that transition or between chunks.
+The final button shows the smaller of the remaining main allowance and the
+remaining final-phase allowance.
 
 The existing order-provenance fields follow:
 
@@ -155,7 +161,7 @@ fractions to their configured lengths.
 | Header | Meaning |
 | --- | --- |
 | export_schema_version | fae-export-v2 |
-| study_version | FAE-2026-10-14-tap-feedback |
+| study_version | FAE-2026-10-14-practice-replays |
 | session_id | Shared unique ID for this browser run |
 | session_started_at_utc | ISO UTC start time |
 | run_mode | full for 380 calibration comparisons and 35 MRT blocks; otherwise test |

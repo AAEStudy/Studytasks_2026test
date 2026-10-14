@@ -134,7 +134,7 @@ function instructionScreen(title, body, tag, action = "begin") {
   };
 }
 
-const META_RESPONSE_FORMAT_VERSION = "emotion-mouse-replay-v5-final-checks";
+const META_RESPONSE_FORMAT_VERSION = "emotion-mouse-replay-v6-practice-budget";
 const FINAL_IMAGE_REPLAY_LIMIT = STUDY_RESPONSE_SETTINGS.finalImageReplayLimit ?? 2;
 const META_CONFIDENCE_GATES = Object.freeze({ minMs: 600, minMovePx: 100 });
 const COMPARISON_OPTIONS_HTML = `<p>Press <b>1</b> for the FIRST picture, <b>2</b> for the SECOND picture.</p>`;
@@ -256,7 +256,7 @@ function comparisonInstructions(tag, practice = false, jsPsych) {
       title: "Viewing pictures again",
       body: `<p>If you need to view the images again, click the <b>View again</b> button in the bottom-right corner before submitting your comparison. Both images are shown again in the same order; this counts as one use.</p>
         <p>Only use the <b>View again</b> option when you absolutely need to: you did not see an image or cannot remember what one of the images was, so you cannot accurately make the comparison without seeing the images again.</p>
-        <p>You may use it up to <b>${STUDY_RESPONSE_SETTINGS.imageReplayLimit} times in total</b> across the picture tasks, including practice. The button shows how many uses remain.</p>`
+        <p>${practice ? `You may use it up to <b>${STUDY_RESPONSE_SETTINGS.imageReplayLimit} times during practice</b>. Practice uses <b>do not count</b> toward the <b>${STUDY_RESPONSE_SETTINGS.imageReplayLimit} uses available for the main picture tasks</b>.` : `You may use it up to <b>${STUDY_RESPONSE_SETTINGS.imageReplayLimit} times in total</b> across the main picture tasks. Practice uses do not count.`} The button shows how many uses remain.</p>`
     }
   ], [20000, 10000], tag, jsPsych);
 }
@@ -280,7 +280,7 @@ function finalJudgmentInstructions(jsPsych) {
     {
       title: "<u>Viewing again and picture review</u>",
       body: `<p>If you need to view the current picture again, click the <b>View again</b> button in the bottom-right corner <b>before submitting your judgment</b>. Only use the <b>View again</b> option when you missed or cannot remember the picture and cannot accurately judge without seeing it again.</p>
-        <p>Up to <b><u>${FINAL_IMAGE_REPLAY_LIMIT} uses in this part</u></b>, within the <b>${STUDY_RESPONSE_SETTINGS.imageReplayLimit}-use total</b> across all picture tasks, including practice. The button shows your remaining uses. Viewing again is <b>unavailable during confidence</b>.</p>
+        <p>Up to <b><u>${FINAL_IMAGE_REPLAY_LIMIT} uses in this part</u></b>, within the <b>${STUDY_RESPONSE_SETTINGS.imageReplayLimit}-use total</b> shared by the main image comparisons and final judgments. <b>Practice uses do not count.</b> The button shows your remaining uses. Viewing again is <b>unavailable during confidence</b>.</p>
         <p><b>Next, review the whole picture set</b>, one picture at a time. <b>No response is needed.</b> During the review, keep the positive emotional feelings the set brings you in mind. Judgments begin <b>immediately after the review</b>.</p>`
     }
   ], [20000, 10000, 15000], "meta_instructions", jsPsych, {
@@ -314,10 +314,13 @@ function button(value, label) {
 // extra scored responses, and confidence cannot request a replay.
 function withReplay(state, jsPsych, pictures, responseTrial, phase, chunk) {
   const trialId = ++state.nextImageTrialId;
+  const isPractice = phase === "practice";
+  if (state.practiceReplaysRemaining === undefined) state.practiceReplaysRemaining = STUDY_RESPONSE_SETTINGS.imageReplayLimit;
   if (state.finalReplaysRemaining === undefined) state.finalReplaysRemaining = FINAL_IMAGE_REPLAY_LIMIT;
+  const budgetRemaining = () => isPractice ? state.practiceReplaysRemaining : state.replaysRemaining;
   const replaysAvailable = () => phase === "meta"
-    ? Math.min(state.replaysRemaining, state.finalReplaysRemaining)
-    : state.replaysRemaining;
+    ? Math.min(budgetRemaining(), state.finalReplaysRemaining)
+    : budgetRemaining();
   let firstOnset = null;
   let screenOnset = null;
   let replayRequested = false;
@@ -354,12 +357,13 @@ function withReplay(state, jsPsych, pictures, responseTrial, phase, chunk) {
       cleanup();
       replayRequested = data.response === 'replay';
       if (replayRequested) {
-        state.replaysRemaining--;
+        if (isPractice) state.practiceReplaysRemaining--;
+        else state.replaysRemaining--;
         if (phase === "meta") state.finalReplaysRemaining--;
         const request = {
           request_index: requests.length + 1, image_trial_id: trialId,
           elapsed_ms: performance.now() - firstOnset, screen_rt_ms: data.rt,
-          remaining: state.replaysRemaining, pictures: [...pictures],
+          remaining: budgetRemaining(), budget: isPractice ? "practice" : "main", pictures: [...pictures],
           final_replay_limit: FINAL_IMAGE_REPLAY_LIMIT,
           final_replays_remaining: state.finalReplaysRemaining
         };
@@ -370,7 +374,7 @@ function withReplay(state, jsPsych, pictures, responseTrial, phase, chunk) {
       } else {
         Object.assign(data, {
           replay_count: requests.length, replay_requests: requests.slice(),
-          replays_remaining: state.replaysRemaining,
+          replays_remaining: budgetRemaining(),
           final_replays_remaining: state.finalReplaysRemaining,
           total_response_rt_s: (performance.now() - firstOnset) / 1000,
           final_response_rt_s: data.rt / 1000,
@@ -564,6 +568,7 @@ export async function initMetaEmotion(params){
     subject: params.subject,
     jsPsych: params.jsPsych,
     nextImageTrialId: 0,
+    practiceReplaysRemaining: STUDY_RESPONSE_SETTINGS.imageReplayLimit,
     replaysRemaining: STUDY_RESPONSE_SETTINGS.imageReplayLimit,
     finalReplaysRemaining: FINAL_IMAGE_REPLAY_LIMIT,
     practicePairs,
@@ -588,7 +593,7 @@ export function buildMetaEmotionPractice(state){
   for(const t of state.practicePairs){
     tl.push(twoIFC(state, state.jsPsych, META_PATHS.practice + t.p1, META_PATHS.practice + t.p2, t.cat, "practice", 0));
   }
-  tl.push(instructionScreen("Practice complete", "<p>You have finished the practice image comparisons.</p><p>The main trials will alternate between image comparisons and the Metronome Task.</p>", "practice_end", "begin the first set of image comparisons"));
+  tl.push(instructionScreen("Practice complete", `<p>You have finished the practice image comparisons.</p><p>Practice uses of <b>View again</b> do not count toward the <b>${STUDY_RESPONSE_SETTINGS.imageReplayLimit} uses available for the main picture tasks</b>.</p><p>The main trials will alternate between image comparisons and the Metronome Task.</p>`, "practice_end", "begin the first set of image comparisons"));
   return tl;
 }
 
