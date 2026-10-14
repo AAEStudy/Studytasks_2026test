@@ -1,7 +1,7 @@
 const MRT_CERTAINTY_MIN_MS = 600;
 const MRT_CERTAINTY_MIN_MOVE_PX = 20;
-const MRT_RESPONSE_FORMAT_VERSION = "mrt-probes-v5";
-const MRT_CERTAINTY_LABELS = ["Very uncertain", "Somewhat uncertain", "Somewhat certain", "Very certain"];
+const MRT_RESPONSE_FORMAT_VERSION = "mrt-probes-v6-confidence";
+const MRT_CERTAINTY_LABELS = ["Very unconfident", "Unconfident", "Confident", "Very confident"];
 const MRT_FOCUS_RESPONSE_HTML = `
 <div style="display: inline-block; width: 1050px;">
                       <div style="display: flex; justify-content: space-between; margin-bottom: 5px; margin-top: 100px;">
@@ -61,9 +61,9 @@ function buildMrtCertaintyTrial(jsPsych, onResponse) {
   return {
     type: jsPsychHtmlKeyboardResponse,
     stimulus: `<section class="mrt-probe-screen mrt-certainty-screen">
-      <p class="mrt-probe-question">How certain are you that the task-focus rating you just provided is accurate?</p>
+      <p class="mrt-probe-question">How confident are you that the task-focus rating you just provided accurately described how focused you were just before the pause?</p>
       <div class="mrt-certainty-options">
-        ${MRT_CERTAINTY_LABELS.map((label, index) => `<button type="button" class="mrt-certainty-option" data-value="${index + 1}" aria-disabled="true" tabindex="-1">${label}</button>`).join("")}
+        ${MRT_CERTAINTY_LABELS.map((label, index) => `<button type="button" class="mrt-certainty-option" data-value="${index + 1}" aria-disabled="true" tabindex="-1"><span class="confidence-option-number">${index + 1}</span><span class="confidence-option-label">${label}</span></button>`).join("")}
       </div>
       <p class="mrt-certainty-hint">Move the mouse to your answer and click.</p>
     </section>`,
@@ -87,16 +87,18 @@ function buildMrtCertaintyTrial(jsPsych, onResponse) {
       };
       const press = event => {
         pendingPress = null;
-        if (event.pointerType !== "mouse" || event.button !== 0 || !buttons.includes(event.target)) return;
+        const button = event.target.closest?.(".mrt-certainty-option");
+        if (event.pointerType !== "mouse" || event.button !== 0 || !buttons.includes(button)) return;
         event.preventDefault();
-        if (ready()) pendingPress = event.target;
+        if (ready()) pendingPress = button;
       };
       const cancelPress = () => { pendingPress = null; };
       const click = event => {
         const pressed = pendingPress;
         pendingPress = null;
+        const button = event.target.closest?.(".mrt-certainty-option");
         // A new mouse-down on this screen must itself meet both activation conditions.
-        if (finished || event.detail === 0 || event.button !== 0 || pressed !== event.target || !pressed || !ready()) return;
+        if (finished || event.detail === 0 || event.button !== 0 || pressed !== button || !pressed || !ready()) return;
         const response = Number(pressed.dataset.value);
         finished = true;
         cleanup();
@@ -228,11 +230,23 @@ var jsPsych = params.jsPsych;
           <p><strong>Quick Recap:</strong></p>
           <p>Press <strong>SPACE</strong> in time with the start of each metronome sound. A <strong>+</strong> confirms that your key press registered.</p>
           <p>Occasionally, the metronome will pause for three questions about the period just before the pause:</p>
+          <p>First, press <strong>1–6</strong> to indicate how focused you were on keeping your presses synchronized with the metronome. Rate your focus relative to your <strong>own</strong> levels throughout the task: <strong>1 = least on task; 6 = most on task</strong>. Choose <strong>1–3</strong> for below your middle level and <strong>4–6</strong> for above it.</p>
+        </section>`,
+        `<section class="mrt-instructions">
+          <h2><u>Metronome Task</u></h2>
+          <p>Next, indicate how confident you are that your focus rating accurately described how focused you were just before the pause.</p>
+          <p>Move the mouse and click one answer:</p>
           <ul>
-            <li>Press <strong>1–6</strong> to indicate how focused you were on keeping your presses synchronized with the metronome. Rate your focus relative to your <strong>own</strong> levels throughout the task: <strong>1 = least on task; 6 = most on task</strong>. Choose <strong>1–3</strong> for below your middle level and <strong>4–6</strong> for above it.</li>
-            <li>Move the mouse and click <strong>Very uncertain, Somewhat uncertain, Somewhat certain, or Very certain</strong> to indicate how sure you are that your focus rating accurately described your prior state. You can be certain or uncertain about either a high or a low focus rating.</li>
-            <li>Indicate what mainly informed your original focus rating: press <strong>C</strong> for remembered thoughts, <strong>F</strong> for a feeling of how focused or unfocused you had been, or <strong>O</strong> for something other than these two.</li>
+            <li><strong>1 = Very unconfident</strong></li>
+            <li><strong>2 = Unconfident</strong></li>
+            <li><strong>3 = Confident</strong></li>
+            <li><strong>4 = Very confident</strong></li>
           </ul>
+          <p>You can be confident or unconfident about either a high or a low focus rating.</p>
+        </section>`,
+        `<section class="mrt-instructions">
+          <h2><u>Metronome Task</u></h2>
+          <p>Finally, indicate what mainly informed your original focus rating: press <strong>C</strong> for remembered thoughts, <strong>F</strong> for a feeling of how focused or unfocused you had been, or <strong>O</strong> for something other than these two.</p>
           <p>Remembered thoughts may be vague or partial, and may concern the task or something unrelated. A feeling about your focus does not require remembering particular thoughts.</p>
           <p>If both contributed, choose whichever <strong>influenced your rating more</strong>, rather than whichever experience was clearest or strongest. Choose <strong>O</strong> only when another source influenced your rating more than either memory or feeling.</p>
           <p>Please respond honestly and effortfully. Practice trials will begin next.</p>
@@ -915,7 +929,7 @@ var jsPsych = params.jsPsych;
       
       
       // ---- Build MRT blocks so we can interleave with meta-emotion calibration ----
-      // Each block ends with task focus, certainty, main basis, and the existing resume routine.
+      // Each block ends with task focus, confidence, main basis, and the existing resume routine.
       let mrt_blocks = [];
       const numBlocks = (params.numBlocks !== undefined) ? params.numBlocks : 6; //35 was original number
       const baseTime = 40;
@@ -987,8 +1001,8 @@ var jsPsych = params.jsPsych;
         timeline.push({
           type: jsPsychHtmlKeyboardResponse,
           stimulus: `<div class="center" style="font-size:22px; line-height:1.35;">
-            <p>Metronome Task</p>
-            <p>Press <b>SPACE</b> to begin the main trials.</p>
+            <p><b>Switch to the Metronome Task</b></p>
+            <p>Press <b>SPACE</b> to begin the next set of Metronome Task trials.</p>
           </div>`,
           choices: [" "],
           on_finish: async () => {

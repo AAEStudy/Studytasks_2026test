@@ -132,12 +132,12 @@ function transitionScreen(html, dataExtra={}){
 }
 
 // Unlock audio on user gesture (required by browsers)
-function audioUnlockTrial(){
+function audioUnlockTrial(nextSet = false, switching = true){
   return {
     type: jsPsychHtmlKeyboardResponse,
     stimulus: `<div class="center" style="font-size:22px; line-height:1.35;">
-      <p><b>Metronome Task</b></p>
-      <p>Press <b>SPACE</b> to continue (this enables audio).</p>
+      <p><b>${nextSet && switching ? "Switch to the Metronome Task" : "Metronome Task"}</b></p>
+      <p>Press <b>SPACE</b> to ${nextSet ? "begin the next set of Metronome Task trials" : "continue (this enables audio)"}.</p>
     </div>`,
     choices: [" "],
     on_finish: async () => {
@@ -154,7 +154,7 @@ function audioUnlockTrial(){
         bellAudio.currentTime = 0;
       } catch(e) {}
     },
-    data: {task:"system", event:"audio_unlock"}
+    data: {task:"system", event:nextSet ? "task_switch" : "audio_unlock", next:"mrt"}
   };
 }
 
@@ -208,6 +208,10 @@ async function start(){
     numBlocks: MRT_TOTAL_BLOCKS
   }).timeline);
 
+  timeline.push(transitionScreen(`<p><b>Image comparison task</b></p>
+    <p>Next, we will explain the image comparison task and give you some practice trials.</p>
+    <p>Press <b>SPACE</b> to continue.</p>`, {event:"image_practice_transition", next:"image_practice"}));
+
   // Load picture assets after MRT practice so they cannot delay the first task.
   timeline.push({
     type: jsPsychPreload,
@@ -220,16 +224,19 @@ async function start(){
 
   // -------- Interleaving plan --------
   let calibrationChunkIndex = 1;
+  let lastMainTask = null;
   while (metaState.caliCursor < metaState.calibrationTargetCount || sharedState.mrtCursor < MRT_TOTAL_BLOCKS) {
     if (metaState.caliCursor < metaState.calibrationTargetCount) {
       if (calibrationChunkIndex > 1) {
-        timeline.push(transitionScreen("<p><b>Picture comparisons</b></p><p>Press <b>SPACE</b> to continue.</p>", {next:"calibration"}));
+        timeline.push(transitionScreen(`<p><b>${lastMainTask === "mrt" ? "Switch to image comparisons" : "Image comparisons"}</b></p><p>Press <b>SPACE</b> to continue to the next set of image comparisons.</p>`, {event:"task_switch", next:"calibration"}));
       }
       timeline.push(...buildMetaEmotionCalibrationChunk(metaState, calibrationChunkSize, calibrationChunkIndex));
       calibrationChunkIndex++;
+      lastMainTask = "calibration";
     }
 
     if (sharedState.mrtCursor < MRT_TOTAL_BLOCKS) {
+      const firstMrtSet = !sharedState.mrtMainStarted;
       const mrtChunk = buildMRTChunk({
         jsPsych,
         subjectID,
@@ -241,8 +248,10 @@ async function start(){
       }).timeline;
 
       if (mrtChunk.length > 0) {
-        timeline.push(audioUnlockTrial());
+        // The first set already has its own audio-enable transition and countdown.
+        if (!firstMrtSet) timeline.push(audioUnlockTrial(true, lastMainTask !== "mrt"));
         timeline.push(...mrtChunk);
+        lastMainTask = "mrt";
       }
     }
   }

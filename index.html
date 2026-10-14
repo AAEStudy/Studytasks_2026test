@@ -72,6 +72,11 @@
     }
     .mrt-certainty-option[aria-disabled="false"]:hover { background: #444; }
     .mrt-certainty-hint { font-size: 18px; text-align: center; }
+    .emotion-confidence-screen { min-height: 360px; text-align: left; }
+    .emotion-confidence-screen > p:first-child { margin: 0 0 50px; font: inherit; font-weight: 400; text-align: left; }
+    .emotion-confidence-screen > p:last-child { font-size: 18px; text-align: center; }
+    .confidence-option-number, .confidence-option-label { display: block; }
+    .confidence-option-number { margin-bottom: 4px; }
     .mrt-basis-options {
       list-style: none;
       padding: 0;
@@ -83,6 +88,16 @@
     .study-response-button { min-height: 64px; padding: 12px 20px; font: inherit; color: white; background: #242424; border: 2px solid #ddd; border-radius: 4px; cursor: pointer; }
     .study-response-button:hover { background: #444; }
     .study-response-button:disabled { color: #999; border-color: #555; cursor: not-allowed; background: #121212; }
+    .emotion-response-options.four { gap: 12px; margin: 36px 0 24px; }
+    .emotion-response-options.four .study-response-button {
+      box-sizing: border-box;
+      width: 100%;
+      min-height: 104px;
+      padding: 8px;
+      font-size: 22px;
+      line-height: 1.3;
+      letter-spacing: 0;
+    }
     .jspsych-content.emotion-replay-trial {
       box-sizing: border-box;
       width: 100%;
@@ -138,14 +153,14 @@
         width: calc(100vw - 24px);
         font-size: 18px;
       }
-      .mrt-certainty-options { gap: 4px; }
-      .mrt-certainty-option { font-size: 14px; padding: 2px; }
+      .mrt-certainty-options, .emotion-response-options.four { gap: 4px; }
+      .mrt-certainty-option, .emotion-response-options.four .study-response-button { font-size: 14px; padding: 2px; }
       .emotion-instructions, .mrt-instructions { width: calc(100vw - 32px); font-size: 18px; }
       .emotion-instructions h2, .mrt-instructions h2 { font-size: 24px; }
       .emotion-instructions h3 { font-size: 20px; }
     }
     @media (max-width: 360px) {
-      .mrt-certainty-option { font-size: 13px; }
+      .mrt-certainty-option, .emotion-response-options.four .study-response-button { font-size: 13px; }
     }
     .plus { font-family: "Montserrat", sans-serif; font-size: 150px; font-weight: bold; position: absolute; transform: translate(-50%, -50%); color: #bbb;  left: 50%; top: 50%; }
 

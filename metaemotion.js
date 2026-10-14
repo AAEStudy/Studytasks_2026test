@@ -128,7 +128,7 @@ function instructionScreen(title, body, tag, action = "begin") {
   };
 }
 
-const META_RESPONSE_FORMAT_VERSION = "emotion-mouse-replay-v1";
+const META_RESPONSE_FORMAT_VERSION = "emotion-mouse-replay-v2-confidence";
 const REPLAY_INSTRUCTIONS = `If you miss a picture or need another look, click <b>View again</b> in the bottom-right corner before submitting your judgment. You may use it up to ${STUDY_RESPONSE_SETTINGS.imageReplayLimit} times in total across the picture tasks, including practice. The button shows how many uses remain.`;
 const EMOTION_GUIDANCE = `<p>Base your answer on the positive emotion you actually felt, not on how positive or negative the picture itself seems. There is no right or wrong answer; respond intuitively.</p>`;
 
@@ -137,6 +137,7 @@ function comparisonInstructions(tag, practice = false) {
     <p>You will see two pictures, one after the other. After both have appeared, choose which picture elicited stronger <b>positive emotion</b>.</p>
     <p>Press <b>1</b> for the <b>first</b> picture or <b>2</b> for the <b>second</b> picture.</p>
     ${EMOTION_GUIDANCE}
+    ${practice ? '<p>During the main trials, sets of image comparisons will alternate with the Metronome Task.</p>' : ''}
     <h3>Viewing pictures again</h3>
     <p>${REPLAY_INSTRUCTIONS} For a comparison, both pictures are shown again in the same order; this counts as one use.</p>
   `, tag);
@@ -273,10 +274,10 @@ function metaTrial(state, jsPsych, pic, chunk, schedule) {
     }
   };
   const confidenceTrial = StudyResponses.mouseTrial(jsPsych, {
-    stimulus: `<section class="emotion-response-screen">
-      <p>Confidence (1 = very unconfident … 4 = very confident)</p>
-      <div class="emotion-response-options four">${[1,2,3,4].map(value => button(value, value)).join('')}</div>
-      <p>Click <b>1</b> / <b>2</b> / <b>3</b> / <b>4</b>.</p>
+    stimulus: `<section class="emotion-response-screen emotion-confidence-screen">
+      <p>How confident are you in the decision you just made?</p>
+      <div class="emotion-response-options four">${['Very unconfident', 'Unconfident', 'Confident', 'Very confident'].map((label, i) => button(i + 1, `<span class="confidence-option-number">${i + 1}</span><span class="confidence-option-label">${label}</span>`)).join('')}</div>
+      <p>Click your answer.</p>
     </section>`,
     data: {task:"metaemotion", event:"meta_conf", chunk, pic, pic_id, ...responseMetadata()},
     on_finish: data => {
@@ -361,7 +362,7 @@ export function buildMetaEmotionPractice(state){
   for(const t of state.practicePairs){
     tl.push(twoIFC(state, state.jsPsych, META_PATHS.practice + t.p1, META_PATHS.practice + t.p2, t.cat, "practice", 0));
   }
-  tl.push(instructionScreen("Practice complete", "<p>You have finished the practice picture comparisons.</p>", "practice_end", "continue"));
+  tl.push(instructionScreen("Practice complete", "<p>You have finished the practice image comparisons.</p><p>The main trials will alternate between image comparisons and the Metronome Task.</p>", "practice_end", "begin the first set of image comparisons"));
   return tl;
 }
 
@@ -372,7 +373,6 @@ export function buildMetaEmotionCalibrationChunk(state, nTrials, chunkIndex){
   const end = Math.min(target, start + nTrials);
   if (start >= end) return tl;
 
-  tl.push(comparisonInstructions(`cali_instructions_chunk_${chunkIndex}`));
   for(let i=start; i<end; i++){
     const t = state.calibrationPairs[i];
     tl.push(twoIFC(state, state.jsPsych, META_PATHS.formal + t.p1, META_PATHS.formal + t.p2, t.cat, "calibration", chunkIndex, t.schedule));
@@ -402,7 +402,7 @@ export function buildMetaEmotionMetaJ(state, nTrials=60){
     <p>Click <b>Higher</b> or <b>Lower</b> to answer.</p>
     ${EMOTION_GUIDANCE}
     <h3>Confidence</h3>
-    <p>After each judgment, rate how confident you are in your decision: <b>1 = very unconfident</b> and <b>4 = very confident</b>. Please try to use all the ratings. Click the number for your answer. Each answer requires a new mouse click.</p>
+    <p>After each judgment, rate how confident you are in your decision: <b>1 = Very unconfident</b>, <b>2 = Unconfident</b>, <b>3 = Confident</b>, or <b>4 = Very confident</b>. Please try to use all the ratings. Click your answer. Each answer requires a new mouse click.</p>
     <h3>Viewing pictures again</h3>
     <p>${REPLAY_INSTRUCTIONS} Here, only the current picture is shown again. This option is not available during the confidence rating.</p>
   `, "meta_instructions"));
