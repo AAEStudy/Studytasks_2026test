@@ -1,5 +1,21 @@
 # Judgment Controls and Image Replays
 
+## Horizontal basis options and assigned order (October 14, 2026)
+
+The main-basis question now presents three equal horizontal columns with each
+keyboard letter below its description. All options use the same text styling;
+the question retains the shared probe formatting. The existing option wording
+and C/F/O response meanings remain unchanged.
+
+Each new session has a 50/50 probability of receiving memory-first or
+feeling-first order, with other last. Shared state retains that assignment
+through practice repeats and main chunks. Recruitment totals are not forced to
+match exactly. The assignment and horizontal layout are recorded in raw probe
+data and every saved MRT row. `basis_display_order` and `basis_layout` are
+appended after the prior TSV columns so existing field positions are preserved.
+See [DATA_FORMAT.md](DATA_FORMAT.md) for values. Current MRT response format:
+`mrt-probes-v13-basis-horizontal`.
+
 ## Restored metronome directions and pause behavior (October 14, 2026)
 
 The opening sound check states that headphones or speakers are required. Four
@@ -22,7 +38,7 @@ Pause rows retain their existing format, with duration in seconds. The restored
 participant warning says: "If you pause for too long or more than 3 times, we
 won't be able to use your data." This is an instruction; the task does not
 automatically terminate or exclude data at a duration or count threshold, and
-no numeric definition of "too long" has been introduced. Current MRT response
+no numeric definition of "too long" has been introduced. MRT response
 format: `mrt-probes-v12-recap-pause`.
 
 The comparison replay page now says: "You may use it up to **5 times during the

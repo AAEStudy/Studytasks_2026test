@@ -78,11 +78,26 @@
     .confidence-option-number, .confidence-option-label { display: block; }
     .confidence-option-number { margin-bottom: 4px; }
     .mrt-basis-options {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 24px;
       list-style: none;
       padding: 0;
-      text-align: left;
+      margin: 36px 0 24px;
+      text-align: center;
     }
-    .mrt-basis-options li { margin: 20px 0; }
+    .mrt-basis-options li {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 16px;
+      min-width: 0;
+      margin: 0;
+      padding: 8px;
+      font: inherit;
+    }
+    .mrt-basis-label, .mrt-basis-key { display: block; }
+    .mrt-basis-key { font: inherit; }
     .emotion-response-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin: 28px 0; }
     .emotion-response-options.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
     .study-response-button { min-height: 64px; padding: 12px 20px; font: inherit; color: white; background: #242424; border: 2px solid #ddd; border-radius: 4px; cursor: pointer; }
@@ -226,8 +241,8 @@
 
 <!-- MRT builder (adapted from your original runMetronomeTask) -->
 <script src="js/response-controls.js?v=20261014-confidence-100"></script>
-<script src="mrt.js?v=20261014-recap-pause"></script>
+<script src="mrt.js?v=20261014-basis-horizontal"></script>
 
 <!-- Main orchestration (ES module) -->
-<script type="module" src="main.js?v=20261014-recap-pause"></script>
+<script type="module" src="main.js?v=20261014-basis-horizontal"></script>
 </html>

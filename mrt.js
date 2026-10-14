@@ -1,6 +1,6 @@
 const MRT_CERTAINTY_MIN_MS = 600;
 const MRT_CERTAINTY_MIN_MOVE_PX = 100;
-const MRT_RESPONSE_FORMAT_VERSION = "mrt-probes-v12-recap-pause";
+const MRT_RESPONSE_FORMAT_VERSION = "mrt-probes-v13-basis-horizontal";
 const MRT_PROBE_ORDER = "focus,basis,confidence";
 const MRT_CERTAINTY_LABELS = ["Very unconfident", "Unconfident", "Confident", "Very confident"];
 const MRT_FOCUS_RESPONSE_HTML = `
@@ -30,12 +30,25 @@ const MRT_FOCUS_RESPONSE_HTML = `
                       </div>
                   </div>
 `;
-const MRT_BASIS_OPTIONS_HTML = `
-  <ul class="mrt-basis-options">
-    <li>[C] My memory of what I had been thinking about.</li>
-    <li>[F] A feeling of how focused or unfocused I had been.</li>
-    <li>[O] Something other than these two.</li>
+const MRT_BASIS_OPTIONS = {
+  remembered_thoughts: { key: "C", text: "My memory of what I had been thinking about." },
+  general_feeling: { key: "F", text: "A feeling of how focused or unfocused I had been." },
+  other: { key: "O", text: "Something other than these two." }
+};
+function mrtBasisDisplayOrder(basisOrder) {
+  return basisOrder === "feeling_first"
+    ? ["general_feeling", "remembered_thoughts", "other"]
+    : ["remembered_thoughts", "general_feeling", "other"];
+}
+function renderMrtBasisOptions(basisOrder) {
+  const order = mrtBasisDisplayOrder(basisOrder);
+  return `<ul class="mrt-basis-options" role="list" data-basis-display-order="${order.join(",")}">
+    ${order.map(value => {
+      const option = MRT_BASIS_OPTIONS[value];
+      return `<li class="mrt-basis-option" data-basis="${value}"><span class="mrt-basis-label">${option.text}</span><span class="mrt-basis-key" aria-label="Press ${option.key}">[${option.key}]</span></li>`;
+    }).join("\n")}
   </ul>`;
+}
 
 // Track the cursor across screens, before a certainty question takes its baseline.
 let mrtCursorPosition = null;
@@ -46,7 +59,7 @@ document.addEventListener("pointermove", trackMrtCursor, true);
 document.addEventListener("pointerdown", trackMrtCursor, true);
 document.addEventListener("pointerup", trackMrtCursor, true);
 
-function mrtResponseMetadata() {
+function mrtResponseMetadata(basisOrder) {
   return {
     response_format_version: MRT_RESPONSE_FORMAT_VERSION,
     probe_order: MRT_PROBE_ORDER,
@@ -54,7 +67,11 @@ function mrtResponseMetadata() {
     certainty_min_move_px: MRT_CERTAINTY_MIN_MOVE_PX,
     fast_threshold_ms: STUDY_RESPONSE_SETTINGS.fastThresholdMs,
     fast_streak_length: STUDY_RESPONSE_SETTINGS.fastStreakLength,
-    speed_reminder_limit: STUDY_RESPONSE_SETTINGS.maxSpeedReminders
+    speed_reminder_limit: STUDY_RESPONSE_SETTINGS.maxSpeedReminders,
+    ...(basisOrder === undefined ? {} : {
+      basis_display_order: mrtBasisDisplayOrder(basisOrder).join(","),
+      basis_layout: "horizontal"
+    })
   };
 }
 
@@ -78,7 +95,7 @@ function buildMrtCertaintyTrial(jsPsych, onResponse, options = {}) {
       ...(options.instructedResponse
         ? { instructed_response_probe: 1, thought_probe: 0, probe_kind: "response_check" }
         : { probe_question: 3, probe_kind: "confidence", thought_probe: 1 }),
-      ...mrtResponseMetadata(), ...options.data
+      ...mrtResponseMetadata(options.basisOrder), ...options.data
     },
     on_load: () => {
       const onset = performance.now();
@@ -120,7 +137,7 @@ function buildMrtCertaintyTrial(jsPsych, onResponse, options = {}) {
             ? { instructed_response_label: MRT_CERTAINTY_LABELS[response - 1] }
             : { confidence_rating: response, confidence_label: MRT_CERTAINTY_LABELS[response - 1] }),
           certainty_max_move_px: maxDistance,
-          ...mrtResponseMetadata()
+          ...mrtResponseMetadata(options.basisOrder)
         });
       };
       document.addEventListener("pointermove", move, true);
@@ -176,6 +193,16 @@ var jsPsych = params.jsPsych;
       //setIDfromlink();
       if (params._state.trialNum === undefined) params._state.trialNum = 0;
       if (params._state.probeBlockCounter === undefined) params._state.probeBlockCounter = 0;
+      // Assign once per shared session; repeats and later chunks retain this display order.
+      if (params._state.mrtBasisOrder === undefined) {
+        params._state.mrtBasisOrder = Math.random() < 0.5 ? "memory_first" : "feeling_first";
+      }
+      const basisOrder = params._state.mrtBasisOrder;
+      if (basisOrder !== "memory_first" && basisOrder !== "feeling_first") {
+        throw new RangeError("MRT basis order must be memory_first or feeling_first.");
+      }
+      const responseMetadata = () => mrtResponseMetadata(basisOrder);
+      const basisOptionsHtml = renderMrtBasisOptions(basisOrder);
       let customData = params._state.customData;
       if (!customData) {
         customData = {
@@ -207,9 +234,18 @@ var jsPsych = params.jsPsych;
           probe1_fast: [],
           probe3_fast: [],
           speed_reminder_shown: [],
-          speed_reminder_kinds: []
+          speed_reminder_kinds: [],
+          basis_display_order: [],
+          basis_layout: []
         };
         params._state.customData = customData;
+      }
+      // Older caller-provided state may omit the new fields; preserve its existing row alignment.
+      if (customData.basis_display_order === undefined) {
+        customData.basis_display_order = new Array(customData.subject.length).fill("NA");
+      }
+      if (customData.basis_layout === undefined) {
+        customData.basis_layout = new Array(customData.subject.length).fill("NA");
       }
       // Flag to ensure we only run instructions + practice once across interleaving
       if (params._state.mrtInitialized === undefined) params._state.mrtInitialized = false;
@@ -437,7 +473,7 @@ var jsPsych = params.jsPsych;
         customData.probe3_fast.push(basis === "NA" ? "NA" : tempBasisFast);
         customData.speed_reminder_shown.push(false);
         customData.speed_reminder_kinds.push("");
-        const metadata = mrtResponseMetadata();
+        const metadata = responseMetadata();
         // The order column is appended after session metadata by the exporter.
         for (const key of Object.keys(metadata)) if (key !== "probe_order") customData[key].push(metadata[key]);
       }
@@ -513,14 +549,16 @@ var jsPsych = params.jsPsych;
         if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
           throw new TypeError("MRT export metadata must be an object.");
         }
-        const columns = Object.keys(dataObj);
-        for (const column of columns) {
+        const allColumns = Object.keys(dataObj);
+        const basisColumns = ["basis_display_order", "basis_layout"].filter(column => allColumns.includes(column));
+        const columns = allColumns.filter(column => !basisColumns.includes(column));
+        for (const column of allColumns) {
           if (!Array.isArray(dataObj[column])) {
             throw new TypeError(`MRT export column "${column}" must be an array.`);
           }
         }
         const metadataColumns = Object.keys(metadata);
-        const usedColumns = new Set(columns);
+        const usedColumns = new Set(allColumns);
         for (const reserved of ["row_index", "probe_order"]) {
           if (usedColumns.has(reserved)) throw new Error(`MRT export data cannot contain the reserved column "${reserved}".`);
           usedColumns.add(reserved);
@@ -536,12 +574,13 @@ var jsPsych = params.jsPsych;
           const text = String(value);
           return /[\t\r\n"]/.test(text) ? '"' + text.replace(/"/g, '""') + '"' : text;
         };
-        const header = [...columns, "row_index", ...metadataColumns, "probe_order"];
-        const numRows = columns.reduce((count, column) => Math.max(count, dataObj[column].length), 0);
+        // New basis fields follow the prior complete schema, including session metadata.
+        const header = [...columns, "row_index", ...metadataColumns, "probe_order", ...basisColumns];
+        const numRows = allColumns.reduce((count, column) => Math.max(count, dataObj[column].length), 0);
         const metadataValues = metadataColumns.map(column => metadata[column]);
         const rows = [header.map(cell).join("\t")];
         for (let i = 0; i < numRows; i++) {
-          rows.push([...columns.map(column => dataObj[column][i]), i + 1, ...metadataValues, MRT_PROBE_ORDER].map(cell).join("\t"));
+          rows.push([...columns.map(column => dataObj[column][i]), i + 1, ...metadataValues, MRT_PROBE_ORDER, ...basisColumns.map(column => dataObj[column][i])].map(cell).join("\t"));
         }
         return rows.join("\n") + "\n";
       }
@@ -717,7 +756,7 @@ var jsPsych = params.jsPsych;
         tempConfidence = data.confidence_rating;
         tempConfidenceLabel = data.confidence_label;
         saveThoughtProbeTrial(tempBasis, tempBasisRT, true);
-      });
+      }, { basisOrder });
       practiceCertaintyTrial.data = {
         ...practiceCertaintyTrial.data, ...practiceProbeData, event: "practice_probe_certainty"
       };
@@ -735,7 +774,7 @@ var jsPsych = params.jsPsych;
               ${MRT_FOCUS_RESPONSE_HTML}
             </section>`,
             choices: ["1", "2", "3", "4", "5", "6"],
-            data: { ...practiceProbeData, event: "practice_probe_focus", probe_question: 1, probe_kind: "focus", ...mrtResponseMetadata() },
+            data: { ...practiceProbeData, event: "practice_probe_focus", probe_question: 1, probe_kind: "focus", ...responseMetadata() },
             on_start: trial => {
               practiceProbeAttempt++;
               trial.data = { ...trial.data, practice_attempt: practiceProbeAttempt };
@@ -749,11 +788,11 @@ var jsPsych = params.jsPsych;
             type: jsPsychHtmlKeyboardResponse,
             stimulus: `<section class="mrt-probe-screen mrt-basis-screen">
               <p class="mrt-probe-question">When you chose your task-focus rating, what did you mainly base it on?</p>
-              ${MRT_BASIS_OPTIONS_HTML}
+              ${basisOptionsHtml}
               <p class="mrt-basis-hint">Press C, F, or O to indicate your response.</p>
             </section>`,
             choices: ["c", "f", "o", "C", "F", "O"],
-            data: { ...practiceProbeData, event: "practice_probe_basis", probe_question: 2, probe_kind: "basis", ...mrtResponseMetadata() },
+            data: { ...practiceProbeData, event: "practice_probe_basis", probe_question: 2, probe_kind: "basis", ...responseMetadata() },
             on_start: trial => {
               trial.data = { ...trial.data, practice_attempt: practiceProbeAttempt };
             },
@@ -823,6 +862,7 @@ var jsPsych = params.jsPsych;
               });
             }, {
               instructedResponse: true,
+              basisOrder,
               data: { instructed_response_format: "confidence-options-v1" }
             });
       instructed_response_trial.on_start = function(trial) {
@@ -870,7 +910,7 @@ var jsPsych = params.jsPsych;
               ${MRT_FOCUS_RESPONSE_HTML}
             </section>`,
             choices: ["1", "2", "3", "4", "5", "6"],
-            data: { probe_question: 1, probe_kind: "focus", thought_probe: 1, ...mrtResponseMetadata() },
+            data: { probe_question: 1, probe_kind: "focus", thought_probe: 1, ...responseMetadata() },
             on_finish: function(data) {
               tempPerformance = data.response;
               tempProbeRT1 = (data.rt / 1000).toFixed(3);
@@ -882,11 +922,11 @@ var jsPsych = params.jsPsych;
             type: jsPsychHtmlKeyboardResponse,
             stimulus: `<section class="mrt-probe-screen mrt-basis-screen">
               <p class="mrt-probe-question">When you chose your task-focus rating, what did you mainly base it on?</p>
-              ${MRT_BASIS_OPTIONS_HTML}
+              ${basisOptionsHtml}
               <p class="mrt-basis-hint">Press C, F, or O to indicate your response.</p>
             </section>`,
             choices: ["c", "f", "o", "C", "F", "O"],
-            data: { probe_question: 2, probe_kind: "basis", thought_probe: 1, ...mrtResponseMetadata() },
+            data: { probe_question: 2, probe_kind: "basis", thought_probe: 1, ...responseMetadata() },
             on_finish: data => {
               data.main_basis = { c: "remembered_thoughts", f: "general_feeling", o: "other" }[data.response.toLowerCase()];
               data.probe3_rt = (data.rt / 1000).toFixed(3);
@@ -901,7 +941,7 @@ var jsPsych = params.jsPsych;
             tempConfidence = data.confidence_rating;
             tempConfidenceLabel = data.confidence_label;
             saveThoughtProbeTrial(tempBasis, tempBasisRT);
-          }),
+          }, { basisOrder }),
           // Keep the existing instructed-response check after the three ratings,
           // but only on every 10th probe block.
           {

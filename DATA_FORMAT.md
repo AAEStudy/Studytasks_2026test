@@ -1,6 +1,6 @@
 # FAE data exports and Lee archive audit
 
-Current schema: `fae-export-v2`. Study version: `FAE-2026-10-14-recap-pause`.
+Current schema: `fae-export-v2`. Study version: `FAE-2026-10-14-basis-horizontal`.
 
 The experiment still saves four files per completed browser session: MRT TSV,
 image-practice CSV, calibration CSV, and final-judgment CSV. All have one header
@@ -161,7 +161,7 @@ fractions to their configured lengths.
 | Header | Meaning |
 | --- | --- |
 | export_schema_version | fae-export-v2 |
-| study_version | FAE-2026-10-14-recap-pause |
+| study_version | FAE-2026-10-14-basis-horizontal |
 | session_id | Shared unique ID for this browser run |
 | session_started_at_utc | ISO UTC start time |
 | run_mode | full for 380 calibration comparisons and 35 MRT blocks; otherwise test |
@@ -183,7 +183,8 @@ true and `full_protocol_complete` false. It cannot provide Lee-style full
 calibration ground truth.
 
 MRT's existing column names and task values remain unchanged. Its exporter adds
-`row_index` followed by the shared session fields, then `probe_order`. Missing/sparse array cells
+`row_index` followed by the shared session fields, then `probe_order`,
+`basis_display_order`, and `basis_layout`. Missing/sparse array cells
 are empty; tabs, line breaks, and quotes are escaped. Use `row_index` with
 `session_id` for unique records, because repeating tapping practice can repeat
 legacy trial numbers. Exclude `practice trial` and `practice_probe` rows from
@@ -209,6 +210,23 @@ omission. Each pause still produces a `task = pause` row with its duration in
 `pause_time` seconds. The restored warning about long pauses or more than three
 pauses does not add automatic termination or data exclusion; no duration cutoff
 has been set. Column names and units are unchanged.
+
+From `mrt-probes-v13-basis-horizontal`, the basis options appear in three equal
+horizontal columns, with their keyboard letters below the descriptions.
+At the first MRT builder call, each session is randomly assigned with equal
+probability to memory-first or feeling-first; other remains last. The assignment
+is stored in shared state and retained through practice repeats and every main
+chunk. This provides approximate balance across sessions without enforcing
+equal recruitment counts. C always means remembered thoughts, F means a feeling,
+and O means another source. Wording, scoring, and question order are unchanged.
+
+Two fields are appended after the complete previous MRT TSV schema, preserving
+all prior column positions. `basis_display_order` is
+`remembered_thoughts,general_feeling,other` or
+`general_feeling,remembered_thoughts,other`; `basis_layout` is `horizontal`.
+Both are included on every saved MRT row and the raw three-question probes and
+response checks. These fields let analyses account for assigned visual order.
+Image CSV schemas are unchanged.
 
 Practice and main probes now appear in the order focus, basis, confidence.
 `probe_order` records `focus,basis,confidence`. The legacy RT field names retain

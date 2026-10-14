@@ -18,7 +18,7 @@ function eventTarget() {
   };
 }
 
-function runtime() {
+function runtime({ state: stateOverrides = {}, random } = {}) {
   let now = 0, activeTrial;
   const document = eventTarget(), window = eventTarget(), finished = [];
   window.setTimeout = () => 1;
@@ -35,10 +35,12 @@ function runtime() {
       activeTrial.on_finish({ ...activeTrial.data, ...data });
     }
   };
-  const context = vm.createContext({ document, window, performance: { now: () => now },
+  const math = Object.create(Math);
+  if (random) math.random = random;
+  const context = vm.createContext({ document, window, performance: { now: () => now }, Math: math,
     jsPsychHtmlKeyboardResponse: {}, jsPsychInstructions: {} });
   vm.runInContext(read("js/response-controls.js") + "\n" + read("mrt.js"), context);
-  const state = { mrtCursor: 0, mrtInitialized: false, mrtMainStarted: false, probeBlockCounter: 0, trialNum: 0 };
+  const state = { mrtCursor: 0, mrtInitialized: false, mrtMainStarted: false, probeBlockCounter: 0, trialNum: 0, ...stateOverrides };
   const params = { jsPsych: psych, subjectID: "CHECK", metronomeAudio: {}, _state: state, numBlocks: 35, includeMidBreak: false };
   return { context, state, params, document, window, buttons, finished,
     setTime: value => { now = value; },
@@ -79,6 +81,139 @@ function mainProbe(runtime) {
   return { node, questions: Array.from(node.timeline).filter(item => item.data?.probe_question),
     checkNode: Array.from(node.timeline).find(item => item.timeline?.some(child => child.data?.instructed_response_probe === 1)) };
 }
+
+const basisOptions = {
+  C: "My memory of what I had been thinking about.",
+  F: "A feeling of how focused or unfocused I had been.",
+  O: "Something other than these two."
+};
+
+function renderedBasisColumns(html) {
+  const root = { children: [] }, stack = [root];
+  for (const match of html.matchAll(/<\/?([a-z][\w-]*)\b[^>]*>|([^<]+)/gi)) {
+    if (match[2] !== undefined) stack.at(-1).children.push(match[2]);
+    else if (match[0].startsWith("</")) stack.pop();
+    else {
+      const node = { children: [] };
+      stack.at(-1).children.push(node);
+      if (!["br", "img", "input", "hr", "meta", "link"].includes(match[1].toLowerCase())) stack.push(node);
+    }
+  }
+  const text = node => typeof node === "string" ? node : node.children.map(text).join(" ").replace(/\s+/g, " ").trim();
+  const visit = node => typeof node === "string" ? [] : [node, ...node.children.flatMap(visit)];
+  for (const parent of visit(root)) {
+    const columns = parent.children.filter(child => typeof child !== "string").map(child => {
+      const content = text(child);
+      const key = Object.keys(basisOptions).find(letter => content.includes(basisOptions[letter]) && new RegExp(`(?:\\[${letter}\\]|\\b${letter}\\b)`).test(content));
+      return key ? { key, content } : null;
+    }).filter(Boolean);
+    if (columns.length === 3 && new Set(columns.map(column => column.key)).size === 3) return columns;
+  }
+  assert.fail("basis responses must form three semantic option columns");
+}
+
+function assertBasisRendering(trial, order) {
+  const live = start(trial);
+  const html = typeof live.stimulus === "function" ? live.stimulus() : live.stimulus;
+  const columns = renderedBasisColumns(html);
+  assert.deepEqual(columns.map(column => column.key), order === "memory_first" ? ["C", "F", "O"] : ["F", "C", "O"]);
+  for (const { key, content } of columns) {
+    const keyIndex = content.search(new RegExp(`(?:\\[${key}\\]|\\b${key}\\b)`));
+    assert.ok(content.indexOf(basisOptions[key]) < keyIndex, "the unchanged option text precedes its response letter");
+  }
+  assert.equal(live.data.basis_display_order, order === "memory_first"
+    ? "remembered_thoughts,general_feeling,other" : "general_feeling,remembered_thoughts,other");
+  assert.equal(live.data.basis_layout, "horizontal");
+  return live;
+}
+
+for (const order of ["memory_first", "feeling_first"]) {
+  test(`${order}: option columns and C/F/O meanings persist through practice repeats and main chunks`, () => {
+    const run = runtime({ state: { mrtBasisOrder: order }, random: () => order === "memory_first" ? 0.99 : 0.01 });
+    const practice = run.context.buildMRTPractice(run.params);
+    const practiceQuestions = flatten(practice.timeline).filter(trial => trial.data?.practice_probe === 1 && trial.data.probe_question);
+    const basis = practiceQuestions.find(trial => trial.data.probe_kind === "basis");
+    const expectedOrder = assertBasisRendering(basis, order).data.basis_display_order;
+    answer(practiceQuestions, { basis: "C" });
+    const prompt = flatten(practice.timeline).find(trial => Array.isArray(trial.choices) && trial.choices.includes("arrowleft"));
+    prompt.on_finish({ response: "arrowleft" });
+    assertBasisRendering(basis, order);
+    answer(practiceQuestions, { basis: "f" });
+    prompt.on_finish({ response: "arrowright" });
+
+    for (const key of ["O", "c"]) {
+      const main = mainProbe(run);
+      main.node.timeline[0].on_start();
+      const mainBasis = main.questions.find(trial => trial.data.probe_kind === "basis");
+      assertBasisRendering(mainBasis, order);
+      const raw = answer(main.questions, { basis: key }).find(row => row.probe_kind === "basis");
+      assert.equal(raw.basis_display_order, expectedOrder);
+      assert.equal(raw.basis_layout, "horizontal");
+    }
+    assert.equal(run.state.mrtBasisOrder, order);
+    const probes = [...rows(run.state, "practice_probe"), ...rows(run.state, "thought_probe")];
+    assert.deepEqual(probes.map(row => row.main_basis), ["remembered_thoughts", "general_feeling", "other", "remembered_thoughts"]);
+    assert.ok(probes.every(row => row.basis_display_order === expectedOrder && row.basis_layout === "horizontal"));
+    assert.equal(run.state.customData.basis_display_order.length, run.state.customData.subject.length);
+    assert.equal(run.state.customData.basis_layout.length, run.state.customData.subject.length);
+
+    const main = mainProbe(run);
+    run.state.probeBlockCounter = 10;
+    const check = main.checkNode.timeline[0], live = start(check);
+    check.on_finish({ ...live.data, response: live.data.instructed_response_expected, rt: 715 });
+    assert.equal(rows(run.state, "instructed_response")[0].basis_display_order, expectedOrder);
+    const table = run.state.convertToCSV(run.state.customData, { session_id: "session-a" }).trimEnd().split("\n").map(line => line.split("\t"));
+    const [header] = table;
+    assert.deepEqual(header.slice(0, 10), ["subject", "trial", "task", "trial_num", "RT_from_metronome", "omission", "performance_rating", "probe1_rt", "probe2_rt", "confidence_rating"]);
+    assert.deepEqual(header.slice(-4), ["session_id", "probe_order", "basis_display_order", "basis_layout"]);
+    assert.equal(table.length, run.state.customData.subject.length + 1);
+    assert.ok(table.slice(1).every(row => row.length === header.length));
+    assert.ok(table.slice(1).every(row => row[header.indexOf("basis_display_order")] === expectedOrder && row[header.indexOf("basis_layout")] === "horizontal"));
+  });
+}
+
+test("basis order is drawn once per new state and never reassigned for repeats or existing states", () => {
+  let draws = 0;
+  const run = runtime({ random: () => [0.1, 0.9][draws++] });
+  run.context.buildMRTPractice(run.params);
+  assert.equal(draws, 1);
+  assert.equal(run.state.mrtBasisOrder, "memory_first");
+  run.context.buildMRTPractice(run.params);
+  run.context.buildMRTChunk({ ...run.params, numBlocks: 0, blocksToTake: 0 });
+  assert.equal(draws, 1, "existing session builders cannot draw another basis assignment");
+  const otherState = {};
+  run.context.buildMRTPractice({ ...run.params, _state: otherState });
+  assert.equal(draws, 2);
+  assert.equal(otherState.mrtBasisOrder, "feeling_first");
+
+  for (const order of ["memory_first", "feeling_first"]) {
+    const preset = runtime({ state: { mrtBasisOrder: order }, random: () => { throw new Error("Preset basis order cannot be randomized"); } });
+    preset.context.buildMRTPractice(preset.params);
+    preset.context.buildMRTChunk({ ...preset.params, numBlocks: 0, blocksToTake: 0 });
+    assert.equal(preset.state.mrtBasisOrder, order);
+  }
+});
+
+test("new basis metadata preserves row alignment when resuming older caller-provided aggregate data", () => {
+  const run = runtime({ state: { mrtBasisOrder: "feeling_first" } });
+  const built = run.context.buildMRTPractice(run.params);
+  const practiceQuestions = flatten(built.timeline).filter(trial => trial.data?.practice_probe === 1 && trial.data.probe_question);
+  answer(practiceQuestions, { basis: "C" });
+  delete run.state.customData.basis_display_order;
+  delete run.state.customData.basis_layout;
+  const main = mainProbe(run);
+  main.node.timeline[0].on_start();
+  answer(main.questions, { basis: "F" });
+  assert.deepEqual(Array.from(run.state.customData.basis_display_order), ["NA", "general_feeling,remembered_thoughts,other"]);
+  assert.deepEqual(Array.from(run.state.customData.basis_layout), ["NA", "horizontal"]);
+  const table = run.state.convertToCSV(run.state.customData).trimEnd().split("\n").map(line => line.split("\t"));
+  const [header] = table;
+  assert.equal(table[1][header.indexOf("main_basis")], "remembered_thoughts");
+  assert.equal(table[1][header.indexOf("basis_display_order")], "NA");
+  assert.equal(table[2][header.indexOf("main_basis")], "general_feeling");
+  assert.equal(table[2][header.indexOf("basis_display_order")], "general_feeling,remembered_thoughts,other");
+  assert.ok(table.slice(1).every(row => row.length === header.length));
+});
 
 test("practice presents focus, basis, confidence and saves only complete, separately labeled probes", () => {
   const run = runtime();
