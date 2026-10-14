@@ -1,7 +1,22 @@
 const MRT_CERTAINTY_MIN_MS = 600;
 const MRT_CERTAINTY_MIN_MOVE_PX = 20;
-const MRT_RESPONSE_FORMAT_VERSION = "mrt-probes-v3";
+const MRT_RESPONSE_FORMAT_VERSION = "mrt-probes-v4";
 const MRT_CERTAINTY_LABELS = ["Very uncertain", "Somewhat uncertain", "Somewhat certain", "Very certain"];
+const MRT_FOCUS_SCALE_HTML = `
+  <div class="mrt-focus-anchors">
+    <span>Least on Task</span><span>Middle</span><span>Most on Task</span>
+  </div>
+  <div class="mrt-focus-values">
+    <span>[1]</span><span>[2]</span><span>[3]</span>
+    <span class="mrt-focus-divider" aria-hidden="true"></span>
+    <span>[4]</span><span>[5]</span><span>[6]</span>
+  </div>`;
+const MRT_BASIS_OPTIONS_HTML = `
+  <ul class="mrt-basis-options">
+    <li>[C] My memory of what I had been thinking about.</li>
+    <li>[F] A feeling of how focused or unfocused I had been.</li>
+    <li>[O] Something other than these two.</li>
+  </ul>`;
 
 // Track the cursor across screens, before a certainty question takes its baseline.
 let mrtCursorPosition = null;
@@ -27,13 +42,12 @@ function buildMrtCertaintyTrial(jsPsych, onResponse) {
   let cleanup = () => {};
   return {
     type: jsPsychHtmlKeyboardResponse,
-    stimulus: `<section class="mrt-certainty-screen">
-      <h2>Certainty</h2>
-      <p>How certain are you that the task-focus rating you just provided is accurate?</p>
+    stimulus: `<section class="mrt-probe-screen mrt-certainty-screen">
+      <p class="mrt-probe-question">How certain are you that the task-focus rating you just provided is accurate?</p>
       <div class="mrt-certainty-options">
         ${MRT_CERTAINTY_LABELS.map((label, index) => `<button type="button" class="mrt-certainty-option" data-value="${index + 1}" aria-disabled="true" tabindex="-1">${label}</button>`).join("")}
       </div>
-      <p class="mrt-certainty-hint">Move the mouse to your answer and click.</p>
+      <p class="mrt-probe-hint">Move the mouse to your answer and click.</p>
     </section>`,
     choices: "NO_KEYS",
     data: { probe_question: 2, thought_probe: 1, ...mrtResponseMetadata() },
@@ -140,6 +154,9 @@ var jsPsych = params.jsPsych;
           pause_time: [],
           break_time: [],
           instructed_response: [],
+          instructed_response_expected: [],
+          instructed_response_correct: [],
+          instructed_response_rt_ms: [],
           confidence_label: [],
           main_basis: [],
           probe3_rt: [],
@@ -362,10 +379,13 @@ var jsPsych = params.jsPsych;
       }
 
       // ---------------- Data Saving Functions ----------------
-      function saveProbeMetadata(label = "NA", basis = "NA", basisRT = "NA") {
+      function saveProbeMetadata(label = "NA", basis = "NA", basisRT = "NA", check = {}) {
         customData.confidence_label.push(label);
         customData.main_basis.push(basis);
         customData.probe3_rt.push(basisRT);
+        customData.instructed_response_expected.push(check.expected ?? "NA");
+        customData.instructed_response_correct.push(check.correct ?? "NA");
+        customData.instructed_response_rt_ms.push(check.rt ?? "NA");
         customData.probe1_fast.push(basis === "NA" ? "NA" : tempFocusFast);
         customData.probe3_fast.push(basis === "NA" ? "NA" : tempBasisFast);
         customData.speed_reminder_shown.push(false);
@@ -606,45 +626,31 @@ var jsPsych = params.jsPsych;
         timeline: [practice_block, practice_prompt],
         loop_function: function() { return repeatPractice; }
       };
+      let instructedResponseExpected = "c";
       let instructed_response_trial = {
             type: jsPsychHtmlKeyboardResponse,
-            stimulus: `
-                <div style="text-align: center; color: white;">
-                  <!-- Wrap the question text in the same container -->
-                  <div style="display: inline-block; white-space: nowrap; width: 1050px; text-align: left; margin-bottom: 50px;">
-                    <p style="font-size: 20pt; margin: 0;">
-                      4. Select option six so we can ensure the quality of your responses.
-                      </p>
-                  </div>
-                  <!-- The response options container -->
-                  <div style="display: inline-block; width: 1050px; margin-top: 100px;">
-                      <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
-                          <div style="width: 150px; text-align: center; font-size:20pt;">Least on Task</div>
-                          <div style="width: 225px;"></div>
-                          <div style="width: 150px; text-align: center; font-size:20pt; display: flex; align-items: center; justify-content: center">Middle</div>
-                          <div style="width: 225px;"></div>
-                          <div style="width: 150px; text-align: center; font-size:20pt;">Most on Task</div>
-                      </div>
-                      <div style="display: flex; justify-content: space-evenly; align-items: center;">
-                          <div style="width: 150px; text-align: center; font-size:20pt;">[1]</div>
-                          <div style="width: 150px; text-align: center; font-size:20pt;">[2]</div>
-                          <div style="width: 150px; text-align: center; font-size:20pt;">[3]</div>
-                          <div style="width: 71.5px; text-align: center; font-size:20pt;"></div>
-                          <div style="width: 2px; height: 25px; background-color: white;"></div>
-                          <div style="width: 71.5px; text-align: center; font-size:20pt;"></div>
-                          <div style="width: 150px; text-align: center; font-size:20pt;">[4]</div>
-                          <div style="width: 150px; text-align: center; font-size:20pt;">[5]</div>
-                          <div style="width: 150px; text-align: center; font-size:20pt;">[6]</div>
-                      </div>
-                      <div style="display: flex; justify-content: center; margin-top: 150px;">
-                          <div style="width: 600px; text-align: center; font-size:16pt;">
-                            Please choose the instructed option so that we can ensure quality responses are being given. Press a key (1–6) for your response.</div>
-                      </div>
-                  </div>
-                </div>`,
-            choices: ["1", "2", "3", "4", "5", "6"],
-            data: { instructed_response_probe: 1 },
+            stimulus: "",
+            choices: ["c", "f", "o", "C", "F", "O"],
+            data: { instructed_response_probe: 1, instructed_response_format: "basis-options-v1" },
+            on_start: function(trial) {
+              const checkIndex = Math.max(0, Math.floor(params._state.probeBlockCounter / 10) - 1);
+              instructedResponseExpected = ["c", "f", "o"][checkIndex % 3];
+              const label = {
+                c: "My memory of what I had been thinking about.",
+                f: "A feeling of how focused or unfocused I had been.",
+                o: "Something other than these two."
+              }[instructedResponseExpected];
+              trial.stimulus = `<section class="mrt-probe-screen mrt-basis-screen mrt-instructed-response-screen">
+                <p class="mrt-probe-question">For this item, please select “${label}”</p>
+                ${MRT_BASIS_OPTIONS_HTML}
+              </section>`;
+              trial.data = { ...trial.data, instructed_response_expected: instructedResponseExpected };
+            },
             on_finish: function(data) {
+              const response = typeof data.response === "string" ? data.response.toLowerCase() : "";
+              data.instructed_response_expected = instructedResponseExpected;
+              data.instructed_response_correct = response === instructedResponseExpected;
+              data.instructed_response_rt_ms = data.rt;
               
               // 1) Increment your trial counter
 	              const trialNum = ++params._state.trialNum;
@@ -666,8 +672,12 @@ var jsPsych = params.jsPsych;
               customData.pause_time.push("NA");
 
               // The key line: push the actual response
-              customData.instructed_response.push(data.response);
-              saveProbeMetadata();
+              customData.instructed_response.push(response);
+              saveProbeMetadata("NA", "NA", "NA", {
+                expected: instructedResponseExpected,
+                correct: data.instructed_response_correct,
+                rt: data.rt
+              });
             }
           };
       let main_miss_node = {
@@ -699,41 +709,11 @@ var jsPsych = params.jsPsych;
 	          },
           {
             type: jsPsychHtmlKeyboardResponse,
-            stimulus: `
-                <div style="text-align: center; color: white;">
-                  <!-- Wrap the question text in the same container -->
-                  <div style="display: inline-block; width: 1050px; text-align: left; margin-bottom: 50px;">
-                    <p style="font-size: 20pt; margin: 0;">
-                      1. How on task were you just before this screen appeared?
-                    </p>
-                  </div>
-                  <!-- The response options container -->
-                  <div style="display: inline-block; width: 1050px;">
-                      <div style="display: flex; justify-content: space-between; margin-bottom: 5px; margin-top: 100px;">
-                          <div style="width: 150px; text-align: center; font-size:20pt;">Least on Task</div>
-                          <div style="width: 225px;"></div>
-                          <div style="width: 150px; text-align: center; font-size:20pt; display: flex; align-items: center; justify-content: center">Middle</div>
-                          <div style="width: 225px;"></div>
-                          <div style="width: 150px; text-align: center; font-size:20pt;">Most on Task</div>
-                      </div>
-                      <div style="display: flex; justify-content: space-evenly; align-items: center;">
-                          <div style="width: 150px; text-align: center; font-size:20pt;">[1]</div>
-                          <div style="width: 150px; text-align: center; font-size:20pt;">[2]</div>
-                          <div style="width: 150px; text-align: center; font-size:20pt;">[3]</div>
-                          <div style="width: 71.5px; text-align: center; font-size:20pt;"></div>
-                          <div style="width: 2px; height: 25px; background-color: white;"></div>
-                          <div style="width: 71.5px; text-align: center; font-size:20pt;"></div>
-                          <div style="width: 150px; text-align: center; font-size:20pt;">[4]</div>
-                          <div style="width: 150px; text-align: center; font-size:20pt;">[5]</div>
-                          <div style="width: 150px; text-align: center; font-size:20pt;">[6]</div>
-                      </div>
-                      <div style="display: flex; justify-content: center; margin-top: 150px;">
-                          <div style="width: 600px; text-align: center; font-size:16pt;">
-                              Indicate how focused you were on clicking along to the metronome just before we asked. Press a key (1–6) for your response.
-                            </div>
-                      </div>
-                  </div>
-                </div>`,
+            stimulus: `<section class="mrt-probe-screen mrt-focus-screen">
+              <p class="mrt-probe-question">How on task were you just before this screen appeared?</p>
+              ${MRT_FOCUS_SCALE_HTML}
+              <p class="mrt-probe-hint">Indicate how focused you were on clicking along to the metronome just before we asked. Press a key (1–6) for your response.</p>
+            </section>`,
             choices: ["1", "2", "3", "4", "5", "6"],
             data: { probe_question: 1, thought_probe: 1, ...mrtResponseMetadata() },
             on_finish: function(data) {
@@ -750,14 +730,9 @@ var jsPsych = params.jsPsych;
           }),
           {
             type: jsPsychHtmlKeyboardResponse,
-            stimulus: `<section class="mrt-basis-screen">
-              <h2>Main basis</h2>
-              <p>When you chose your task-focus rating, what did you mainly base it on?</p>
-              <ul class="mrt-basis-options">
-                <li>[C] My memory of what I had been thinking about.</li>
-                <li>[F] A feeling of how focused or unfocused I had been.</li>
-                <li>[O] Something other than these two.</li>
-              </ul>
+            stimulus: `<section class="mrt-probe-screen mrt-basis-screen">
+              <p class="mrt-probe-question">When you chose your task-focus rating, what did you mainly base it on?</p>
+              ${MRT_BASIS_OPTIONS_HTML}
             </section>`,
             choices: ["c", "f", "o", "C", "F", "O"],
             data: { probe_question: 3, thought_probe: 1, ...mrtResponseMetadata() },
