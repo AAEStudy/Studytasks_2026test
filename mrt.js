@@ -1,6 +1,6 @@
 const MRT_CERTAINTY_MIN_MS = 600;
 const MRT_CERTAINTY_MIN_MOVE_PX = 20;
-const MRT_RESPONSE_FORMAT_VERSION = "mrt-probes-v7-short-confidence";
+const MRT_RESPONSE_FORMAT_VERSION = "mrt-probes-v8-confidence";
 const MRT_CERTAINTY_LABELS = ["Very unconfident", "Unconfident", "Confident", "Very confident"];
 const MRT_FOCUS_RESPONSE_HTML = `
 <div style="display: inline-block; width: 1050px;">
@@ -61,7 +61,7 @@ function buildMrtCertaintyTrial(jsPsych, onResponse) {
   return {
     type: jsPsychHtmlKeyboardResponse,
     stimulus: `<section class="mrt-probe-screen mrt-certainty-screen">
-      <p class="mrt-probe-question">How confident are you in the task-focus rating you just provided?</p>
+      <p class="mrt-probe-question">How confident are you in the task-focus rating you provided?</p>
       <div class="mrt-certainty-options">
         ${MRT_CERTAINTY_LABELS.map((label, index) => `<button type="button" class="mrt-certainty-option" data-value="${index + 1}" aria-disabled="true" tabindex="-1"><span class="confidence-option-number">${index + 1}</span><span class="confidence-option-label">${label}</span></button>`).join("")}
       </div>

@@ -3,7 +3,7 @@
 //
 // Data saving uses DataPipe and local downloads; Qualtrics redirect is optional.
 
-import { initMetaEmotion, buildMetaEmotionPractice, buildMetaEmotionCalibrationChunk, buildMetaEmotionReview, buildMetaEmotionMetaJ, exportMetaEmotion } from "./metaemotion.js?v=20261014-data-v2";
+import { initMetaEmotion, buildMetaEmotionPractice, buildMetaEmotionCalibrationChunk, buildMetaEmotionReview, buildMetaEmotionMetaJ, exportMetaEmotion } from "./metaemotion.js?v=20261014-image-instructions";
 
 // ===================== QUICK TEST CONTROLS =====================
 // Full study: const META_CALIBRATION_COMPARISONS = "ALL";

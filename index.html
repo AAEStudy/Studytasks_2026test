@@ -147,6 +147,7 @@
     .mrt-instructions ul { margin: 0 0 16px; padding-left: 28px; }
     .mrt-instructions li { margin: 0 0 16px; }
     .emotion-instructions .emotion-instructions-continue { margin: 28px 0 0; text-align: center; }
+    .emotion-instructions .emotion-instructions-lock-status { min-height: 1.5em; margin: 28px 0 0; font-size: 18px; text-align: center; }
     .speed-reminder { max-width: 850px; margin: 24px auto; font-size: 22px; line-height: 1.5; }
     @media (max-width: 600px) {
       .mrt-probe-screen, .emotion-response-screen {
@@ -206,8 +207,8 @@
 
 <!-- MRT builder (adapted from your original runMetronomeTask) -->
 <script src="js/response-controls.js"></script>
-<script src="mrt.js?v=20261014-short-confidence"></script>
+<script src="mrt.js?v=20261014-confidence-simple"></script>
 
 <!-- Main orchestration (ES module) -->
-<script type="module" src="main.js?v=20261014-data-v2"></script>
+<script type="module" src="main.js?v=20261014-image-instructions"></script>
 </html>

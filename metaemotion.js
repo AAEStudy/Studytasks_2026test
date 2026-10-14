@@ -134,19 +134,122 @@ function instructionScreen(title, body, tag, action = "begin") {
   };
 }
 
-const META_RESPONSE_FORMAT_VERSION = "emotion-mouse-replay-v2-confidence";
+const META_RESPONSE_FORMAT_VERSION = "emotion-mouse-replay-v3-timed-instructions";
 const REPLAY_INSTRUCTIONS = `If you miss a picture or need another look, click <b>View again</b> in the bottom-right corner before submitting your judgment. You may use it up to ${STUDY_RESPONSE_SETTINGS.imageReplayLimit} times in total across the picture tasks, including practice. The button shows how many uses remain.`;
 const EMOTION_GUIDANCE = `<p>Base your answer on the positive emotion you actually felt, not on how positive or negative the picture itself seems. There is no right or wrong answer; respond intuitively.</p>`;
 
-function comparisonInstructions(tag, practice = false) {
-  return instructionScreen(practice ? "Picture comparisons: practice" : "Picture comparisons", `
-    <p>You will see two pictures, one after the other. After both have appeared, choose which picture elicited stronger <b>positive emotion</b>.</p>
-    <p>Press <b>1</b> for the <b>first</b> picture or <b>2</b> for the <b>second</b> picture.</p>
-    ${EMOTION_GUIDANCE}
-    ${practice ? '<p>During the main trials, sets of image comparisons will alternate with the Metronome Task.</p>' : ''}
-    <h3>Viewing pictures again</h3>
-    <p>${REPLAY_INSTRUCTIONS} For a comparison, both pictures are shown again in the same order; this counts as one use.</p>
-  `, tag);
+function comparisonInstructions(tag, practice = false, jsPsych) {
+  const minimumViewMs = [20000, 10000];
+  const page = (index, title, body) => `<section class="emotion-instructions" data-image-comparison-page="${index}">
+    <h2>${title}</h2>
+    ${body}
+    <p class="emotion-instructions-lock-status" data-image-comparison-lock-status role="status" aria-live="polite"></p>
+  </section>`;
+  const pages = [
+    page(0, practice ? "Picture comparisons: practice" : "Picture comparisons", `
+      <p>You will see two pictures, one after the other. After both have appeared, choose which picture elicited stronger <b>positive emotion</b>.</p>
+      <p>Press <b>1</b> for the <b>first</b> picture or <b>2</b> for the <b>second</b> picture.</p>
+      ${EMOTION_GUIDANCE}
+      ${practice ? '<p>During the main trials, sets of image comparisons will alternate with the Metronome Task.</p>' : ''}
+    `),
+    page(1, "Viewing pictures again", `
+      <p>Only use <b>View again</b> when you absolutely need to: you did not see a picture or cannot remember what one of the pictures was, so you cannot accurately make the comparison without seeing the pictures again.</p>
+      <p>Click <b>View again</b> in the bottom-right corner before submitting your comparison. Both pictures are shown again in the same order; this counts as one use.</p>
+      <p>You may use it up to <b>${STUDY_RESPONSE_SETTINGS.imageReplayLimit} times in total</b> across the picture tasks, including practice. The button shows how many uses remain.</p>
+    `)
+  ];
+  let cleanupInstructionLock = null;
+  return {
+    type: jsPsychInstructions,
+    pages,
+    show_clickable_nav: true,
+    show_page_number: true,
+    allow_keys: false,
+    allow_backward: true,
+    button_label_previous: "PREVIOUS",
+    button_label_next: "NEXT",
+    data: { task: "metaemotion", event: tag, instruction_min_view_ms: minimumViewMs },
+    on_load: () => {
+      if (cleanupInstructionLock) cleanupInstructionLock();
+      const display = jsPsych.getDisplayElement();
+      const viewedMs = pages.map(() => 0);
+      let activePage = null;
+      let activeSince = 0;
+      let unlockTimeout = null;
+      let countdownInterval = null;
+      let finished = false;
+      const clearTimers = () => {
+        if (unlockTimeout !== null) window.clearTimeout(unlockTimeout);
+        if (countdownInterval !== null) window.clearInterval(countdownInterval);
+        unlockTimeout = null;
+        countdownInterval = null;
+      };
+      const remainingMs = () => activePage === null ? 0 : Math.max(0,
+        minimumViewMs[activePage] - viewedMs[activePage] - (performance.now() - activeSince));
+      const refresh = () => {
+        if (finished || activePage === null) return;
+        const remaining = remainingMs();
+        const next = display.querySelector("#jspsych-instructions-next");
+        if (next) {
+          next.disabled = remaining > 0;
+          const label = activePage === pages.length - 1 ? "BEGIN PRACTICE >" : "NEXT >";
+          if (next.textContent !== label) next.textContent = label;
+        }
+        const status = display.querySelector("[data-image-comparison-lock-status]");
+        const seconds = Math.ceil(remaining / 1000);
+        const text = remaining > 0
+          ? `Please read this page. You may continue in ${seconds} second${seconds === 1 ? "" : "s"}.`
+          : (activePage === pages.length - 1 ? "You may now begin practice." : "You may now continue.");
+        if (status && status.textContent !== text) status.textContent = text;
+        if (remaining === 0) clearTimers();
+      };
+      const synchronizePage = () => {
+        if (finished) return;
+        const section = display.querySelector("[data-image-comparison-page]");
+        if (!section) return;
+        const index = Number(section.dataset.imageComparisonPage);
+        if (!Number.isInteger(index) || index < 0 || index >= pages.length) return;
+        if (index !== activePage) {
+          const now = performance.now();
+          if (activePage !== null) viewedMs[activePage] += now - activeSince;
+          activePage = index;
+          activeSince = now;
+          clearTimers();
+          const remaining = remainingMs();
+          if (remaining > 0) {
+            countdownInterval = window.setInterval(refresh, 250);
+            unlockTimeout = window.setTimeout(refresh, Math.ceil(remaining));
+          }
+        }
+        refresh();
+      };
+      // Check the current DOM synchronously before the plugin handles a click.
+      // This also catches a rapid second NEXT click before its observer callback.
+      const guardForwardClick = event => {
+        const next = event.target.closest?.("#jspsych-instructions-next");
+        if (!next || !display.contains(next)) return;
+        synchronizePage();
+        if (activePage === null || remainingMs() > 0) {
+          event.preventDefault();
+          event.stopImmediatePropagation();
+        }
+      };
+      display.addEventListener("click", guardForwardClick, true);
+      const observer = new MutationObserver(synchronizePage);
+      observer.observe(display, { childList: true, subtree: true });
+      synchronizePage();
+      cleanupInstructionLock = () => {
+        finished = true;
+        clearTimers();
+        observer.disconnect();
+        display.removeEventListener("click", guardForwardClick, true);
+        cleanupInstructionLock = null;
+      };
+    },
+    on_finish: () => {
+      if (cleanupInstructionLock) cleanupInstructionLock();
+    }
+  };
 }
 
 function responseMetadata() {
@@ -365,7 +468,7 @@ export async function initMetaEmotion(params){
 
 export function buildMetaEmotionPractice(state){
   const tl = [];
-  tl.push(comparisonInstructions("practice_instructions", true));
+  tl.push(comparisonInstructions("practice_instructions", true, state.jsPsych));
   for(const t of state.practicePairs){
     tl.push(twoIFC(state, state.jsPsych, META_PATHS.practice + t.p1, META_PATHS.practice + t.p2, t.cat, "practice", 0));
   }

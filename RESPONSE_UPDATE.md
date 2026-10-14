@@ -1,5 +1,22 @@
 # Judgment Controls and Image Replays
 
+## Image-comparison instruction pages (October 14, 2026)
+
+Before picture practice, the comparison instructions are split into two pages.
+The main directions require 20 seconds of viewing; the separate "Viewing
+pictures again" page requires 10 seconds. Next/Start is disabled until the
+required viewing time is reached, keyboard navigation cannot skip a page, and
+the pages do not advance automatically. Previous pages can be reread.
+
+The replay explanation now states that View again should be used only when
+absolutely needed because a missed or forgotten picture prevents an accurate
+comparison. The shared allowance remains five replay requests across picture
+practice, calibration, and final judgments. Stimulus timing and response codes
+are unchanged. Image response format: `emotion-mouse-replay-v3-timed-instructions`.
+
+The MRT confidence prompt is now: "How confident are you in the task-focus
+rating you provided?" Practice and main probes use this same wording.
+
 **Current export format:** the October 14 `fae-export-v2` update supersedes the
 headerless format described in the historical sections below. See
 [DATA_FORMAT.md](DATA_FORMAT.md) for exact Lee-derived headers, session fields,
