@@ -1,6 +1,6 @@
 # FAE data exports and Lee archive audit
 
-Current schema: `fae-export-v2`. Study version: `FAE-2026-10-14-audio-setup`.
+Current schema: `fae-export-v2`. Study version: `FAE-2026-10-14-final-instructions`.
 
 The experiment still saves four files per completed browser session: MRT TSV,
 image-practice CSV, calibration CSV, and final-judgment CSV. All have one header
@@ -76,6 +76,9 @@ On final rows, `fast_response` and `fast_streak` concern confidence;
 the type1-specific fields blank. Fast responses are flagged, not removed.
 Replay requests are saved as properly quoted JSON. The allowance remains five
 requests across picture practice, calibration, and final judgments together.
+Final judgments additionally allow at most two of those requests; no allowance
+is replenished at the phase transition. The final button shows the smaller of
+the remaining overall allowance and the remaining final-phase allowance.
 
 The existing order-provenance fields follow:
 
@@ -104,12 +107,55 @@ New image fields then follow:
 | confidence_label | Final confidence's verbal label; empty for comparison rows |
 | response_time_s | Explicit alias of the legacy systemtime value |
 
+The following fields are appended after the existing session columns. Original
+column positions remain intact:
+
+| Header | Meaning |
+| --- | --- |
+| final_replay_limit | Final-phase cap: 2, within the overall limit of 5 |
+| final_replays_remaining | Remaining final-phase allowance; the button also respects the overall remaining allowance |
+| certainty_min_ms | Minimum confidence-screen time: 600 ms |
+| certainty_min_move_px | Required fresh cursor displacement: 100 CSS px |
+| certainty_max_move_px | Observed maximum displacement from the cursor's position at confidence-screen onset |
+| final_check_id | One-based final-phase instructed-response check ID |
+| final_check_after_trial | Completed final trial preceding the check: 20, 40, or 60 |
+| final_check_presentation | confidence_options; the third question uses the confidence response format |
+| final_check_expected / final_check_response | Requested and selected confidence-format response, coded 1–4 |
+| final_check_correct | Whether the instructed response was followed |
+| final_check_rt_ms | Response-check RT in milliseconds |
+| final_check_min_ms / final_check_min_move_px | Check's response requirements: 600 ms and 100 CSS px |
+| final_check_max_move_px | Observed cursor displacement on the check screen |
+| cal_check_id | One-based calibration instructed-response check ID |
+| cal_check_after_trial | Completed main comparison preceding the check, counting across chunks |
+| cal_check_expected / cal_check_response | Requested and selected 1/2 key response |
+| cal_check_correct | Whether the calibration response instruction was followed |
+| cal_check_rt_ms | Calibration response-check RT in milliseconds |
+
+The `final_check_*` fields are populated only on the scored final row immediately
+preceding the check. The original emotion/confidence responses remain intact.
+Final checks have their own raw event, `meta_instructed_response`, and are not
+additional scored image judgments. The final CSV therefore retains 60 actual
+judgments.
+Confidence movement fields concern the actual confidence answer; check movement
+has separate fields. Comparison rows leave final-confidence/check fields blank.
+
+Image-phase checkpoints are spaced by phase length: one per quarter of
+calibration and one per third of final judgments. Positions round upward and
+continue across chunks. Calibration checks are second questions after main
+comparisons and have their own raw event,
+`calibration_instructed_response`. The six `cal_check_*` fields are populated on
+the actual comparison row immediately preceding each check. Practice has no
+checks. A full run has 4 calibration checks (after comparisons 95, 190, 285,
+380) and 3 final checks (after judgments 20, 40, 60), while retaining 380 actual
+calibration rows and 60 actual final rows. Shortened test phases scale the same
+fractions to their configured lengths.
+
 ## Session fields shared by all four files
 
 | Header | Meaning |
 | --- | --- |
 | export_schema_version | fae-export-v2 |
-| study_version | FAE-2026-10-14-audio-setup |
+| study_version | FAE-2026-10-14-final-instructions |
 | session_id | Shared unique ID for this browser run |
 | session_started_at_utc | ISO UTC start time |
 | run_mode | full for 380 calibration comparisons and 35 MRT blocks; otherwise test |

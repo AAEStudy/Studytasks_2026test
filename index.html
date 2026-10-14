@@ -162,6 +162,9 @@
     .mrt-instructions li { margin: 0 0 16px; }
     .emotion-instructions .emotion-instructions-continue { margin: 28px 0 0; text-align: center; }
     .emotion-instructions .emotion-instructions-lock-status { min-height: 1.5em; margin: 28px 0 0; font-size: 18px; text-align: center; }
+    .emotion-final-instructions { font-size: 24px; }
+    .emotion-final-instructions h2 { font-size: 32px; }
+    .emotion-final-instructions u { text-underline-offset: 3px; }
     .speed-reminder { max-width: 850px; margin: 24px auto; font-size: 22px; line-height: 1.5; }
     @media (max-width: 600px) {
       .mrt-probe-screen, .emotion-response-screen {
@@ -173,6 +176,8 @@
       .emotion-instructions, .mrt-instructions, .mrt-sound-check-screen { width: calc(100vw - 32px); font-size: 18px; }
       .emotion-instructions h2, .mrt-instructions h2, .mrt-sound-check-screen h2 { font-size: 24px; }
       .emotion-instructions h3 { font-size: 20px; }
+      .emotion-final-instructions { font-size: 20px; }
+      .emotion-final-instructions h2 { font-size: 26px; }
     }
     @media (max-width: 360px) {
       .mrt-certainty-option, .emotion-response-options.four .study-response-button { font-size: 13px; }
@@ -220,9 +225,9 @@
 <body></body>
 
 <!-- MRT builder (adapted from your original runMetronomeTask) -->
-<script src="js/response-controls.js"></script>
-<script src="mrt.js?v=20261014-focus-basis-confidence"></script>
+<script src="js/response-controls.js?v=20261014-confidence-100"></script>
+<script src="mrt.js?v=20261014-recap-wording"></script>
 
 <!-- Main orchestration (ES module) -->
-<script type="module" src="main.js?v=20261014-audio-setup"></script>
+<script type="module" src="main.js?v=20261014-final-instructions"></script>
 </html>

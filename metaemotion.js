@@ -134,30 +134,20 @@ function instructionScreen(title, body, tag, action = "begin") {
   };
 }
 
-const META_RESPONSE_FORMAT_VERSION = "emotion-mouse-replay-v3-timed-instructions";
-const REPLAY_INSTRUCTIONS = `If you miss a picture or need another look, click <b>View again</b> in the bottom-right corner before submitting your judgment. You may use it up to ${STUDY_RESPONSE_SETTINGS.imageReplayLimit} times in total across the picture tasks, including practice. The button shows how many uses remain.`;
-const EMOTION_GUIDANCE = `<p>Base your answer on the positive emotion you actually felt, not on how positive or negative the picture itself seems. There is no right or wrong answer; respond intuitively.</p>`;
+const META_RESPONSE_FORMAT_VERSION = "emotion-mouse-replay-v5-final-checks";
+const FINAL_IMAGE_REPLAY_LIMIT = STUDY_RESPONSE_SETTINGS.finalImageReplayLimit ?? 2;
+const META_CONFIDENCE_GATES = Object.freeze({ minMs: 600, minMovePx: 100 });
+const COMPARISON_OPTIONS_HTML = `<p>Press <b>1</b> for the FIRST picture, <b>2</b> for the SECOND picture.</p>`;
+const EMOTION_GUIDANCE = `<p>Focus on <b>your own emotional feeling</b>, not on whether the picture itself seems positive or negative. There is no correct answer; respond intuitively.</p>`;
 
-function comparisonInstructions(tag, practice = false, jsPsych) {
-  const minimumViewMs = [20000, 10000];
-  const page = (index, title, body) => `<section class="emotion-instructions" data-image-comparison-page="${index}">
+function timedInstructionPages(pageDefinitions, minimumViewMs, tag, jsPsych, {
+  pageClass = "", lastButtonLabel = "BEGIN PRACTICE >", lastReadyMessage = "You may now begin practice."
+} = {}) {
+  const pages = pageDefinitions.map(({ title, body }, index) => `<section class="emotion-instructions${pageClass ? ` ${pageClass}` : ''}" data-emotion-instruction-page="${index}">
     <h2>${title}</h2>
     ${body}
-    <p class="emotion-instructions-lock-status" data-image-comparison-lock-status role="status" aria-live="polite"></p>
-  </section>`;
-  const pages = [
-    page(0, practice ? "Picture comparisons: practice" : "Picture comparisons", `
-      <p>You will see two pictures, one after the other. After both have appeared, choose which picture elicited stronger <b>positive emotion</b>.</p>
-      <p>Press <b>1</b> for the <b>first</b> picture or <b>2</b> for the <b>second</b> picture.</p>
-      ${EMOTION_GUIDANCE}
-      ${practice ? '<p>During the main trials, sets of image comparisons will alternate with the Metronome Task.</p>' : ''}
-    `),
-    page(1, "Viewing pictures again", `
-      <p>Only use <b>View again</b> when you absolutely need to: you did not see a picture or cannot remember what one of the pictures was, so you cannot accurately make the comparison without seeing the pictures again.</p>
-      <p>Click <b>View again</b> in the bottom-right corner before submitting your comparison. Both pictures are shown again in the same order; this counts as one use.</p>
-      <p>You may use it up to <b>${STUDY_RESPONSE_SETTINGS.imageReplayLimit} times in total</b> across the picture tasks, including practice. The button shows how many uses remain.</p>
-    `)
-  ];
+    <p class="emotion-instructions-lock-status" data-emotion-instruction-lock-status role="status" aria-live="polite"></p>
+  </section>`);
   let cleanupInstructionLock = null;
   return {
     type: jsPsychInstructions,
@@ -192,22 +182,22 @@ function comparisonInstructions(tag, practice = false, jsPsych) {
         const next = display.querySelector("#jspsych-instructions-next");
         if (next) {
           next.disabled = remaining > 0;
-          const label = activePage === pages.length - 1 ? "BEGIN PRACTICE >" : "NEXT >";
+          const label = activePage === pages.length - 1 ? lastButtonLabel : "NEXT >";
           if (next.textContent !== label) next.textContent = label;
         }
-        const status = display.querySelector("[data-image-comparison-lock-status]");
+        const status = display.querySelector("[data-emotion-instruction-lock-status]");
         const seconds = Math.ceil(remaining / 1000);
         const text = remaining > 0
           ? `Please read this page. You may continue in ${seconds} second${seconds === 1 ? "" : "s"}.`
-          : (activePage === pages.length - 1 ? "You may now begin practice." : "You may now continue.");
+          : (activePage === pages.length - 1 ? lastReadyMessage : "You may now continue.");
         if (status && status.textContent !== text) status.textContent = text;
         if (remaining === 0) clearTimers();
       };
       const synchronizePage = () => {
         if (finished) return;
-        const section = display.querySelector("[data-image-comparison-page]");
+        const section = display.querySelector("[data-emotion-instruction-page]");
         if (!section) return;
-        const index = Number(section.dataset.imageComparisonPage);
+        const index = Number(section.dataset.emotionInstructionPage);
         if (!Number.isInteger(index) || index < 0 || index >= pages.length) return;
         if (index !== activePage) {
           const now = performance.now();
@@ -252,14 +242,68 @@ function comparisonInstructions(tag, practice = false, jsPsych) {
   };
 }
 
+function comparisonInstructions(tag, practice = false, jsPsych) {
+  return timedInstructionPages([
+    {
+      title: practice ? "Picture comparisons: practice" : "Picture comparisons",
+      body: `<p>You will see two images, one after the other. After both images have appeared, choose which image made you feel <b>more positive</b>.</p>
+        <p>Press <b>1</b> for the <b>first</b> image or <b>2</b> for the <b>second</b> image.</p>
+        ${EMOTION_GUIDANCE}
+        ${practice ? '<p>During the main trials, sets of image comparisons will alternate with the Metronome Task.</p>' : ''}
+        <p>Occasionally, an additional response instruction will follow your comparison. Follow the instruction shown.</p>`
+    },
+    {
+      title: "Viewing pictures again",
+      body: `<p>If you need to view the images again, click the <b>View again</b> button in the bottom-right corner before submitting your comparison. Both images are shown again in the same order; this counts as one use.</p>
+        <p>Only use the <b>View again</b> option when you absolutely need to: you did not see an image or cannot remember what one of the images was, so you cannot accurately make the comparison without seeing the images again.</p>
+        <p>You may use it up to <b>${STUDY_RESPONSE_SETTINGS.imageReplayLimit} times in total</b> across the picture tasks, including practice. The button shows how many uses remain.</p>`
+    }
+  ], [20000, 10000], tag, jsPsych);
+}
+
+function finalJudgmentInstructions(jsPsych) {
+  return timedInstructionPages([
+    {
+      title: "<u>Picture judgments: a new variation</u>",
+      body: `<p>In this part, you will see <b><u>one picture at a time</u></b>.</p>
+        <p>Judge whether the positive emotional feeling the picture brings you is <b><u>higher</u></b> or <b><u>lower</u></b> than the <b><u>middle (median)</u></b> of <b>your own positive emotional responses</b> to the pictures in the <b>whole set</b>.</p>
+        <p>Click <b>Higher</b> or <b>Lower</b> to answer.</p>
+        ${EMOTION_GUIDANCE}`
+    },
+    {
+      title: "<u>Confidence in your judgment</u>",
+      body: `<p>After each judgment, you will be asked: <b>How confident are you in the decision you just made?</b></p>
+        <p>Click one answer: <b>1 = Very unconfident</b>, <b>2 = Unconfident</b>, <b>3 = Confident</b>, or <b>4 = Very confident</b>.</p>
+        <p>Please try to use <b>all the ratings</b>. <b>Move the mouse a noticeable distance, then click your answer.</b> Each response requires a new mouse movement, and the choices become available after a brief pause.</p>
+        <p>Occasionally, a <b>third question</b> will ask you to select a particular response. Follow the instruction shown.</p>`
+    },
+    {
+      title: "<u>Viewing again and picture review</u>",
+      body: `<p>If you need to view the current picture again, click the <b>View again</b> button in the bottom-right corner <b>before submitting your judgment</b>. Only use the <b>View again</b> option when you missed or cannot remember the picture and cannot accurately judge without seeing it again.</p>
+        <p>Up to <b><u>${FINAL_IMAGE_REPLAY_LIMIT} uses in this part</u></b>, within the <b>${STUDY_RESPONSE_SETTINGS.imageReplayLimit}-use total</b> across all picture tasks, including practice. The button shows your remaining uses. Viewing again is <b>unavailable during confidence</b>.</p>
+        <p><b>Next, review the whole picture set</b>, one picture at a time. <b>No response is needed.</b> During the review, keep the positive emotional feelings the set brings you in mind. Judgments begin <b>immediately after the review</b>.</p>`
+    }
+  ], [20000, 10000, 15000], "meta_instructions", jsPsych, {
+    pageClass: "emotion-final-instructions",
+    lastButtonLabel: "BEGIN PICTURE REVIEW >",
+    lastReadyMessage: "You may now begin the picture review."
+  });
+}
+
 function responseMetadata() {
   return {
     response_format_version: META_RESPONSE_FORMAT_VERSION,
     fast_threshold_ms: STUDY_RESPONSE_SETTINGS.fastThresholdMs,
     fast_streak_length: STUDY_RESPONSE_SETTINGS.fastStreakLength,
     speed_reminder_limit: STUDY_RESPONSE_SETTINGS.maxSpeedReminders,
-    replay_limit: STUDY_RESPONSE_SETTINGS.imageReplayLimit
+    replay_limit: STUDY_RESPONSE_SETTINGS.imageReplayLimit,
+    final_replay_limit: FINAL_IMAGE_REPLAY_LIMIT
   };
+}
+
+function phaseCheckpoints(total, count) {
+  if (total <= 0 || count <= 0) return [];
+  return [...new Set(Array.from({ length: count }, (_, index) => Math.ceil(total * (index + 1) / count)))].filter(position => position > 0);
 }
 
 function button(value, label) {
@@ -270,6 +314,10 @@ function button(value, label) {
 // extra scored responses, and confidence cannot request a replay.
 function withReplay(state, jsPsych, pictures, responseTrial, phase, chunk) {
   const trialId = ++state.nextImageTrialId;
+  if (state.finalReplaysRemaining === undefined) state.finalReplaysRemaining = FINAL_IMAGE_REPLAY_LIMIT;
+  const replaysAvailable = () => phase === "meta"
+    ? Math.min(state.replaysRemaining, state.finalReplaysRemaining)
+    : state.replaysRemaining;
   let firstOnset = null;
   let screenOnset = null;
   let replayRequested = false;
@@ -288,14 +336,15 @@ function withReplay(state, jsPsych, pictures, responseTrial, phase, chunk) {
     css_classes: ["emotion-replay-trial"],
     data: { ...responseTrial.data, image_trial_id: trialId, ...responseMetadata() },
     on_start: current => {
-      current.stimulus = responseTrial.stimulus + `<div><button type="button" class="study-response-button replay-button" data-study-response="replay" tabindex="-1" ${state.replaysRemaining ? '' : 'disabled'}>View again (${state.replaysRemaining} remaining)</button></div>`;
+      const remaining = replaysAvailable();
+      current.stimulus = responseTrial.stimulus + `<div><button type="button" class="study-response-button replay-button" data-study-response="replay" tabindex="-1" ${remaining > 0 ? '' : 'disabled'}>View again (${remaining} remaining)</button></div>`;
     },
     on_load: () => {
       screenOnset = performance.now();
       if (firstOnset === null) firstOnset = screenOnset;
       finished = false;
       cleanup = StudyResponses.freshClicks(jsPsych.getDisplayElement(), response => {
-        if (finished || (response === 'replay' && state.replaysRemaining <= 0)) return;
+        if (finished || (response === 'replay' && replaysAvailable() <= 0)) return;
         finished = true;
         cleanup();
         StudyResponses.finishMouseTrial(jsPsych, { response, rt: performance.now() - screenOnset });
@@ -306,10 +355,13 @@ function withReplay(state, jsPsych, pictures, responseTrial, phase, chunk) {
       replayRequested = data.response === 'replay';
       if (replayRequested) {
         state.replaysRemaining--;
+        if (phase === "meta") state.finalReplaysRemaining--;
         const request = {
           request_index: requests.length + 1, image_trial_id: trialId,
           elapsed_ms: performance.now() - firstOnset, screen_rt_ms: data.rt,
-          remaining: state.replaysRemaining, pictures: [...pictures]
+          remaining: state.replaysRemaining, pictures: [...pictures],
+          final_replay_limit: FINAL_IMAGE_REPLAY_LIMIT,
+          final_replays_remaining: state.finalReplaysRemaining
         };
         requests.push(request);
         data.event = 'replay_request';
@@ -319,6 +371,7 @@ function withReplay(state, jsPsych, pictures, responseTrial, phase, chunk) {
         Object.assign(data, {
           replay_count: requests.length, replay_requests: requests.slice(),
           replays_remaining: state.replaysRemaining,
+          final_replays_remaining: state.finalReplaysRemaining,
           total_response_rt_s: (performance.now() - firstOnset) / 1000,
           final_response_rt_s: data.rt / 1000,
           speed_reminder_shown: false, speed_reminder_kinds: ''
@@ -330,14 +383,14 @@ function withReplay(state, jsPsych, pictures, responseTrial, phase, chunk) {
   return { timeline: [...viewing, trial], loop_function: () => replayRequested };
 }
 
-function twoIFC(state, jsPsych, pic1, pic2, cat, phase, chunk, schedule = {}) {
+function twoIFC(state, jsPsych, pic1, pic2, cat, phase, chunk, schedule = {}, check = null) {
   const pic1_id = picIdFromFilename(pic1), pic2_id = picIdFromFilename(pic2);
   let result;
   const responseTrial = {
     type: jsPsychHtmlKeyboardResponse,
     stimulus: `<section class="emotion-response-screen">
-      <p>Which picture elicited stronger <b>positive emotion</b>?</p>
-      <p>Press <b>1</b> for the FIRST picture, <b>2</b> for the SECOND picture.</p>
+      <p>Does the first or the second image bring you a more positive emotional feeling?</p>
+      ${COMPARISON_OPTIONS_HTML}
     </section>`,
     choices: META_KEYS.choice12,
     data: { task:"metaemotion", event:"2ifc", phase, chunk, pic1, pic2, pic1_id, pic2_id, cat, ...state.scheduleMetadata, schedule_stage: phase, ...schedule },
@@ -350,8 +403,37 @@ function twoIFC(state, jsPsych, pic1, pic2, cat, phase, chunk, schedule = {}) {
       result = data;
     }
   };
+  const checkTrials = [];
+  if (check) {
+    const expected = String((check.id - 1) % 2 + 1);
+    checkTrials.push({
+      type: jsPsychHtmlKeyboardResponse,
+      stimulus: `<section class="emotion-response-screen">
+        <p>For this item, please select the ${expected === "1" ? "FIRST" : "SECOND"} picture.</p>
+        ${COMPARISON_OPTIONS_HTML}
+      </section>`,
+      choices: META_KEYS.choice12,
+      data: {
+        task: "metaemotion", event: "calibration_instructed_response", phase: "calibration",
+        chunk, check_id: check.id, after_calibration_trial: check.afterTrial,
+        expected_response: expected, ...responseMetadata()
+      },
+      on_finish: data => {
+        data.instructed_response_correct = String(data.response ?? "") === expected;
+        Object.assign(result, {
+          cal_check_id: check.id,
+          cal_check_after_trial: check.afterTrial,
+          cal_check_expected: expected,
+          cal_check_response: data.response,
+          cal_check_correct: data.instructed_response_correct,
+          cal_check_rt_ms: data.rt
+        });
+      }
+    });
+  }
   return { timeline: [
     withReplay(state, jsPsych, [pic1, pic2], responseTrial, phase, chunk),
+    ...checkTrials,
     StudyResponses.reminderTrial(jsPsych, kinds => {
       result.speed_reminder_shown = true;
       result.speed_reminder_kinds = kinds.join('|');
@@ -360,7 +442,7 @@ function twoIFC(state, jsPsych, pic1, pic2, cat, phase, chunk, schedule = {}) {
   ] };
 }
 
-function metaTrial(state, jsPsych, pic, chunk, schedule) {
+function metaTrial(state, jsPsych, pic, chunk, schedule, check = null) {
   const pic_id = picIdFromFilename(pic);
   let judgment;
   let confidence;
@@ -386,9 +468,9 @@ function metaTrial(state, jsPsych, pic, chunk, schedule) {
     stimulus: `<section class="emotion-response-screen emotion-confidence-screen">
       <p>How confident are you in the decision you just made?</p>
       <div class="emotion-response-options four">${META_CONFIDENCE_LABELS.map((label, i) => button(i + 1, `<span class="confidence-option-number">${i + 1}</span><span class="confidence-option-label">${label}</span>`)).join('')}</div>
-      <p>Click your answer.</p>
+      <p>Move the mouse a noticeable distance, then click your answer.</p>
     </section>`,
-    data: {task:"metaemotion", event:"meta_conf", chunk, pic, pic_id, ...responseMetadata()},
+    data: {task:"metaemotion", event:"meta_conf", chunk, pic, pic_id, ...responseMetadata(), certainty_min_ms: META_CONFIDENCE_GATES.minMs, certainty_min_move_px: META_CONFIDENCE_GATES.minMovePx},
     on_finish: data => {
       data.conf_key = data.response;
       data.confidence_label = confidenceLabel(data.response);
@@ -398,7 +480,7 @@ function metaTrial(state, jsPsych, pic, chunk, schedule) {
       data.type1_rt_s = judgment.type1_rt_s;
       data.type1_time_s = judgment.type1_time_s;
       for (const key of SCHEDULE_FIELDS) if (judgment[key] !== undefined) data[key] = judgment[key];
-      for (const key of ['image_trial_id', 'replay_count', 'replay_requests', 'replays_remaining', 'total_response_rt_s', 'final_response_rt_s']) data[key] = judgment[key];
+      for (const key of ['image_trial_id', 'replay_count', 'replay_requests', 'replays_remaining', 'final_replay_limit', 'final_replays_remaining', 'total_response_rt_s', 'final_response_rt_s']) data[key] = judgment[key];
       data.type1_fast = judgment.fast_response;
       data.type1_fast_streak = judgment.fast_streak;
       Object.assign(data, StudyResponses.recordSpeed('emotion_confidence', data.rt));
@@ -406,10 +488,43 @@ function metaTrial(state, jsPsych, pic, chunk, schedule) {
       data.speed_reminder_kinds = '';
       confidence = data;
     }
-  });
+  }, META_CONFIDENCE_GATES);
+  const checkTrials = [];
+  if (check) {
+    const expected = String((check.id - 1) % META_CONFIDENCE_LABELS.length + 1);
+    checkTrials.push(StudyResponses.mouseTrial(jsPsych, {
+      stimulus: `<section class="emotion-response-screen emotion-confidence-screen emotion-instructed-response-screen">
+        <p>For this item, please select “${META_CONFIDENCE_LABELS[Number(expected) - 1]}”.</p>
+        <div class="emotion-response-options four">${META_CONFIDENCE_LABELS.map((label, i) => button(i + 1, `<span class="confidence-option-number">${i + 1}</span><span class="confidence-option-label">${label}</span>`)).join('')}</div>
+        <p>Move the mouse a noticeable distance, then click your answer.</p>
+      </section>`,
+      data: {
+        task: "metaemotion", event: "meta_instructed_response", check_id: check.id,
+        after_meta_trial: check.afterTrial, presentation: "confidence_options", expected_response: expected,
+        ...responseMetadata(), certainty_min_ms: META_CONFIDENCE_GATES.minMs,
+        certainty_min_move_px: META_CONFIDENCE_GATES.minMovePx
+      },
+      on_finish: data => {
+        data.instructed_response_correct = String(data.response ?? "") === expected;
+        Object.assign(confidence, {
+          final_check_id: check.id,
+          final_check_after_trial: check.afterTrial,
+          final_check_presentation: "confidence_options",
+          final_check_expected: expected,
+          final_check_response: data.response,
+          final_check_correct: data.instructed_response_correct,
+          final_check_rt_ms: data.rt,
+          final_check_min_ms: data.certainty_min_ms,
+          final_check_min_move_px: data.certainty_min_move_px,
+          final_check_max_move_px: data.certainty_max_move_px
+        });
+      }
+    }, META_CONFIDENCE_GATES));
+  }
   return { timeline: [
     withReplay(state, jsPsych, [pic], responseTrial, "meta", chunk),
     confidenceTrial,
+    ...checkTrials,
     StudyResponses.reminderTrial(jsPsych, kinds => {
       confidence.speed_reminder_shown = true;
       confidence.speed_reminder_kinds = kinds.join('|');
@@ -450,6 +565,7 @@ export async function initMetaEmotion(params){
     jsPsych: params.jsPsych,
     nextImageTrialId: 0,
     replaysRemaining: STUDY_RESPONSE_SETTINGS.imageReplayLimit,
+    finalReplaysRemaining: FINAL_IMAGE_REPLAY_LIMIT,
     practicePairs,
     sourceCalibrationPairs,
     sourceReviewList,
@@ -482,10 +598,14 @@ export function buildMetaEmotionCalibrationChunk(state, nTrials, chunkIndex){
   const target = state.calibrationTargetCount ?? state.calibrationPairs.length;
   const end = Math.min(target, start + nTrials);
   if (start >= end) return tl;
+  const checkpoints = phaseCheckpoints(target, 4);
 
   for(let i=start; i<end; i++){
     const t = state.calibrationPairs[i];
-    tl.push(twoIFC(state, state.jsPsych, META_PATHS.formal + t.p1, META_PATHS.formal + t.p2, t.cat, "calibration", chunkIndex, t.schedule));
+    const afterTrial = i + 1;
+    const checkpointIndex = checkpoints.indexOf(afterTrial);
+    const check = checkpointIndex >= 0 ? { id: checkpointIndex + 1, afterTrial } : null;
+    tl.push(twoIFC(state, state.jsPsych, META_PATHS.formal + t.p1, META_PATHS.formal + t.p2, t.cat, "calibration", chunkIndex, t.schedule, check));
   }
   state.caliCursor = end;
   return tl;
@@ -493,10 +613,8 @@ export function buildMetaEmotionCalibrationChunk(state, nTrials, chunkIndex){
 
 export function buildMetaEmotionReview(state, nItems=20){
   const tl = [];
-  tl.push(instructionScreen("Picture review", `
-    <p>Next, you will see the picture set again, one picture at a time. No response is needed during this review.</p>
-    <p>In the next part, you will judge each picture relative to the middle (median) of the set in terms of the positive emotion it elicited.</p>
-  `, "review_instructions"));
+  // Teach the whole new variation before reviewing its reference picture set.
+  tl.push(finalJudgmentInstructions(state.jsPsych));
   // Review keeps its own source list and does not depend on completing calibration.
   state.reviewPresented = state.reviewSchedule.slice(0, nItems).map(row => row.pic);
   state.reviewSchedule.slice(0,nItems).forEach(row=>{
@@ -507,20 +625,16 @@ export function buildMetaEmotionReview(state, nItems=20){
 
 export function buildMetaEmotionMetaJ(state, nTrials=60){
   const tl = [];
-  tl.push(instructionScreen("Picture judgments", `
-    <p>You will see one picture at a time. Judge whether it elicited <b>higher</b> or <b>lower</b> positive emotion than the middle (median) of the whole picture set.</p>
-    <p>Click <b>Higher</b> or <b>Lower</b> to answer.</p>
-    ${EMOTION_GUIDANCE}
-    <h3>Confidence</h3>
-    <p>After each judgment, rate how confident you are in your decision: <b>1 = Very unconfident</b>, <b>2 = Unconfident</b>, <b>3 = Confident</b>, or <b>4 = Very confident</b>. Please try to use all the ratings. Click your answer. Each answer requires a new mouse click.</p>
-    <h3>Viewing pictures again</h3>
-    <p>${REPLAY_INSTRUCTIONS} Here, only the current picture is shown again. This option is not available during the confidence rating.</p>
-  `, "meta_instructions"));
   // Final judgments retain their own stimulus multiset in shortened calibration tests.
-  state.metaSchedule.slice(0,nTrials).forEach((row, i)=>{
+  const judgments = state.metaSchedule.slice(0,nTrials);
+  const checkpoints = phaseCheckpoints(judgments.length, 3);
+  judgments.forEach((row, i)=>{
+    const afterTrial = i + 1;
+    const checkpointIndex = checkpoints.indexOf(afterTrial);
+    const check = checkpointIndex >= 0 ? { id: checkpointIndex + 1, afterTrial } : null;
     tl.push(metaTrial(state, state.jsPsych, META_PATHS.formal + row.pic, 0, {
       ...row.schedule, schedule_review_order: i === 0 ? JSON.stringify(state.reviewPresented || []) : ""
-    }));
+    }, check));
   });
   return tl;
 }
@@ -545,7 +659,16 @@ export function exportMetaEmotion(state, jsPsych, metadata = {}){
   ];
   const stableHeaders = ["row_index", "phase", "chunk", "trial_index", "time_elapsed_ms", "pair_key", "confidence_label", "response_time_s"];
   const metadataKeys = Object.keys(metadata);
-  const headers = core => [...core, ...detailHeaders, ...stableHeaders, ...metadataKeys];
+  const finalControlHeaders = [
+    "final_replay_limit", "final_replays_remaining",
+    "certainty_min_ms", "certainty_min_move_px", "certainty_max_move_px",
+    "final_check_id", "final_check_after_trial", "final_check_presentation",
+    "final_check_expected", "final_check_response", "final_check_correct",
+    "final_check_rt_ms", "final_check_min_ms", "final_check_min_move_px", "final_check_max_move_px",
+    "cal_check_id", "cal_check_after_trial", "cal_check_expected", "cal_check_response", "cal_check_correct", "cal_check_rt_ms"
+  ];
+  // Add new controls after all established columns, including session metadata.
+  const headers = core => [...core, ...detailHeaders, ...stableHeaders, ...metadataKeys, ...finalControlHeaders];
   const schemas = { practice: headers(comparisonHeaders), calibration: headers(comparisonHeaders), meta: headers(metaHeaders) };
   const rowsToCSV = (schema, rows) => {
     if (new Set(schema).size !== schema.length) throw new Error("Meta-emotion CSV headers must be unique; metadata keys must not duplicate existing fields.");
@@ -576,19 +699,20 @@ export function exportMetaEmotion(state, jsPsych, metadata = {}){
     phase === "meta" ? (d.type1_time_s ?? d.conf_time_s) : d.timestamp_s,
     ...metadataKeys.map(key => metadata[key])
   ];
+  const finalControlDetails = d => finalControlHeaders.map(key => d[key] ?? "");
   const comparisonRows = phase => jsPsych.data.get().filter({task:"metaemotion", event:"2ifc", phase}).values()
     .map((d, i) => [
       subj, d.timestamp_s, d.pic1_id, d.pic2_id,
       // The source's optional pair code is not an emotion category.
       Number.isFinite(d.cat) ? d.cat : "", d.choice_key, d.chosen_id, d.rt_s,
-      ...details(d), ...stableDetails(d, i, phase)
+      ...details(d), ...stableDetails(d, i, phase), ...finalControlDetails(d)
     ]);
   const prac = comparisonRows("practice");
   const cali = comparisonRows("calibration");
   const meta = jsPsych.data.get().filter({task:"metaemotion", event:"meta_conf"}).values()
     .map((d, i) => [
       subj, d.type1_time_s ?? d.conf_time_s, d.pic_id, d.type1_key, d.type1_rt_s, d.conf_key, d.conf_rt_s,
-      ...details(d), ...stableDetails(d, i, "meta")
+      ...details(d), ...stableDetails(d, i, "meta"), ...finalControlDetails(d)
     ]);
 
   return {

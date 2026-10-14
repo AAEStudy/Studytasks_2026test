@@ -1,5 +1,46 @@
 # Judgment Controls and Image Replays
 
+## Final instructions, confidence movement, and response checks (October 14, 2026)
+
+The comparison wording now closely follows the original Chinese instructions:
+choose which image produced a more positive emotional feeling, respond
+intuitively, and judge your own feeling rather than the image's apparent
+positive or negative nature. The authorized alternation with the Metronome
+Task remains in place.
+
+Final-judgment instructions now appear before the passive picture-set review.
+Three pages introduce the new variation and subjective median, explain
+confidence, and describe replay/review. Their minimum viewing times are
+20, 10, and 15 seconds. Large text and selective bold/underlined emphasis mark
+the key directions. After the review, the first final trial begins directly.
+
+Every confidence screen and confidence-format response check now requires
+600 ms plus at least 100 CSS pixels of displacement from the cursor's position
+at that screen's onset. A fresh primary mouse press must occur after both
+requirements are met. Earlier movement, a stationary click, a held press, and
+keyboard-generated clicks cannot submit the response. Normal image-comparison
+key responses and Higher/Lower mouse judgments retain their response methods.
+
+The final phase allows at most two replay requests, within the overall shared
+five-request allowance. Its button displays the actual usable count. Each
+request still repeats only the current image and cannot be made during
+confidence.
+
+Instructed-response checks are distributed by the size of each image phase.
+Final judgments have a third question at each third of the phase: after pairs
+20, 40, and 60, using the same four confidence buttons and a rotating requested
+answer. Calibration has a second question at each quarter: after comparisons
+95, 190, 285, and 380 in the full protocol, using the same 1/2 keyboard options
+and alternating requested answers. Checkpoints scale to the configured phase
+length, round upward, and continue across task chunks. Practice does not advance
+them. No extra image or blank presentation is inserted.
+
+These are separate check records. Their results are appended to the preceding
+scored row in the corresponding CSV, so the exports retain 60 actual picture
+judgment/confidence rows and the configured number of actual comparisons. The new
+fields are documented in [DATA_FORMAT.md](DATA_FORMAT.md). This section supersedes
+earlier descriptions of final-confidence movement and replay limits below.
+
 ## Metronome probe order and response check (October 14, 2026)
 
 Both practice and main probes now ask for task focus, then the main basis for
@@ -12,7 +53,7 @@ The occasional instructed-response check follows confidence and uses its same
 four mouse options and layout. Its target rotates among Very unconfident,
 Unconfident, Confident, and Very confident. The check is separate from the
 participant's confidence judgment and does not replace it. It retains the
-confidence screen's 600-ms minimum and 20-pixel cursor-movement requirement.
+confidence screen's 600-ms minimum and 100-pixel cursor-movement requirement.
 
 Each three-question probe is saved after confidence, once all three responses
 are available. Existing reaction-time columns retain their original meanings;
@@ -23,7 +64,7 @@ response scale is unchanged.
 
 The opening screen now offers a metronome sample for checking device volume,
 with a Play/Stop button and instructions to choose a clearly audible level that
-remains comfortable over an extended session. It uses the actual task sound and
+is comfortable to listen to for a while. It uses the actual task sound and
 the same 1300-ms spacing, plays only on request, and can be replayed. The sample
 stops after five beats, when stopped manually, on leaving the page, or when the
 tab loses focus/is hidden. No sample continues into the instruction pages.
@@ -48,7 +89,9 @@ The replay explanation now states that View again should be used only when
 absolutely needed because a missed or forgotten picture prevents an accurate
 comparison. The shared allowance remains five replay requests across picture
 practice, calibration, and final judgments. Stimulus timing and response codes
-are unchanged. Image response format: `emotion-mouse-replay-v3-timed-instructions`.
+are unchanged. Image response format at that update:
+`emotion-mouse-replay-v3-timed-instructions`; the current update uses
+`emotion-mouse-replay-v5-final-checks`.
 
 The MRT confidence prompt is now: "How confident are you in the task-focus
 rating you provided?" Practice and main probes use this same wording.
@@ -109,10 +152,11 @@ methods, timing, replay limits, or export columns change in this follow-up.
 - Instructions refer to the same period as the task-focus question. Memories can
   concern task-related or unrelated thoughts; a feeling need not involve recalled thoughts.
 - MRT certainty retains its four verbal choices and both activation conditions:
-  600 ms elapsed and 20 px displacement from the cursor position at question onset.
+  600 ms elapsed and 100 px displacement from the cursor position at question onset.
 - Final emotion judgments use mouse clicks for Higher/Lower and for confidence
   1-4. Their original meaning, confidence endpoints, and response codes remain.
-  Neither final emotion question imposes a minimum RT or movement requirement.
+  Final confidence requires 600 ms and 100 px of fresh cursor displacement.
+  The Higher/Lower judgment has no minimum RT or movement requirement.
 - Final emotion answers require a fresh primary mouse click. Keyboard-generated
   clicks and the second click of a double-click cannot submit another answer.
 - Practice and calibration comparisons still use number keys 1 and 2.
@@ -126,7 +170,8 @@ const STUDY_RESPONSE_SETTINGS = Object.freeze({
   fastThresholdMs: 250,
   fastStreakLength: 3,
   maxSpeedReminders: 2,
-  imageReplayLimit: 5
+  imageReplayLimit: 5,
+  finalImageReplayLimit: 2
 });
 ```
 

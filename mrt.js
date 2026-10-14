@@ -1,6 +1,6 @@
 const MRT_CERTAINTY_MIN_MS = 600;
-const MRT_CERTAINTY_MIN_MOVE_PX = 20;
-const MRT_RESPONSE_FORMAT_VERSION = "mrt-probes-v9-focus-basis-confidence";
+const MRT_CERTAINTY_MIN_MOVE_PX = 100;
+const MRT_RESPONSE_FORMAT_VERSION = "mrt-probes-v10-movement-100";
 const MRT_PROBE_ORDER = "focus,basis,confidence";
 const MRT_CERTAINTY_LABELS = ["Very unconfident", "Unconfident", "Confident", "Very confident"];
 const MRT_FOCUS_RESPONSE_HTML = `
@@ -64,7 +64,7 @@ function mrtConfidenceStimulus(question, extraClass = "") {
       <div class="mrt-certainty-options">
         ${MRT_CERTAINTY_LABELS.map((label, index) => `<button type="button" class="mrt-certainty-option" data-value="${index + 1}" aria-disabled="true" tabindex="-1"><span class="confidence-option-number">${index + 1}</span><span class="confidence-option-label">${label}</span></button>`).join("")}
       </div>
-      <p class="mrt-certainty-hint">Move the mouse to your answer and click.</p>
+      <p class="mrt-certainty-hint">Move the mouse a noticeable distance, then click your answer.</p>
     </section>`;
 }
 
@@ -254,8 +254,8 @@ var jsPsych = params.jsPsych;
         </section>`,
         `<section class="mrt-instructions">
           <h2><u>Metronome Task</u></h2>
-          <p>Finally, indicate how confident you are that your focus rating accurately described how focused you were just before the pause.</p>
-          <p>Move the mouse and click one answer:</p>
+          <p>Finally, you will indicate how confident you are that your focus rating accurately described how focused you were just before the pause.</p>
+          <p>You will move the mouse and click one answer:</p>
           <ul>
             <li><strong>1 = Very unconfident</strong></li>
             <li><strong>2 = Unconfident</strong></li>
@@ -976,7 +976,7 @@ var jsPsych = params.jsPsych;
       
       
       // ---- Build MRT blocks so we can interleave with meta-emotion calibration ----
-      // Each block ends with task focus, confidence, main basis, and the existing resume routine.
+      // Each block ends with task focus, main basis, confidence, and the existing resume routine.
       let mrt_blocks = [];
       const numBlocks = (params.numBlocks !== undefined) ? params.numBlocks : 6; //35 was original number
       const baseTime = 40;

@@ -3,7 +3,7 @@
 //
 // Data saving uses DataPipe and local downloads; Qualtrics redirect is optional.
 
-import { initMetaEmotion, buildMetaEmotionPractice, buildMetaEmotionCalibrationChunk, buildMetaEmotionReview, buildMetaEmotionMetaJ, exportMetaEmotion } from "./metaemotion.js?v=20261014-image-instructions";
+import { initMetaEmotion, buildMetaEmotionPractice, buildMetaEmotionCalibrationChunk, buildMetaEmotionReview, buildMetaEmotionMetaJ, exportMetaEmotion } from "./metaemotion.js?v=20261014-final-instructions";
 
 // ===================== QUICK TEST CONTROLS =====================
 // Full study: const META_CALIBRATION_COMPARISONS = "ALL";
@@ -50,7 +50,7 @@ function safeFilenamePart(value){
 }
 
 const EXPORT_SCHEMA_VERSION = "fae-export-v2";
-const STUDY_VERSION = "FAE-2026-10-14-audio-setup";
+const STUDY_VERSION = "FAE-2026-10-14-final-instructions";
 const SESSION_STARTED_AT_UTC = new Date().toISOString();
 const SESSION_STAMP = sessionStamp(new Date(SESSION_STARTED_AT_UTC));
 const SESSION_RANDOM_ID = globalThis.crypto?.randomUUID?.()
@@ -189,7 +189,7 @@ function metronomeSoundCheckTrial(){
     stimulus: `<section class="mrt-sound-check-screen">
       <h2>Metronome Task</h2>
       <p>Before you begin, check your volume.</p>
-      <p>Start with your device volume low. Play the sample, then choose a volume that is clearly audible and comfortable to listen to over a long session.</p>
+      <p>Play the metronome sound, then adjust your volume to a level that is clearly audible and comfortable to listen to for a while.</p>
       <button type="button" id="metronome-sound-check-toggle" class="mrt-sound-check-button" aria-pressed="false">Play metronome sound</button>
       <p id="metronome-sound-check-status" class="mrt-sound-check-status" role="status" aria-live="polite">The sample plays five sounds and then stops. You can play it again if needed.</p>
       <p class="mrt-sound-check-continue">Press <b>SPACE</b> to begin the instructions.</p>

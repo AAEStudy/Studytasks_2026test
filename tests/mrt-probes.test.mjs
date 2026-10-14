@@ -193,7 +193,7 @@ test("a check requires new mouse movement and a new eligible press after confide
   questions[1].on_finish({ response: "F", rt: 902 });
   const confidence = questions[2];
   const pointer = (button, extra = {}) => ({ pointerType: "mouse", button: 0, detail: 1,
-    clientX: 25, clientY: 0, target: button, preventDefault() {}, ...extra });
+    clientX: 125, clientY: 0, target: button, preventDefault() {}, ...extra });
   run.document.emit("pointermove", pointer(run.buttons[2], { clientX: 0 }));
   run.load(confidence);
   run.document.emit("pointermove", pointer(run.buttons[2]));
@@ -213,11 +213,11 @@ test("a check requires new mouse movement and a new eligible press after confide
   run.setTime(1200);
   run.document.emit("click", pointer(run.buttons[0]));
   assert.equal(run.finished.length, 1, "a press made before activation stays ineligible");
-  run.document.emit("pointermove", pointer(run.buttons[0], { clientX: 50 }));
+  run.document.emit("pointermove", pointer(run.buttons[0], { clientX: 250 }));
   run.document.emit("click", pointer(run.buttons[0], { detail: 0 }));
   assert.equal(run.finished.length, 1, "keyboard-generated clicks cannot answer");
-  run.document.emit("pointerdown", pointer(run.buttons[0], { clientX: 50 }));
-  run.document.emit("click", pointer(run.buttons[0], { clientX: 50 }));
+  run.document.emit("pointerdown", pointer(run.buttons[0], { clientX: 250 }));
+  run.document.emit("click", pointer(run.buttons[0], { clientX: 250 }));
   assert.equal(run.finished.length, 2);
   assert.equal(run.finished[1].confidence_rating, undefined, "checks do not emit a genuine confidence rating");
   assert.equal(rows(run.state, "instructed_response")[0].instructed_response_correct, true);
