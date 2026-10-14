@@ -136,7 +136,7 @@ function audioUnlockTrial(){
   return {
     type: jsPsychHtmlKeyboardResponse,
     stimulus: `<div class="center" style="font-size:22px; line-height:1.35;">
-      <p><b>Tapping task</b></p>
+      <p><b>Metronome Task</b></p>
       <p>Press <b>SPACE</b> to continue (this enables audio).</p>
     </div>`,
     choices: [" "],

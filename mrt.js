@@ -212,51 +212,25 @@ var jsPsych = params.jsPsych;
       let mainLastRT = null;
 
       
-      // ---------------- Instructions (from original MRT) ----------------
+      // ---------------- Approved recap before MRT practice ----------------
       const MRT_INSTRUCTION_MIN_VIEW_MS = 10000;
       let cleanupMrtInstructionLock = null;
 
       let instructions_pages = [
-        // Page 1
-        `<p>You will now do the same metronome task you did at the beginning of this study but this time for a little over 20 minutes, split into two halves.</p>
-        <p>After the first half, you will be able take a short break if needed.</p>
-        <p>Please refresh yourself on the instructions in the following pages.</p>
-        <p>
-        <p><em>Note: Make sure you fully understand the instructions before beginning. Wait for the next button to become available on each page.</em></p>`,
-        
-        // Page 2
-        `<p>In this section of the study, you will engage in a task where you will hear a metronome sound presented at a constant rate via your headphones or external speakers.</p>
-        <p>Your task will be to press the spacebar in synchrony with the onset of the metronome so that you press the spacebar exactly when each metronome sound is presented.</p>
-        <p>Your accuracy is determined by how close in time your responses match the metronome and how consistent they are</p>
-          <p>A plus sign will display after each time you press the spacebar to indicate that your key press registered.</p>`,
-        
-        // Page 3
-        `<p>Every so often, the task and the metronome will temporarily stop, and you will be presented with three questions.</p>
-        <p>First, a screen will ask you to indicate how on task you were just prior to us asking (within the last 15 seconds or so) on a scale from 1 (“Least on Task”) to 6 (“Most on Task”).</p>
-        <p>The term “on task” refers to how focused you were on keeping your clicks in sync with the metronome versus the extent to which you were distracted or “zoned out.”</p>
-        <p>This question should be answered based on your own relative levels of focus throughout this task. ‘Most on Task’ represents what you consider to be your own highest level of focus, and ‘Least on Task’ represents your lowest level of focus when clicking along to the metronome in sync at a constant rate.</p>`,
-        
-        // Page 4
-        `<p> Keep in mind that, each number (1-6) should in theory be selected a roughly (not perfectly) equal number of times since your 'highest' and 'lowest' levels of focus are relative to each other.</p>
-        <p>For instance, since there are 6 options, your actual task focus level can only fall into the category of 6 your 'most on task' (the highest possible ranking) during this task for 1/6th of the total task time, and 1 the 'lowest level' 1/6th of the time, or a focus rating of '3' 1/6th of the time and so on for each number.</p>
-        <p>It is normal for your level of focus to vary. There will be a dividing line between options 3 and 4 indicating the middle of the scale.</p>
-        <p>If you were less focused than what you consider your middle or average level of focus, choose from 1–3; if more focused, choose from 4–6.</p>`,
-        
-        // Page 5
-        `<h2>Certainty</h2>
-        <p>After each task-focus rating, you will indicate how certain you are that your rating was accurate. This is different from rating how high or low your task focus was. You can be certain or uncertain about either a high or a low task-focus rating. Choose the response that best describes how certain you are about that particular rating.</p>
-        <p>The response options are “Very uncertain,” “Somewhat uncertain,” “Somewhat certain,” and “Very certain.”</p>
-        <p>Move the mouse to your answer and click. Each response requires a new mouse movement, and the choices become available after a brief pause.</p>`,
-
-        // Page 6
-        `<h2>Main basis</h2>
-        <p>You will then be asked: “When you chose your task-focus rating, what did you mainly base it on?” The options are your memory of what you had been thinking about, a feeling of how focused or unfocused you had been, or something other than these two.</p>
-        <p>Refer to how you chose your task-focus rating for the same period just before the task-focus question appeared. A feeling here means a feeling about your level of focus; you do not need to recall particular thoughts to have that feeling.</p>
-        <p>Both remembering your thoughts and having a general feeling may contribute to your rating. When both contribute, choose whichever influenced your rating more.</p>
-        <p>Your memory does not need to be clear or detailed—it may be partial or vague—but it should include something about what you were thinking about. Remembered thoughts can be related or unrelated to the task. Choose based on what influenced your rating most, rather than simply which experience was clearest or strongest.</p>
-        <p>Choose “Something other than these two” only when another source influenced your rating more than either of these. Use C for remembered thoughts, F for a general feeling, or O for something else.</p>
-        <p>This part of the experiment will take about 20 minutes. You will begin with practice trials, and then you will be notified when the main trials start.</p>
-        <p>If you are ready to begin, press "Next."</p>`
+        `<section class="mrt-instructions">
+          <h2><u>Metronome Task</u></h2>
+          <p><strong>Quick Recap:</strong></p>
+          <p>Press <strong>SPACE</strong> in time with the start of each metronome sound. A <strong>+</strong> confirms that your key press registered.</p>
+          <p>Occasionally, the metronome will pause for three questions about the period just before the pause:</p>
+          <ul>
+            <li>Press <strong>1–6</strong> to indicate how focused you were on keeping your presses synchronized with the metronome. Rate your focus relative to your <strong>own</strong> levels throughout the task: <strong>1 = least on task; 6 = most on task</strong>. Choose <strong>1–3</strong> for below your middle level and <strong>4–6</strong> for above it.</li>
+            <li>Move the mouse and click <strong>Very uncertain, Somewhat uncertain, Somewhat certain, or Very certain</strong> to indicate how sure you are that your focus rating accurately described your prior state. You can be certain or uncertain about either a high or a low focus rating.</li>
+            <li>Indicate what mainly informed your original focus rating: press <strong>C</strong> for remembered thoughts, <strong>F</strong> for a feeling of how focused or unfocused you had been, or <strong>O</strong> for something other than these two.</li>
+          </ul>
+          <p>Remembered thoughts may be vague or partial, and may concern the task or something unrelated. A feeling about your focus does not require remembering particular thoughts.</p>
+          <p>If both contributed, choose whichever <strong>influenced your rating more</strong>, rather than whichever experience was clearest or strongest. Choose <strong>O</strong> only when another source influenced your rating more than either memory or feeling.</p>
+          <p>Please respond honestly and effortfully. Practice trials will begin next.</p>
+        </section>`
       ];
 
       // Keep all instruction pages in one instructions trial so Previous works normally.
@@ -292,7 +266,7 @@ var jsPsych = params.jsPsych;
             const pageNumber = document.querySelector(".jspsych-instructions-pagenum");
             if (pageNumber) return pageNumber.textContent.trim();
 
-            const content = document.querySelector("#jspsych-instructions-content");
+            const content = document.querySelector(".mrt-instructions") || document.querySelector("#jspsych-instructions-content");
             return content ? content.textContent.trim().slice(0, 120) : null;
           }
 
@@ -307,7 +281,7 @@ var jsPsych = params.jsPsych;
             const nextButton = navContainer.querySelector("#jspsych-instructions-next");
             if (nextButton) {
               const pageMatch = pageKey.match(/(\d+)\s*\/\s*(\d+)$/);
-              const isLastPage = pageMatch && Number(pageMatch[1]) === Number(pageMatch[2]);
+              const isLastPage = instructions_pages.length === 1 || (pageMatch && Number(pageMatch[1]) === Number(pageMatch[2]));
               nextButton.innerHTML = `${isLastPage ? "START" : "NEXT"} &gt;`;
             }
 
@@ -336,7 +310,7 @@ var jsPsych = params.jsPsych;
               const remainingSeconds = Math.max(0, Math.ceil((unlockAt - Date.now()) / 1000));
               status.textContent = remainingSeconds > 0
                 ? `Please read this page. Navigation unlocks in ${remainingSeconds} second${remainingSeconds === 1 ? "" : "s"}.`
-                : "You may now continue or return to the previous page.";
+                : (instructions_pages.length === 1 ? "You may now begin practice." : "You may now continue or return to the previous page.");
             }
 
             updateStatus();

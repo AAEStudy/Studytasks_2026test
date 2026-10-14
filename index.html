@@ -116,7 +116,7 @@
     }
     .replay-button:hover:not(:disabled) { color: #fff; background: #242424; }
     .replay-button:disabled { color: #777; border-color: #333; background: #080808; }
-    .emotion-instructions {
+    .emotion-instructions, .mrt-instructions {
       box-sizing: border-box;
       width: min(860px, calc(100vw - 40px));
       margin: 24px auto;
@@ -126,9 +126,11 @@
       letter-spacing: 0;
       text-align: left;
     }
-    .emotion-instructions h2 { margin: 0 0 24px; font-size: 26px; line-height: 1.3; }
+    .emotion-instructions h2, .mrt-instructions h2 { margin: 0 0 24px; font-size: 26px; line-height: 1.3; }
     .emotion-instructions h3 { margin: 24px 0 8px; font-size: 22px; line-height: 1.4; }
-    .emotion-instructions p { margin: 0 0 16px; }
+    .emotion-instructions p, .mrt-instructions p { margin: 0 0 16px; }
+    .mrt-instructions ul { margin: 0 0 16px; padding-left: 28px; }
+    .mrt-instructions li { margin: 0 0 16px; }
     .emotion-instructions .emotion-instructions-continue { margin: 28px 0 0; text-align: center; }
     .speed-reminder { max-width: 850px; margin: 24px auto; font-size: 22px; line-height: 1.5; }
     @media (max-width: 600px) {
@@ -138,8 +140,8 @@
       }
       .mrt-certainty-options { gap: 4px; }
       .mrt-certainty-option { font-size: 14px; padding: 2px; }
-      .emotion-instructions { width: calc(100vw - 32px); font-size: 18px; }
-      .emotion-instructions h2 { font-size: 24px; }
+      .emotion-instructions, .mrt-instructions { width: calc(100vw - 32px); font-size: 18px; }
+      .emotion-instructions h2, .mrt-instructions h2 { font-size: 24px; }
       .emotion-instructions h3 { font-size: 20px; }
     }
     @media (max-width: 360px) {
