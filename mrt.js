@@ -1,16 +1,34 @@
 const MRT_CERTAINTY_MIN_MS = 600;
 const MRT_CERTAINTY_MIN_MOVE_PX = 20;
-const MRT_RESPONSE_FORMAT_VERSION = "mrt-probes-v4";
+const MRT_RESPONSE_FORMAT_VERSION = "mrt-probes-v5";
 const MRT_CERTAINTY_LABELS = ["Very uncertain", "Somewhat uncertain", "Somewhat certain", "Very certain"];
-const MRT_FOCUS_SCALE_HTML = `
-  <div class="mrt-focus-anchors">
-    <span>Least on Task</span><span>Middle</span><span>Most on Task</span>
-  </div>
-  <div class="mrt-focus-values">
-    <span>[1]</span><span>[2]</span><span>[3]</span>
-    <span class="mrt-focus-divider" aria-hidden="true"></span>
-    <span>[4]</span><span>[5]</span><span>[6]</span>
-  </div>`;
+const MRT_FOCUS_RESPONSE_HTML = `
+<div style="display: inline-block; width: 1050px;">
+                      <div style="display: flex; justify-content: space-between; margin-bottom: 5px; margin-top: 100px;">
+                          <div style="width: 150px; text-align: center; font-size:20pt;">Least on Task</div>
+                          <div style="width: 225px;"></div>
+                          <div style="width: 150px; text-align: center; font-size:20pt; display: flex; align-items: center; justify-content: center">Middle</div>
+                          <div style="width: 225px;"></div>
+                          <div style="width: 150px; text-align: center; font-size:20pt;">Most on Task</div>
+                      </div>
+                      <div style="display: flex; justify-content: space-evenly; align-items: center;">
+                          <div style="width: 150px; text-align: center; font-size:20pt;">[1]</div>
+                          <div style="width: 150px; text-align: center; font-size:20pt;">[2]</div>
+                          <div style="width: 150px; text-align: center; font-size:20pt;">[3]</div>
+                          <div style="width: 71.5px; text-align: center; font-size:20pt;"></div>
+                          <div style="width: 2px; height: 25px; background-color: white;"></div>
+                          <div style="width: 71.5px; text-align: center; font-size:20pt;"></div>
+                          <div style="width: 150px; text-align: center; font-size:20pt;">[4]</div>
+                          <div style="width: 150px; text-align: center; font-size:20pt;">[5]</div>
+                          <div style="width: 150px; text-align: center; font-size:20pt;">[6]</div>
+                      </div>
+                      <div style="display: flex; justify-content: center; margin-top: 150px;">
+                          <div style="width: 600px; text-align: center; font-size:16pt;">
+                              Indicate how focused you were on clicking along to the metronome just before we asked. Press a key (1–6) for your response.
+                            </div>
+                      </div>
+                  </div>
+`;
 const MRT_BASIS_OPTIONS_HTML = `
   <ul class="mrt-basis-options">
     <li>[C] My memory of what I had been thinking about.</li>
@@ -47,7 +65,7 @@ function buildMrtCertaintyTrial(jsPsych, onResponse) {
       <div class="mrt-certainty-options">
         ${MRT_CERTAINTY_LABELS.map((label, index) => `<button type="button" class="mrt-certainty-option" data-value="${index + 1}" aria-disabled="true" tabindex="-1">${label}</button>`).join("")}
       </div>
-      <p class="mrt-probe-hint">Move the mouse to your answer and click.</p>
+      <p class="mrt-certainty-hint">Move the mouse to your answer and click.</p>
     </section>`,
     choices: "NO_KEYS",
     data: { probe_question: 2, thought_probe: 1, ...mrtResponseMetadata() },
@@ -711,8 +729,7 @@ var jsPsych = params.jsPsych;
             type: jsPsychHtmlKeyboardResponse,
             stimulus: `<section class="mrt-probe-screen mrt-focus-screen">
               <p class="mrt-probe-question">How on task were you just before this screen appeared?</p>
-              ${MRT_FOCUS_SCALE_HTML}
-              <p class="mrt-probe-hint">Indicate how focused you were on clicking along to the metronome just before we asked. Press a key (1–6) for your response.</p>
+              ${MRT_FOCUS_RESPONSE_HTML}
             </section>`,
             choices: ["1", "2", "3", "4", "5", "6"],
             data: { probe_question: 1, thought_probe: 1, ...mrtResponseMetadata() },

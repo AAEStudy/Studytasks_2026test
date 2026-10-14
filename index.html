@@ -40,17 +40,14 @@
       letter-spacing: 0;
     }
     .mrt-probe-screen { min-height: 360px; text-align: left; }
-    .mrt-probe-question { margin: 0 0 32px; font: inherit; font-weight: 400; text-align: left; }
-    .mrt-probe-hint { margin: 32px 0 0; font-size: 18px; text-align: left; }
-    .mrt-focus-anchors { display: flex; justify-content: space-between; margin-bottom: 12px; text-align: center; }
-    .mrt-focus-anchors span { width: calc((100% - 2px) / 6); }
-    .mrt-focus-values { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) 2px repeat(3, minmax(0, 1fr)); align-items: center; text-align: center; }
-    .mrt-focus-divider { height: 25px; background: white; }
+    .mrt-probe-question { margin: 0 0 50px; font: inherit; font-weight: 400; text-align: left; }
+    /* Keep the original scale's inherited text metrics separate from the question. */
+    .mrt-focus-screen > div { font-size: 18px; line-height: 28.8px; }
     .mrt-certainty-options {
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 12px;
-      margin: 0 0 24px;
+      margin: 36px 0 24px;
     }
     .mrt-certainty-option {
       box-sizing: border-box;
@@ -62,6 +59,7 @@
       background: #242424;
       color: #fff;
       font: inherit;
+      font-size: 22px;
       line-height: 1.3;
       letter-spacing: 0;
       cursor: pointer;
@@ -73,13 +71,13 @@
       cursor: not-allowed;
     }
     .mrt-certainty-option[aria-disabled="false"]:hover { background: #444; }
+    .mrt-certainty-hint { font-size: 18px; text-align: center; }
     .mrt-basis-options {
       list-style: none;
       padding: 0;
-      margin: 0;
       text-align: left;
     }
-    .mrt-basis-options li { margin: 0 0 20px; }
+    .mrt-basis-options li { margin: 20px 0; }
     .emotion-response-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin: 28px 0; }
     .emotion-response-options.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
     .study-response-button { min-height: 64px; padding: 12px 20px; font: inherit; color: white; background: #242424; border: 2px solid #ddd; border-radius: 4px; cursor: pointer; }
