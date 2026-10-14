@@ -1,5 +1,41 @@
 # Judgment Controls and Image Replays
 
+## Metronome probe order and response check (October 14, 2026)
+
+Both practice and main probes now ask for task focus, then the main basis for
+that rating, then confidence. The basis screen adds: "Press C, F, or O to
+indicate your response." The confidence question remains: "How confident are
+you in the task-focus rating you provided?" The recap pages follow the same
+order as the questions.
+
+The occasional instructed-response check follows confidence and uses its same
+four mouse options and layout. Its target rotates among Very unconfident,
+Unconfident, Confident, and Very confident. The check is separate from the
+participant's confidence judgment and does not replace it. It retains the
+confidence screen's 600-ms minimum and 20-pixel cursor-movement requirement.
+
+Each three-question probe is saved after confidence, once all three responses
+are available. Existing reaction-time columns retain their original meanings;
+`probe_order` records the displayed order. The original task-focus numeric
+response scale is unchanged.
+
+## Opening and metronome sound check (October 14, 2026)
+
+The opening screen now offers a metronome sample for checking device volume,
+with a Play/Stop button and instructions to choose a clearly audible level that
+remains comfortable over an extended session. It uses the actual task sound and
+the same 1300-ms spacing, plays only on request, and can be replayed. The sample
+stops after five beats, when stopped manually, on leaving the page, or when the
+tab loses focus/is hidden. No sample continues into the instruction pages.
+
+SPACE begins the instructions; browser audio-enabling details are not shown to
+participants. The sound check appears once at the start of the session.
+
+Task transitions now use the destination task name as the heading, followed by
+a brief statement about the upcoming trials and a SPACE prompt to continue to
+the next set. The headings are "Metronome Task" and "Image Comparison Task".
+Transition events and task timing remain unchanged.
+
 ## Image-comparison instruction pages (October 14, 2026)
 
 Before picture practice, the comparison instructions are split into two pages.

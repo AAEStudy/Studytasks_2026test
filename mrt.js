@@ -1,6 +1,7 @@
 const MRT_CERTAINTY_MIN_MS = 600;
 const MRT_CERTAINTY_MIN_MOVE_PX = 20;
-const MRT_RESPONSE_FORMAT_VERSION = "mrt-probes-v8-confidence";
+const MRT_RESPONSE_FORMAT_VERSION = "mrt-probes-v9-focus-basis-confidence";
+const MRT_PROBE_ORDER = "focus,basis,confidence";
 const MRT_CERTAINTY_LABELS = ["Very unconfident", "Unconfident", "Confident", "Very confident"];
 const MRT_FOCUS_RESPONSE_HTML = `
 <div style="display: inline-block; width: 1050px;">
@@ -48,6 +49,7 @@ document.addEventListener("pointerup", trackMrtCursor, true);
 function mrtResponseMetadata() {
   return {
     response_format_version: MRT_RESPONSE_FORMAT_VERSION,
+    probe_order: MRT_PROBE_ORDER,
     certainty_min_ms: MRT_CERTAINTY_MIN_MS,
     certainty_min_move_px: MRT_CERTAINTY_MIN_MOVE_PX,
     fast_threshold_ms: STUDY_RESPONSE_SETTINGS.fastThresholdMs,
@@ -56,19 +58,28 @@ function mrtResponseMetadata() {
   };
 }
 
-function buildMrtCertaintyTrial(jsPsych, onResponse) {
-  let cleanup = () => {};
-  return {
-    type: jsPsychHtmlKeyboardResponse,
-    stimulus: `<section class="mrt-probe-screen mrt-certainty-screen">
-      <p class="mrt-probe-question">How confident are you in the task-focus rating you provided?</p>
+function mrtConfidenceStimulus(question, extraClass = "") {
+  return `<section class="mrt-probe-screen mrt-certainty-screen ${extraClass}">
+      <p class="mrt-probe-question">${question}</p>
       <div class="mrt-certainty-options">
         ${MRT_CERTAINTY_LABELS.map((label, index) => `<button type="button" class="mrt-certainty-option" data-value="${index + 1}" aria-disabled="true" tabindex="-1"><span class="confidence-option-number">${index + 1}</span><span class="confidence-option-label">${label}</span></button>`).join("")}
       </div>
       <p class="mrt-certainty-hint">Move the mouse to your answer and click.</p>
-    </section>`,
+    </section>`;
+}
+
+function buildMrtCertaintyTrial(jsPsych, onResponse, options = {}) {
+  let cleanup = () => {};
+  return {
+    type: jsPsychHtmlKeyboardResponse,
+    stimulus: mrtConfidenceStimulus("How confident are you in the task-focus rating you provided?"),
     choices: "NO_KEYS",
-    data: { probe_question: 2, thought_probe: 1, ...mrtResponseMetadata() },
+    data: {
+      ...(options.instructedResponse
+        ? { instructed_response_probe: 1, thought_probe: 0, probe_kind: "response_check" }
+        : { probe_question: 3, probe_kind: "confidence", thought_probe: 1 }),
+      ...mrtResponseMetadata(), ...options.data
+    },
     on_load: () => {
       const onset = performance.now();
       let origin = mrtCursorPosition ? { ...mrtCursorPosition } : null;
@@ -105,8 +116,9 @@ function buildMrtCertaintyTrial(jsPsych, onResponse) {
         jsPsych.finishTrial({
           response,
           rt: performance.now() - onset,
-          confidence_rating: response,
-          confidence_label: MRT_CERTAINTY_LABELS[response - 1],
+          ...(options.instructedResponse
+            ? { instructed_response_label: MRT_CERTAINTY_LABELS[response - 1] }
+            : { confidence_rating: response, confidence_label: MRT_CERTAINTY_LABELS[response - 1] }),
           certainty_max_move_px: maxDistance,
           ...mrtResponseMetadata()
         });
@@ -207,6 +219,8 @@ var jsPsych = params.jsPsych;
       let tempProbeRT2 = null;
       let tempConfidence = null;
       let tempConfidenceLabel = null;
+      let tempBasis = null;
+      let tempBasisRT = null;
       let tempFocusFast = false;
       let tempBasisFast = false;
       let lastProbeRow = null;
@@ -234,7 +248,13 @@ var jsPsych = params.jsPsych;
         </section>`,
         `<section class="mrt-instructions">
           <h2><u>Metronome Task</u></h2>
-          <p>Next, indicate how confident you are that your focus rating accurately described how focused you were just before the pause.</p>
+          <p>Next, indicate what mainly informed your original focus rating: press <strong>C</strong> for remembered thoughts, <strong>F</strong> for a feeling of how focused or unfocused you had been, or <strong>O</strong> for something other than these two.</p>
+          <p>Remembered thoughts may be vague or partial, and may concern the task or something unrelated. A feeling about your focus does not require remembering particular thoughts.</p>
+          <p>If both contributed, choose whichever <strong>influenced your rating more</strong>, rather than whichever experience was clearest or strongest. Choose <strong>O</strong> only when another source influenced your rating more than either memory or feeling.</p>
+        </section>`,
+        `<section class="mrt-instructions">
+          <h2><u>Metronome Task</u></h2>
+          <p>Finally, indicate how confident you are that your focus rating accurately described how focused you were just before the pause.</p>
           <p>Move the mouse and click one answer:</p>
           <ul>
             <li><strong>1 = Very unconfident</strong></li>
@@ -243,12 +263,6 @@ var jsPsych = params.jsPsych;
             <li><strong>4 = Very confident</strong></li>
           </ul>
           <p>You can be confident or unconfident about either a high or a low focus rating.</p>
-        </section>`,
-        `<section class="mrt-instructions">
-          <h2><u>Metronome Task</u></h2>
-          <p>Finally, indicate what mainly informed your original focus rating: press <strong>C</strong> for remembered thoughts, <strong>F</strong> for a feeling of how focused or unfocused you had been, or <strong>O</strong> for something other than these two.</p>
-          <p>Remembered thoughts may be vague or partial, and may concern the task or something unrelated. A feeling about your focus does not require remembering particular thoughts.</p>
-          <p>If both contributed, choose whichever <strong>influenced your rating more</strong>, rather than whichever experience was clearest or strongest. Choose <strong>O</strong> only when another source influenced your rating more than either memory or feeling.</p>
           <p>Please respond honestly and effortfully. Practice trials will begin next.</p>
         </section>`
       ];
@@ -403,7 +417,8 @@ var jsPsych = params.jsPsych;
         customData.speed_reminder_shown.push(false);
         customData.speed_reminder_kinds.push("");
         const metadata = mrtResponseMetadata();
-        for (const key of Object.keys(metadata)) customData[key].push(metadata[key]);
+        // The order column is appended after session metadata by the exporter.
+        for (const key of Object.keys(metadata)) if (key !== "probe_order") customData[key].push(metadata[key]);
       }
       function saveTappingTrial(score, taskType = "metronome") {
         const trialNum = ++params._state.trialNum;
@@ -450,6 +465,8 @@ var jsPsych = params.jsPsych;
         tempProbeRT2 = null;
         tempConfidence = null;
         tempConfidenceLabel = null;
+        tempBasis = null;
+        tempBasisRT = null;
       }
       function savePauseTrial(pauseDuration) {
         const trialNum = ++params._state.trialNum;
@@ -483,10 +500,10 @@ var jsPsych = params.jsPsych;
         }
         const metadataColumns = Object.keys(metadata);
         const usedColumns = new Set(columns);
-        if (usedColumns.has("row_index")) {
-          throw new Error('MRT export data cannot contain the reserved column "row_index".');
+        for (const reserved of ["row_index", "probe_order"]) {
+          if (usedColumns.has(reserved)) throw new Error(`MRT export data cannot contain the reserved column "${reserved}".`);
+          usedColumns.add(reserved);
         }
-        usedColumns.add("row_index");
         for (const column of metadataColumns) {
           if (usedColumns.has(column)) {
             throw new Error(`MRT export metadata column "${column}" duplicates an export column.`);
@@ -498,12 +515,12 @@ var jsPsych = params.jsPsych;
           const text = String(value);
           return /[\t\r\n"]/.test(text) ? '"' + text.replace(/"/g, '""') + '"' : text;
         };
-        const header = [...columns, "row_index", ...metadataColumns];
+        const header = [...columns, "row_index", ...metadataColumns, "probe_order"];
         const numRows = columns.reduce((count, column) => Math.max(count, dataObj[column].length), 0);
         const metadataValues = metadataColumns.map(column => metadata[column]);
         const rows = [header.map(cell).join("\t")];
         for (let i = 0; i < numRows; i++) {
-          rows.push([...columns.map(column => dataObj[column][i]), i + 1, ...metadataValues].map(cell).join("\t"));
+          rows.push([...columns.map(column => dataObj[column][i]), i + 1, ...metadataValues, MRT_PROBE_ORDER].map(cell).join("\t"));
         }
         return rows.join("\n") + "\n";
       }
@@ -659,6 +676,7 @@ var jsPsych = params.jsPsych;
         tempProbeRT2 = (data.rt / 1000).toFixed(3);
         tempConfidence = data.confidence_rating;
         tempConfidenceLabel = data.confidence_label;
+        saveThoughtProbeTrial(tempBasis, tempBasisRT, true);
       });
       practiceCertaintyTrial.data = {
         ...practiceCertaintyTrial.data, ...practiceProbeData, event: "practice_probe_certainty"
@@ -677,7 +695,7 @@ var jsPsych = params.jsPsych;
               ${MRT_FOCUS_RESPONSE_HTML}
             </section>`,
             choices: ["1", "2", "3", "4", "5", "6"],
-            data: { ...practiceProbeData, event: "practice_probe_focus", probe_question: 1, ...mrtResponseMetadata() },
+            data: { ...practiceProbeData, event: "practice_probe_focus", probe_question: 1, probe_kind: "focus", ...mrtResponseMetadata() },
             on_start: trial => {
               practiceProbeAttempt++;
               trial.data = { ...trial.data, practice_attempt: practiceProbeAttempt };
@@ -687,24 +705,26 @@ var jsPsych = params.jsPsych;
               tempProbeRT1 = (data.rt / 1000).toFixed(3);
             }
           },
-          practiceCertaintyTrial,
           {
             type: jsPsychHtmlKeyboardResponse,
             stimulus: `<section class="mrt-probe-screen mrt-basis-screen">
               <p class="mrt-probe-question">When you chose your task-focus rating, what did you mainly base it on?</p>
               ${MRT_BASIS_OPTIONS_HTML}
+              <p class="mrt-basis-hint">Press C, F, or O to indicate your response.</p>
             </section>`,
             choices: ["c", "f", "o", "C", "F", "O"],
-            data: { ...practiceProbeData, event: "practice_probe_basis", probe_question: 3, ...mrtResponseMetadata() },
+            data: { ...practiceProbeData, event: "practice_probe_basis", probe_question: 2, probe_kind: "basis", ...mrtResponseMetadata() },
             on_start: trial => {
               trial.data = { ...trial.data, practice_attempt: practiceProbeAttempt };
             },
             on_finish: data => {
               data.main_basis = { c: "remembered_thoughts", f: "general_feeling", o: "other" }[data.response.toLowerCase()];
               data.probe3_rt = (data.rt / 1000).toFixed(3);
-              saveThoughtProbeTrial(data.main_basis, data.probe3_rt, true);
+              tempBasis = data.main_basis;
+              tempBasisRT = data.probe3_rt;
             }
-          }
+          },
+          practiceCertaintyTrial
         ]
       };
       let practice_prompt = {
@@ -726,29 +746,12 @@ var jsPsych = params.jsPsych;
         timeline: [practice_block, practice_probe, practice_prompt],
         loop_function: function() { return repeatPractice; }
       };
-      let instructedResponseExpected = "c";
-      let instructed_response_trial = {
-            type: jsPsychHtmlKeyboardResponse,
-            stimulus: "",
-            choices: ["c", "f", "o", "C", "F", "O"],
-            data: { instructed_response_probe: 1, instructed_response_format: "basis-options-v1" },
-            on_start: function(trial) {
-              const checkIndex = Math.max(0, Math.floor(params._state.probeBlockCounter / 10) - 1);
-              instructedResponseExpected = ["c", "f", "o"][checkIndex % 3];
-              const label = {
-                c: "My memory of what I had been thinking about.",
-                f: "A feeling of how focused or unfocused I had been.",
-                o: "Something other than these two."
-              }[instructedResponseExpected];
-              trial.stimulus = `<section class="mrt-probe-screen mrt-basis-screen mrt-instructed-response-screen">
-                <p class="mrt-probe-question">For this item, please select “${label}”</p>
-                ${MRT_BASIS_OPTIONS_HTML}
-              </section>`;
-              trial.data = { ...trial.data, instructed_response_expected: instructedResponseExpected };
-            },
-            on_finish: function(data) {
-              const response = typeof data.response === "string" ? data.response.toLowerCase() : "";
+      let instructedResponseExpected = 1;
+      const instructed_response_trial = buildMrtCertaintyTrial(jsPsych, function(data) {
+              const numericResponse = Number(data.response);
+              const response = Number.isInteger(numericResponse) && numericResponse >= 1 && numericResponse <= 4 ? numericResponse : "";
               data.instructed_response_expected = instructedResponseExpected;
+              data.instructed_response_expected_label = MRT_CERTAINTY_LABELS[instructedResponseExpected - 1];
               data.instructed_response_correct = response === instructedResponseExpected;
               data.instructed_response_rt_ms = data.rt;
               
@@ -771,15 +774,28 @@ var jsPsych = params.jsPsych;
               customData.confidence_rating.push("NA");
               customData.pause_time.push("NA");
 
-              // The key line: push the actual response
+              // Record the instructed choice separately from actual confidence.
               customData.instructed_response.push(response);
               saveProbeMetadata("NA", "NA", "NA", {
                 expected: instructedResponseExpected,
                 correct: data.instructed_response_correct,
                 rt: data.rt
               });
-            }
-          };
+            }, {
+              instructedResponse: true,
+              data: { instructed_response_format: "confidence-options-v1" }
+            });
+      instructed_response_trial.on_start = function(trial) {
+        const checkIndex = Math.max(0, Math.floor(params._state.probeBlockCounter / 10) - 1);
+        instructedResponseExpected = (checkIndex % MRT_CERTAINTY_LABELS.length) + 1;
+        const label = MRT_CERTAINTY_LABELS[instructedResponseExpected - 1];
+        trial.stimulus = mrtConfidenceStimulus(`For this item, please select “${label}”.`, "mrt-instructed-response-screen");
+        trial.data = {
+          ...trial.data,
+          instructed_response_expected: instructedResponseExpected,
+          instructed_response_expected_label: label
+        };
+      };
       let main_miss_node = {
         timeline: [{
           type: jsPsychHtmlKeyboardResponse,
@@ -814,7 +830,7 @@ var jsPsych = params.jsPsych;
               ${MRT_FOCUS_RESPONSE_HTML}
             </section>`,
             choices: ["1", "2", "3", "4", "5", "6"],
-            data: { probe_question: 1, thought_probe: 1, ...mrtResponseMetadata() },
+            data: { probe_question: 1, probe_kind: "focus", thought_probe: 1, ...mrtResponseMetadata() },
             on_finish: function(data) {
               tempPerformance = data.response;
               tempProbeRT1 = (data.rt / 1000).toFixed(3);
@@ -822,27 +838,30 @@ var jsPsych = params.jsPsych;
               tempFocusFast = data.fast_response;
             }
           },
-          buildMrtCertaintyTrial(jsPsych, data => {
-            tempProbeRT2 = (data.rt / 1000).toFixed(3);
-            tempConfidence = data.confidence_rating;
-            tempConfidenceLabel = data.confidence_label;
-          }),
           {
             type: jsPsychHtmlKeyboardResponse,
             stimulus: `<section class="mrt-probe-screen mrt-basis-screen">
               <p class="mrt-probe-question">When you chose your task-focus rating, what did you mainly base it on?</p>
               ${MRT_BASIS_OPTIONS_HTML}
+              <p class="mrt-basis-hint">Press C, F, or O to indicate your response.</p>
             </section>`,
             choices: ["c", "f", "o", "C", "F", "O"],
-            data: { probe_question: 3, thought_probe: 1, ...mrtResponseMetadata() },
+            data: { probe_question: 2, probe_kind: "basis", thought_probe: 1, ...mrtResponseMetadata() },
             on_finish: data => {
               data.main_basis = { c: "remembered_thoughts", f: "general_feeling", o: "other" }[data.response.toLowerCase()];
               data.probe3_rt = (data.rt / 1000).toFixed(3);
               Object.assign(data, StudyResponses.recordSpeed('mrt_basis', data.rt));
               tempBasisFast = data.fast_response;
-              saveThoughtProbeTrial(data.main_basis, data.probe3_rt);
+              tempBasis = data.main_basis;
+              tempBasisRT = data.probe3_rt;
             }
           },
+          buildMrtCertaintyTrial(jsPsych, data => {
+            tempProbeRT2 = (data.rt / 1000).toFixed(3);
+            tempConfidence = data.confidence_rating;
+            tempConfidenceLabel = data.confidence_label;
+            saveThoughtProbeTrial(tempBasis, tempBasisRT);
+          }),
           // Keep the existing instructed-response check after the three ratings,
           // but only on every 10th probe block.
           {
@@ -1029,8 +1048,9 @@ var jsPsych = params.jsPsych;
         timeline.push({
           type: jsPsychHtmlKeyboardResponse,
           stimulus: `<div class="center" style="font-size:22px; line-height:1.35;">
-            <p><b>Switch to the Metronome Task</b></p>
-            <p>Press <b>SPACE</b> to begin the next set of Metronome Task trials.</p>
+            <p><b>Metronome Task</b></p>
+            <p>You will now have some metronome tapping trials.</p>
+            <p>Press <b>SPACE</b> to continue to the next set of Metronome Task trials.</p>
           </div>`,
           choices: [" "],
           on_finish: async () => {

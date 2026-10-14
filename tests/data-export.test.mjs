@@ -96,10 +96,11 @@ function runtime(records = [], full = false) {
 test("MRT TSV preserves original fields, quotes text and handles sparse arrays and repeated IDs", () => {
   const { built } = runtime();
   const text = built.convertToCSV({ subject: ["CHECK", "CHECK"], trial: [1, 1], note: ['a\tb\n"quoted"', null], sparse: [false], numeric: [0, NaN] }, { session_id: "s" });
-  assert.equal(text, 'subject\ttrial\tnote\tsparse\tnumeric\trow_index\tsession_id\nCHECK\t1\t"a\tb\n""quoted"""\tfalse\t0\t1\ts\nCHECK\t1\t\t\t\t2\ts\n');
-  assert.equal(built.convertToCSV({ subject: [] }, { session_id: "s" }), "subject\trow_index\tsession_id\n");
+  assert.equal(text, 'subject\ttrial\tnote\tsparse\tnumeric\trow_index\tsession_id\tprobe_order\nCHECK\t1\t"a\tb\n""quoted"""\tfalse\t0\t1\ts\tfocus,basis,confidence\nCHECK\t1\t\t\t\t2\ts\tfocus,basis,confidence\n');
+  assert.equal(built.convertToCSV({ subject: [] }, { session_id: "s" }), "subject\trow_index\tsession_id\tprobe_order\n");
   assert.throws(() => built.convertToCSV({ subject: ["x"] }, { subject: "duplicate" }), /duplicates/);
   assert.throws(() => built.convertToCSV({ row_index: [1] }), /reserved/);
+  assert.throws(() => built.convertToCSV({ probe_order: ["ambiguous"] }), /reserved/);
 });
 
 function completedRecords(calibrationCount) {

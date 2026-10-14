@@ -50,7 +50,7 @@ function safeFilenamePart(value){
 }
 
 const EXPORT_SCHEMA_VERSION = "fae-export-v2";
-const STUDY_VERSION = "FAE-2026-10-14-data-v2";
+const STUDY_VERSION = "FAE-2026-10-14-audio-setup";
 const SESSION_STARTED_AT_UTC = new Date().toISOString();
 const SESSION_STAMP = sessionStamp(new Date(SESSION_STARTED_AT_UTC));
 const SESSION_RANDOM_ID = globalThis.crypto?.randomUUID?.()
@@ -176,13 +176,154 @@ function transitionScreen(html, dataExtra={}){
   };
 }
 
-// Unlock audio on user gesture (required by browsers)
-function audioUnlockTrial(nextSet = false, switching = true){
+// Give participants a replayable sample of the actual task sound before practice.
+function metronomeSoundCheckTrial(){
+  let cleanup = () => {};
+  let onset = 0;
+  let previewRequests = 0;
+  let previewSuccesses = 0;
+  let playbackFailures = 0;
+  let ticksPlayed = 0;
+  return {
+    type: jsPsychHtmlKeyboardResponse,
+    stimulus: `<section class="mrt-sound-check-screen">
+      <h2>Metronome Task</h2>
+      <p>Before you begin, check your volume.</p>
+      <p>Start with your device volume low. Play the sample, then choose a volume that is clearly audible and comfortable to listen to over a long session.</p>
+      <button type="button" id="metronome-sound-check-toggle" class="mrt-sound-check-button" aria-pressed="false">Play metronome sound</button>
+      <p id="metronome-sound-check-status" class="mrt-sound-check-status" role="status" aria-live="polite">The sample plays five sounds and then stops. You can play it again if needed.</p>
+      <p class="mrt-sound-check-continue">Press <b>SPACE</b> to begin the instructions.</p>
+    </section>`,
+    choices: "NO_KEYS",
+    data: { task: "system", event: "audio_unlock", next: "mrt", sound_check_available: true },
+    on_load: () => {
+      cleanup();
+      onset = performance.now();
+      const display = jsPsych.getDisplayElement();
+      const button = display.querySelector("#metronome-sound-check-toggle");
+      const status = display.querySelector("#metronome-sound-check-status");
+      let active = false;
+      let finished = false;
+      let generation = 0;
+      let sampleTimer = null;
+      const pauseSound = () => {
+        metronomeAudio.pause();
+        try { metronomeAudio.currentTime = 0; } catch(e) {}
+      };
+      const setStatus = text => { if (status) status.textContent = text; };
+      const stopSample = message => {
+        generation++;
+        active = false;
+        if (sampleTimer !== null) window.clearTimeout(sampleTimer);
+        sampleTimer = null;
+        pauseSound();
+        button.textContent = "Play metronome sound";
+        button.setAttribute("aria-pressed", "false");
+        if (message) setStatus(message);
+      };
+      const startSample = () => {
+        stopSample();
+        active = true;
+        const token = generation;
+        let runTicks = 0;
+        previewRequests++;
+        button.textContent = "Stop sound";
+        button.setAttribute("aria-pressed", "true");
+        setStatus("Adjust your volume while the sample plays.");
+        const current = () => !finished && active && token === generation;
+        const failed = () => {
+          if (!current()) return;
+          playbackFailures++;
+          stopSample("The sound could not play. Please try the sample again.");
+        };
+        const tick = () => {
+          if (!current()) return;
+          let playResult;
+          try {
+            metronomeAudio.currentTime = 0;
+            playResult = metronomeAudio.play();
+          } catch(e) {
+            failed();
+            return;
+          }
+          Promise.resolve(playResult).then(() => {
+            // A stale completion must never schedule more ticks or pause audio
+            // that a newer preview or subsequent MRT trial now owns.
+            if (!current()) return;
+            if (runTicks === 0) previewSuccesses++;
+            runTicks++;
+            ticksPlayed++;
+            sampleTimer = window.setTimeout(() => {
+              if (!current()) return;
+              sampleTimer = null;
+              if (runTicks < 5) tick();
+              else stopSample("Sound check complete. You can replay the sample if needed.");
+            }, 1300);
+          }, failed);
+        };
+        tick();
+      };
+      const toggleSample = () => {
+        if (finished) return;
+        if (active) stopSample("Sample stopped. You can play it again if needed.");
+        else startSample();
+      };
+      const stopOnBlur = () => {
+        if (active) stopSample("Sample stopped. You can play it again if needed.");
+      };
+      const stopWhenHidden = () => { if (document.hidden) stopOnBlur(); };
+      const continueToInstructions = event => {
+        if (finished || event.repeat || event.isComposing || event.ctrlKey || event.altKey || event.metaKey) return;
+        if (event.code !== "Space" && event.key !== " " && event.key !== "Spacebar") return;
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        finished = true;
+        cleanup();
+        if (previewSuccesses === 0) {
+          // Preserve per-element media authorization when the optional sample
+          // was skipped. Pause synchronously so no sample follows this screen.
+          try {
+            const unlock = metronomeAudio.play();
+            if (unlock && typeof unlock.catch === "function") unlock.catch(() => {});
+          } catch(e) {}
+          pauseSound();
+        }
+        jsPsych.finishTrial({ response: " ", rt: performance.now() - onset });
+      };
+      button.addEventListener("click", toggleSample);
+      document.addEventListener("keydown", continueToInstructions, true);
+      window.addEventListener("blur", stopOnBlur);
+      document.addEventListener("visibilitychange", stopWhenHidden);
+      cleanup = () => {
+        finished = true;
+        stopSample();
+        button.removeEventListener("click", toggleSample);
+        document.removeEventListener("keydown", continueToInstructions, true);
+        window.removeEventListener("blur", stopOnBlur);
+        document.removeEventListener("visibilitychange", stopWhenHidden);
+      };
+    },
+    on_finish: data => {
+      cleanup();
+      Object.assign(data, {
+        sound_check_preview_requests: previewRequests,
+        sound_check_preview_successes: previewSuccesses,
+        sound_check_play_failures: playbackFailures,
+        sound_check_ticks_played: ticksPlayed
+      });
+    }
+  };
+}
+
+// Later task-switch screens retain their existing audio-enable gesture.
+function audioUnlockTrial(nextSet = false){
+  if (!nextSet) return metronomeSoundCheckTrial();
   return {
     type: jsPsychHtmlKeyboardResponse,
     stimulus: `<div class="center" style="font-size:22px; line-height:1.35;">
-      <p><b>${nextSet && switching ? "Switch to the Metronome Task" : "Metronome Task"}</b></p>
-      <p>Press <b>SPACE</b> to ${nextSet ? "begin the next set of Metronome Task trials" : "continue (this enables audio)"}.</p>
+      <p><b>Metronome Task</b></p>
+      <p>You will now have some metronome tapping trials.</p>
+      <p>Press <b>SPACE</b> to continue to the next set of Metronome Task trials.</p>
     </div>`,
     choices: [" "],
     on_finish: async () => {
@@ -199,7 +340,7 @@ function audioUnlockTrial(nextSet = false, switching = true){
         bellAudio.currentTime = 0;
       } catch(e) {}
     },
-    data: {task:"system", event:nextSet ? "task_switch" : "audio_unlock", next:"mrt"}
+    data: {task:"system", event:"task_switch", next:"mrt"}
   };
 }
 
@@ -253,7 +394,7 @@ async function start(){
     numBlocks: MRT_TOTAL_BLOCKS
   }).timeline);
 
-  timeline.push(transitionScreen(`<p><b>Image comparison task</b></p>
+  timeline.push(transitionScreen(`<p><b>Image Comparison Task</b></p>
     <p>Next, we will explain the image comparison task and give you some practice trials.</p>
     <p>Press <b>SPACE</b> to continue.</p>`, {event:"image_practice_transition", next:"image_practice"}));
 
@@ -269,15 +410,13 @@ async function start(){
 
   // -------- Interleaving plan --------
   let calibrationChunkIndex = 1;
-  let lastMainTask = null;
   while (metaState.caliCursor < metaState.calibrationTargetCount || sharedState.mrtCursor < MRT_TOTAL_BLOCKS) {
     if (metaState.caliCursor < metaState.calibrationTargetCount) {
       if (calibrationChunkIndex > 1) {
-        timeline.push(transitionScreen(`<p><b>${lastMainTask === "mrt" ? "Switch to image comparisons" : "Image comparisons"}</b></p><p>Press <b>SPACE</b> to continue to the next set of image comparisons.</p>`, {event:"task_switch", next:"calibration"}));
+        timeline.push(transitionScreen(`<p><b>Image Comparison Task</b></p><p>You will now have some image comparison trials.</p><p>Press <b>SPACE</b> to continue to the next set of image comparisons.</p>`, {event:"task_switch", next:"calibration"}));
       }
       timeline.push(...buildMetaEmotionCalibrationChunk(metaState, calibrationChunkSize, calibrationChunkIndex));
       calibrationChunkIndex++;
-      lastMainTask = "calibration";
     }
 
     if (sharedState.mrtCursor < MRT_TOTAL_BLOCKS) {
@@ -294,9 +433,8 @@ async function start(){
 
       if (mrtChunk.length > 0) {
         // The first set already has its own audio-enable transition and countdown.
-        if (!firstMrtSet) timeline.push(audioUnlockTrial(true, lastMainTask !== "mrt"));
+        if (!firstMrtSet) timeline.push(audioUnlockTrial(true));
         timeline.push(...mrtChunk);
-        lastMainTask = "mrt";
       }
     }
   }

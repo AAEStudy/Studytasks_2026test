@@ -1,6 +1,6 @@
 # FAE data exports and Lee archive audit
 
-Current schema: `fae-export-v2`. Study version: `FAE-2026-10-14-data-v2`.
+Current schema: `fae-export-v2`. Study version: `FAE-2026-10-14-audio-setup`.
 
 The experiment still saves four files per completed browser session: MRT TSV,
 image-practice CSV, calibration CSV, and final-judgment CSV. All have one header
@@ -109,7 +109,7 @@ New image fields then follow:
 | Header | Meaning |
 | --- | --- |
 | export_schema_version | fae-export-v2 |
-| study_version | FAE-2026-10-14-data-v2 |
+| study_version | FAE-2026-10-14-audio-setup |
 | session_id | Shared unique ID for this browser run |
 | session_started_at_utc | ISO UTC start time |
 | run_mode | full for 380 calibration comparisons and 35 MRT blocks; otherwise test |
@@ -131,7 +131,7 @@ true and `full_protocol_complete` false. It cannot provide Lee-style full
 calibration ground truth.
 
 MRT's existing column names and task values remain unchanged. Its exporter adds
-`row_index` followed by the shared session fields. Missing/sparse array cells
+`row_index` followed by the shared session fields, then `probe_order`. Missing/sparse array cells
 are empty; tabs, line breaks, and quotes are escaped. Use `row_index` with
 `session_id` for unique records, because repeating tapping practice can repeat
 legacy trial numbers. Exclude `practice trial` and `practice_probe` rows from
@@ -142,6 +142,20 @@ MRT `RT_from_metronome` remains a signed timing difference in milliseconds;
 `performance_rating` is 1–6 and `confidence_rating` is 1–4. `main_basis` uses
 `remembered_thoughts`, `general_feeling`, or `other`. Instruction-check RT
 `instructed_response_rt_ms` is explicitly in milliseconds.
+
+Practice and main probes now appear in the order focus, basis, confidence.
+`probe_order` records `focus,basis,confidence`. The legacy RT field names retain
+their content meanings: `probe1_rt` is focus, `probe2_rt` is confidence, and
+`probe3_rt` is basis; the numbers no longer describe display position. Raw
+jsPsych records use `probe_question` for the actual displayed position and
+`probe_kind` to identify the question. One aggregate probe row is saved only
+after all three responses are available.
+
+Every tenth main probe is followed by a separate instructed-response check
+with the same four mouse options as confidence. Its response and expected
+response use codes 1–4 corresponding to the confidence labels above; correctness
+and `instructed_response_rt_ms` are saved separately. This check does not replace
+or alter `confidence_rating`. Practice does not advance the main check counter.
 
 ## File organization and Dataverse behavior
 
