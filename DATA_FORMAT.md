@@ -1,6 +1,6 @@
 # FAE data exports and Lee archive audit
 
-Current schema: `fae-export-v2`. Study version: `FAE-2026-10-14-final-instructions`.
+Current schema: `fae-export-v2`. Study version: `FAE-2026-10-14-tap-feedback`.
 
 The experiment still saves four files per completed browser session: MRT TSV,
 image-practice CSV, calibration CSV, and final-judgment CSV. All have one header
@@ -155,7 +155,7 @@ fractions to their configured lengths.
 | Header | Meaning |
 | --- | --- |
 | export_schema_version | fae-export-v2 |
-| study_version | FAE-2026-10-14-final-instructions |
+| study_version | FAE-2026-10-14-tap-feedback |
 | session_id | Shared unique ID for this browser run |
 | session_started_at_utc | ISO UTC start time |
 | run_mode | full for 380 calibration comparisons and 35 MRT blocks; otherwise test |
@@ -188,6 +188,13 @@ MRT `RT_from_metronome` remains a signed timing difference in milliseconds;
 `performance_rating` is 1–6 and `confidence_rating` is 1–4. `main_basis` uses
 `remembered_thoughts`, `general_feeling`, or `other`. Instruction-check RT
 `instructed_response_rt_ms` is explicitly in milliseconds.
+
+From `mrt-probes-v11-tap-feedback`, practice omissions no longer display a false
+`+` confirmation or add an extra 650-ms feedback interval. Both practice and main
+confirmations require a valid recorded SPACE press. Omission rows still have an
+empty `RT_from_metronome` and `omission = TRUE`; successful taps retain the
+signed millisecond score. The confidence prompt uses the requested full wording
+about whether the indicated level of focus to the task was accurate.
 
 Practice and main probes now appear in the order focus, basis, confidence.
 `probe_order` records `focus,basis,confidence`. The legacy RT field names retain

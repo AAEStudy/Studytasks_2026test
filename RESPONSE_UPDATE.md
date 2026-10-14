@@ -1,5 +1,23 @@
 # Judgment Controls and Image Replays
 
+## Metronome tap feedback and confidence wording (October 14, 2026)
+
+The MRT confidence question now reads: "How confident are you that the level of
+focus to the task you indicated was accurate?" Practice and main probes use
+the same wording.
+
+Practice previously displayed the + confirmation unconditionally after its
+response window, including after omissions, for an additional 650 ms. The +
+now appears only after a recorded SPACE press with a valid reaction time.
+An omission remains blank and adds no feedback interval, matching the main
+task's 1300-ms cycle. The practice and main paths reset response state at the
+start of each trial and suppress confirmation after a pause. Successful taps
+retain their remaining-cycle feedback and signed timing score.
+
+Omissions were already saved as omissions; the misleading practice feedback
+did not create scored SPACE presses. Current MRT response format:
+`mrt-probes-v11-tap-feedback`.
+
 ## Final instructions, confidence movement, and response checks (October 14, 2026)
 
 The comparison wording now closely follows the original Chinese instructions:
@@ -45,8 +63,7 @@ earlier descriptions of final-confidence movement and replay limits below.
 
 Both practice and main probes now ask for task focus, then the main basis for
 that rating, then confidence. The basis screen adds: "Press C, F, or O to
-indicate your response." The confidence question remains: "How confident are
-you in the task-focus rating you provided?" The recap pages follow the same
+indicate your response." The confidence question remains: "How confident are you that the level of focus to the task you indicated was accurate?" The recap pages follow the same
 order as the questions.
 
 The occasional instructed-response check follows confidence and uses its same
@@ -93,8 +110,7 @@ are unchanged. Image response format at that update:
 `emotion-mouse-replay-v3-timed-instructions`; the current update uses
 `emotion-mouse-replay-v5-final-checks`.
 
-The MRT confidence prompt is now: "How confident are you in the task-focus
-rating you provided?" Practice and main probes use this same wording.
+The MRT confidence prompt is now: "How confident are you that the level of focus to the task you indicated was accurate?" Practice and main probes use this same wording.
 
 **Current export format:** the October 14 `fae-export-v2` update supersedes the
 headerless format described in the historical sections below. See

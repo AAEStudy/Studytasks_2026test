@@ -1,6 +1,6 @@
 const MRT_CERTAINTY_MIN_MS = 600;
 const MRT_CERTAINTY_MIN_MOVE_PX = 100;
-const MRT_RESPONSE_FORMAT_VERSION = "mrt-probes-v10-movement-100";
+const MRT_RESPONSE_FORMAT_VERSION = "mrt-probes-v11-tap-feedback";
 const MRT_PROBE_ORDER = "focus,basis,confidence";
 const MRT_CERTAINTY_LABELS = ["Very unconfident", "Unconfident", "Confident", "Very confident"];
 const MRT_FOCUS_RESPONSE_HTML = `
@@ -72,7 +72,7 @@ function buildMrtCertaintyTrial(jsPsych, onResponse, options = {}) {
   let cleanup = () => {};
   return {
     type: jsPsychHtmlKeyboardResponse,
-    stimulus: mrtConfidenceStimulus("How confident are you in the task-focus rating you provided?"),
+    stimulus: mrtConfidenceStimulus("How confident are you that the level of focus to the task you indicated was accurate?"),
     choices: "NO_KEYS",
     data: {
       ...(options.instructedResponse
@@ -561,13 +561,14 @@ var jsPsych = params.jsPsych;
         response_ends_trial: true,
         trial_duration: 1300,
         on_start: function() {
+          practiceLastRT = null;
           setTimeout(() => { play_metronome_tick(); }, 650);
         },
         on_finish: function(data) {
           if(data.response === "p") {
             pause = true;
             practiceLastRT = null; 
-          } else if(data.response === " ") {
+          } else if(data.response === " " && Number.isFinite(data.rt) && data.rt >= 0) {
             practiceLastRT = data.rt;
           } else {
             practiceLastRT = null;
@@ -577,13 +578,14 @@ var jsPsych = params.jsPsych;
       let practice_tapping_pad = {
         type: jsPsychHtmlKeyboardResponse,
         stimulus: function() {
+          if (practiceLastRT === null || pause || justPaused) return "";
           return '<div class="plus">+</div>';
         },
         choices: [" "],
         response_ends_trial: false,
         trial_duration: function() {
           if (practiceLastRT === null) {
-            return 650;
+            return 0;
           }
           let leftover = 1300 - practiceLastRT;
           return leftover > 0 ? leftover : 0;
@@ -903,13 +905,14 @@ var jsPsych = params.jsPsych;
         response_ends_trial: true,
         trial_duration: 1300,
         on_start: function() {
+          mainLastRT = null;
           setTimeout(() => { play_metronome_tick(); }, 650);
         },
         on_finish: function(data) {
           if(data.response === "p") {
             pause = true;
             mainLastRT = null;
-          } else if(data.response === " ") {
+          } else if(data.response === " " && Number.isFinite(data.rt) && data.rt >= 0) {
             mainLastRT = data.rt;
           } else {
             mainLastRT = null;
@@ -919,7 +922,7 @@ var jsPsych = params.jsPsych;
       let tapping_pad = {
         type: jsPsychHtmlKeyboardResponse,
         stimulus: function() {
-          if(mainLastRT === null) {
+          if(mainLastRT === null || pause || justPaused) {
             return "";
           }
           return '<div class="plus">+</div>';
