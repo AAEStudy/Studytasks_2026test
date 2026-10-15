@@ -58,7 +58,7 @@ function collection(records) {
     filter: criteria => collection(records.filter(row => Object.entries(criteria).every(([key, value]) => row[key] === value))) };
 }
 
-function runtime({ sharedRemaining = 5, finalRemaining = 2 } = {}) {
+function runtime({ sharedRemaining = 5, finalRemaining = 3 } = {}) {
   const clock = fakeClock(), document = eventTarget(), window = eventTarget(), display = eventTarget();
   Object.assign(window, { setTimeout: clock.setTimeout, setInterval: clock.setInterval,
     clearTimeout: clock.clear, clearInterval: clock.clear });
@@ -253,28 +253,28 @@ test("comparison instructions retain independent 20/10-second page gates", () =>
   exerciseGates(run, trial, [20000, 10000]);
 });
 
-test("final replays have a two-use cap within the formal five and never add scored judgments", () => {
+test("final replays have a three-use cap within the formal five and never add scored judgments", () => {
   const run = runtime();
   const timeline = run.context.buildMetaEmotionMetaJ(run.state, 1);
   const node = replayNode(timeline, "meta"), response = replayResponse(node);
   const confidence = flatten(timeline).find(trial => trial.data?.event === "meta_conf");
   assert.equal(run.state.replaysRemaining, 5);
-  assert.equal(run.state.finalReplaysRemaining, 2);
-  for (let remaining = 2; remaining > 0; remaining--) {
+  assert.equal(run.state.finalReplaysRemaining, 3);
+  for (let remaining = 3; remaining > 0; remaining--) {
     run.response(response);
     assert.match(run.button("replay").textContent, new RegExp(`${remaining} remaining`));
     run.clock.advance(1);
     run.click("replay");
     assert.equal(node.loop_function(), true);
     assert.equal(run.state.finalReplaysRemaining, remaining - 1);
-    assert.equal(run.state.replaysRemaining, remaining + 2);
+    assert.equal(run.state.replaysRemaining, remaining + 1);
   }
   run.response(response);
   assert.equal(run.button("replay").disabled, true);
   const recordCount = run.records.length;
   run.click("replay");
   assert.equal(run.records.length, recordCount, "disabled replay requests cannot finish a screen");
-  assert.equal(run.state.replaysRemaining, 3);
+  assert.equal(run.state.replaysRemaining, 2);
   run.clock.advance(900);
   run.click("1");
   assert.equal(node.loop_function(), false);
@@ -283,20 +283,20 @@ test("final replays have a two-use cap within the formal five and never add scor
   run.move(125);
   run.clock.advance(700);
   run.click("3");
-  assert.equal(run.state.replaysRemaining, 3);
+  assert.equal(run.state.replaysRemaining, 2);
   assert.equal(run.state.finalReplaysRemaining, 0);
-  assert.equal(run.records.filter(row => row.event === "replay_request").length, 2);
+  assert.equal(run.records.filter(row => row.event === "replay_request").length, 3);
   assert.equal(run.records.filter(row => row.event === "meta_type1").length, 1);
   const finalRecord = run.records.find(row => row.event === "meta_conf");
-  assert.equal(finalRecord.replay_count, 2);
-  assert.equal(finalRecord.replay_requests.length, 2);
+  assert.equal(finalRecord.replay_count, 3);
+  assert.equal(finalRecord.replay_requests.length, 3);
   const exported = run.context.exportMetaEmotion(run.state, run.state.jsPsych, { session_id: "session-a" });
   assert.equal(exported.counts.meta, 1);
   const table = run.context.parseCSV(exported.metaJCsvText);
   assert.equal(table.length, 2);
   assert.deepEqual(Array.from(table[0]).slice(table[0].indexOf("session_id"), table[0].indexOf("session_id") + 6), ["session_id", "final_replay_limit", "final_replays_remaining",
     "certainty_min_ms", "certainty_min_move_px", "certainty_max_move_px"]);
-  assert.equal(table[1][table[0].indexOf("final_replay_limit")], "2");
+  assert.equal(table[1][table[0].indexOf("final_replay_limit")], "3");
   assert.equal(table[1][table[0].indexOf("final_replays_remaining")], "0");
   assert.equal(table[1][table[0].indexOf("certainty_min_ms")], "600");
   assert.equal(table[1][table[0].indexOf("certainty_min_move_px")], "100");
@@ -317,7 +317,7 @@ test("practice has its own persistent five-use budget and cannot consume formal 
     run.click("replay");
     assert.equal(run.state.practiceReplaysRemaining, remaining - 1);
     assert.equal(run.state.replaysRemaining, 5, "practice cannot consume formal replays");
-    assert.equal(run.state.finalReplaysRemaining, 2);
+    assert.equal(run.state.finalReplaysRemaining, 3);
   }
   run.response(replayResponse(practice));
   assert.match(run.button("replay").textContent, /0 remaining/);
@@ -341,7 +341,7 @@ test("practice has its own persistent five-use budget and cannot consume formal 
   run.key("1");
   assert.equal(run.state.practiceReplaysRemaining, 0);
   assert.equal(run.state.replaysRemaining, 5);
-  assert.equal(run.state.finalReplaysRemaining, 2);
+  assert.equal(run.state.finalReplaysRemaining, 3);
 
   for (let chunk = 1; chunk <= 2; chunk++) {
     const calibration = replayNode(run.context.buildMetaEmotionCalibrationChunk(run.state, 1, chunk), "calibration");
@@ -357,10 +357,10 @@ test("practice has its own persistent five-use budget and cannot consume formal 
     run.clock.advance(1);
     run.key("1");
     assert.equal(run.state.practiceReplaysRemaining, 0, "calibration cannot alter the practice budget");
-    assert.equal(run.state.finalReplaysRemaining, 2, "calibration cannot consume the final-only cap");
+    assert.equal(run.state.finalReplaysRemaining, 3, "calibration cannot consume the final-only cap");
   }
   assert.equal(run.state.replaysRemaining, 1);
-  assert.equal(run.state.finalReplaysRemaining, 2);
+  assert.equal(run.state.finalReplaysRemaining, 3);
   const finalTimeline = run.context.buildMetaEmotionMetaJ(run.state, 1);
   const finalNode = replayNode(finalTimeline, "meta");
   run.response(replayResponse(finalNode));
@@ -368,7 +368,7 @@ test("practice has its own persistent five-use budget and cannot consume formal 
   run.clock.advance(1);
   run.click("replay");
   assert.equal(run.state.replaysRemaining, 0);
-  assert.equal(run.state.finalReplaysRemaining, 1);
+  assert.equal(run.state.finalReplaysRemaining, 2);
   run.response(replayResponse(finalNode));
   assert.match(run.button("replay").textContent, /0 remaining/);
   assert.equal(run.button("replay").disabled, true);
@@ -380,7 +380,7 @@ test("practice has its own persistent five-use budget and cannot consume formal 
   run.click("3");
   assert.equal(run.state.practiceReplaysRemaining, 0);
   assert.equal(run.state.replaysRemaining, 0);
-  assert.equal(run.state.finalReplaysRemaining, 1);
+  assert.equal(run.state.finalReplaysRemaining, 2);
   const nextFinal = replayNode(run.context.buildMetaEmotionMetaJ(run.state, 1), "meta");
   run.response(replayResponse(nextFinal));
   assert.equal(run.button("replay").disabled, true, "another final chunk cannot reset either formal allowance");
@@ -409,7 +409,7 @@ test("initialized sessions receive independent practice and formal allowances pl
   const state = await run.context.initMetaEmotion({ subject: "CHECK", jsPsych: run.state.jsPsych, imageScheduleSeed: 20261014 });
   assert.equal(state.replaysRemaining, 5);
   assert.equal(state.practiceReplaysRemaining, 5);
-  assert.equal(state.finalReplaysRemaining, 2);
+  assert.equal(state.finalReplaysRemaining, 3);
 });
 
 test("each final confidence question requires 100px of new movement, 600ms and an eligible fresh press", () => {
@@ -469,7 +469,7 @@ test("each final confidence question requires 100px of new movement, 600ms and a
   run.click("3");
   assert.equal(run.records.length, 6);
   assert.equal(run.state.replaysRemaining, 5, "ordinary judgments and confidence do not consume replay allowance");
-  assert.equal(run.state.finalReplaysRemaining, 2);
+  assert.equal(run.state.finalReplaysRemaining, 3);
   assert.equal(run.clock.pending(), 0, "completed confidence questions clear their timers");
   assert.equal(run.document.listenerCount("click"), 0);
   assert.equal(run.document.listenerCount("pointerdown"), 1, "only the shared cursor tracker remains");
@@ -529,7 +529,7 @@ test("three final checks follow phase thirds and append data only to the precedi
   assert.equal(confidenceRows.length, 60);
   assert.equal(checkRows.length, 3);
   assert.equal(run.state.replaysRemaining, 5, "confidence questions and checks cannot consume formal replays");
-  assert.equal(run.state.finalReplaysRemaining, 2, "checks cannot consume the final replay cap");
+  assert.equal(run.state.finalReplaysRemaining, 3, "checks cannot consume the final replay cap");
   assert.ok(confidenceRows.every(row => row.conf_key === "4" && row.confidence_label === "Very confident"));
   assert.ok(checkRows.every(row => row.conf_key === undefined && row.type1_key === undefined));
   for (const [index, row] of confidenceRows.entries()) {
@@ -650,4 +650,70 @@ test("full and shortened calibration schedules retain four distinct global quart
     assert.deepEqual(checks.map(trial => trial.data.check_id), expected.map((_, index) => index + 1));
     assert.equal(flatten(built).filter(trial => trial.data?.event === "2ifc").length, total);
   }
+});
+
+test("final judgment reminders still appear after earlier reminders are exhausted and are saved after the completed pair", () => {
+  const run = runtime();
+  run.state.practicePairs = Array.from({ length: 6 }, (_, index) => ({
+    p1: `${3000 + index * 2}.jpg`, p2: `${3001 + index * 2}.jpg`, cat: 0
+  }));
+  const reminderIn = group => Array.from(group.timeline).find(trial => trial.timeline?.[0]?.data?.event === "speed_reminder");
+  const practice = run.context.buildMetaEmotionPractice(run.state);
+  const practiceGroups = Array.from(practice).filter(trial => trial.timeline && flatten([trial]).some(child => child.data?.event === "2ifc"));
+  for (const group of practiceGroups) {
+    run.response(flatten([group]).find(trial => trial.data?.event === "2ifc"));
+    run.clock.advance(1);
+    run.key("1");
+    const reminder = reminderIn(group);
+    if (reminder.conditional_function()) {
+      run.response(reminder.timeline[0]);
+      run.clock.advance(1);
+      run.click("continue");
+    }
+  }
+  const earlierReminders = run.records.filter(row => row.event === "speed_reminder");
+  assert.equal(earlierReminders.length, 2);
+  assert.ok(earlierReminders.every(row => row.speed_reminder_group === "general"));
+
+  const finalGroups = Array.from(run.context.buildMetaEmotionMetaJ(run.state, 60)).slice(0, 3);
+  let x = 0;
+  for (const [index, group] of finalGroups.entries()) {
+    const judgment = flatten([group]).find(trial => trial.data?.event === "meta_type1");
+    const confidence = flatten([group]).find(trial => trial.data?.event === "meta_conf");
+    const reminder = reminderIn(group);
+    assert.ok(group.timeline.indexOf(reminder) > group.timeline.indexOf(confidence));
+    run.response(judgment);
+    run.clock.advance(1);
+    run.click("1");
+    assert.equal(run.records.filter(row => row.event === "speed_reminder" && row.speed_reminder_group === "final_judgment").length, 0,
+      "a pending warning cannot interrupt a judgment-confidence pair");
+    run.response(confidence);
+    run.move(x += 125);
+    run.clock.advance(600);
+    run.click("3");
+    assert.equal(reminder.conditional_function(), index === 2);
+    if (reminder.conditional_function()) {
+      run.response(reminder.timeline[0]);
+      run.clock.advance(1);
+      run.click("continue");
+    }
+  }
+  const finalReminders = run.records.filter(row => row.event === "speed_reminder" && row.speed_reminder_group === "final_judgment");
+  assert.equal(finalReminders.length, 1, "earlier reminders cannot exhaust the final phase allowance");
+  const confidences = run.records.filter(row => row.event === "meta_conf");
+  assert.equal(confidences.length, 3);
+  assert.ok(confidences.every(row => row.rt === 600 && row.type1_fast === true && row.fast_response === false));
+  assert.equal(confidences[2].speed_reminder_shown, true);
+  assert.equal(confidences[2].speed_reminder_group, "final_judgment");
+  assert.equal(confidences[2].speed_reminder_kinds, "emotion_judgment");
+  assert.equal(run.state.practiceReplaysRemaining, 5);
+  assert.equal(run.state.replaysRemaining, 5);
+  assert.equal(run.state.finalReplaysRemaining, 3);
+  const exported = run.context.exportMetaEmotion(run.state, run.state.jsPsych, { session_id: "session-a" });
+  const table = run.context.parseCSV(exported.metaJCsvText), [header] = table;
+  assert.equal(table.length, 4);
+  assert.equal(header.at(-1), "speed_reminder_group", "the new group field follows all existing export columns");
+  assert.equal(table[3][header.indexOf("speed_reminder_shown")], "true");
+  assert.equal(table[3][header.indexOf("speed_reminder_group")], "final_judgment");
+  assert.equal(table[3][header.indexOf("final_replay_limit")], "3");
 });

@@ -134,9 +134,10 @@ function instructionScreen(title, body, tag, action = "begin") {
   };
 }
 
-const META_RESPONSE_FORMAT_VERSION = "emotion-mouse-replay-v6-practice-budget";
-const FINAL_IMAGE_REPLAY_LIMIT = STUDY_RESPONSE_SETTINGS.finalImageReplayLimit ?? 2;
+const META_RESPONSE_FORMAT_VERSION = "emotion-mouse-replay-v7-final-controls";
+const FINAL_IMAGE_REPLAY_LIMIT = STUDY_RESPONSE_SETTINGS.finalImageReplayLimit ?? 3;
 const META_CONFIDENCE_GATES = Object.freeze({ minMs: 600, minMovePx: 100 });
+const FINAL_JUDGMENT_REMINDER_OPTIONS = Object.freeze({ reminderGroup: "final_judgment" });
 const COMPARISON_OPTIONS_HTML = `<p>Press <b>1</b> for the FIRST picture, <b>2</b> for the SECOND picture.</p>`;
 const EMOTION_GUIDANCE = `<p>Focus on <b>your own emotional feeling</b>, not on whether the picture itself seems positive or negative. There is no correct answer; respond intuitively.</p>`;
 
@@ -459,12 +460,12 @@ function metaTrial(state, jsPsych, pic, chunk, schedule, check = null) {
       <p>Click your answer.</p>
     </section>`,
     choices: "NO_KEYS",
-    data: {task:"metaemotion", event:"meta_type1", chunk, pic, pic_id, ...state.scheduleMetadata, ...schedule},
+    data: {task:"metaemotion", event:"meta_type1", chunk, pic, pic_id, ...state.scheduleMetadata, ...schedule, speed_reminder_group: FINAL_JUDGMENT_REMINDER_OPTIONS.reminderGroup},
     on_finish: data => {
       data.type1_key = data.response;
       data.type1_rt_s = data.rt / 1000;
       data.type1_time_s = getSecs();
-      Object.assign(data, StudyResponses.recordSpeed('emotion_judgment', data.rt));
+      Object.assign(data, StudyResponses.recordSpeed('emotion_judgment', data.rt, FINAL_JUDGMENT_REMINDER_OPTIONS));
       judgment = data;
     }
   };
@@ -474,7 +475,7 @@ function metaTrial(state, jsPsych, pic, chunk, schedule, check = null) {
       <div class="emotion-response-options four">${META_CONFIDENCE_LABELS.map((label, i) => button(i + 1, `<span class="confidence-option-number">${i + 1}</span><span class="confidence-option-label">${label}</span>`)).join('')}</div>
       <p>Move the mouse a noticeable distance, then click your answer.</p>
     </section>`,
-    data: {task:"metaemotion", event:"meta_conf", chunk, pic, pic_id, ...responseMetadata(), certainty_min_ms: META_CONFIDENCE_GATES.minMs, certainty_min_move_px: META_CONFIDENCE_GATES.minMovePx},
+    data: {task:"metaemotion", event:"meta_conf", chunk, pic, pic_id, ...responseMetadata(), speed_reminder_group: FINAL_JUDGMENT_REMINDER_OPTIONS.reminderGroup, certainty_min_ms: META_CONFIDENCE_GATES.minMs, certainty_min_move_px: META_CONFIDENCE_GATES.minMovePx},
     on_finish: data => {
       data.conf_key = data.response;
       data.confidence_label = confidenceLabel(data.response);
@@ -487,7 +488,7 @@ function metaTrial(state, jsPsych, pic, chunk, schedule, check = null) {
       for (const key of ['image_trial_id', 'replay_count', 'replay_requests', 'replays_remaining', 'final_replay_limit', 'final_replays_remaining', 'total_response_rt_s', 'final_response_rt_s']) data[key] = judgment[key];
       data.type1_fast = judgment.fast_response;
       data.type1_fast_streak = judgment.fast_streak;
-      Object.assign(data, StudyResponses.recordSpeed('emotion_confidence', data.rt));
+      Object.assign(data, StudyResponses.recordSpeed('emotion_confidence', data.rt, FINAL_JUDGMENT_REMINDER_OPTIONS));
       data.speed_reminder_shown = false;
       data.speed_reminder_kinds = '';
       confidence = data;
@@ -532,7 +533,7 @@ function metaTrial(state, jsPsych, pic, chunk, schedule, check = null) {
     StudyResponses.reminderTrial(jsPsych, kinds => {
       confidence.speed_reminder_shown = true;
       confidence.speed_reminder_kinds = kinds.join('|');
-    }),
+    }, FINAL_JUDGMENT_REMINDER_OPTIONS),
     iti(META_TIMING.iti_ms)
   ] };
 }
@@ -670,7 +671,8 @@ export function exportMetaEmotion(state, jsPsych, metadata = {}){
     "final_check_id", "final_check_after_trial", "final_check_presentation",
     "final_check_expected", "final_check_response", "final_check_correct",
     "final_check_rt_ms", "final_check_min_ms", "final_check_min_move_px", "final_check_max_move_px",
-    "cal_check_id", "cal_check_after_trial", "cal_check_expected", "cal_check_response", "cal_check_correct", "cal_check_rt_ms"
+    "cal_check_id", "cal_check_after_trial", "cal_check_expected", "cal_check_response", "cal_check_correct", "cal_check_rt_ms",
+    "speed_reminder_group"
   ];
   // Add new controls after all established columns, including session metadata.
   const headers = core => [...core, ...detailHeaders, ...stableHeaders, ...metadataKeys, ...finalControlHeaders];

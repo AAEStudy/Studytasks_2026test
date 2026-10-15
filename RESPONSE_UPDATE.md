@@ -1,5 +1,23 @@
 # Judgment Controls and Image Replays
 
+## Final replay allowance and independent speed reminders (October 15, 2026)
+
+Final image judgments now permit three View again requests, within the five
+requests shared across main calibration and final judgments. Instructions and
+the remaining-use button use the current cap. Practice retains its own allowance.
+
+Final judgments previously shared a two-warning allowance with all earlier
+tasks, allowing those tasks to exhaust the final phase's warnings. Final
+Higher/Lower and confidence responses now use the independent final_judgment
+group, with its own two-warning allowance. The earlier tasks keep their shared
+general allowance. Three consecutive Higher/Lower responses below 250 ms
+request a warning after the completed judgment/confidence pair and any response
+check. Final confidence retains its 600-ms and 100-pixel movement requirements.
+The warning does not alter accepted answers or their RTs. No new five-second
+delay is applied. The assigned warning group is saved in raw events and a new
+CSV field appended after all existing columns. Current image response format:
+`emotion-mouse-replay-v7-final-controls`.
+
 ## Quality-check introduction (October 15, 2026)
 
 Instructed-response checks now begin: "To ensure quality responses are being
@@ -64,13 +82,13 @@ format: `mrt-probes-v12-recap-pause`.
 The comparison replay page now says: "You may use it up to **5 times during the
 main trials**. Practice uses **do not count**." The practice-complete screen
 uses the same short explanation. The separate five-use practice allowance and
-the two-use cap for final judgments remain in place.
+the three-use cap for final judgments remain in place.
 
 ## Practice replay allowance (October 14, 2026)
 
 Picture practice now has its own allowance of five View again uses. Spending
 them leaves all five main-task uses available. The main allowance is shared
-by calibration and final judgments, with at most two uses during final
+by calibration and final judgments, with at most three uses during final
 judgments. Neither allowance resets when a new chunk is built.
 
 The practice replay page, practice-complete screen, and final instruction page
@@ -120,7 +138,7 @@ requirements are met. Earlier movement, a stationary click, a held press, and
 keyboard-generated clicks cannot submit the response. Normal image-comparison
 key responses and Higher/Lower mouse judgments retain their response methods.
 
-The final phase allows at most two replay requests, within the shared main-task
+The final phase allows at most three replay requests, within the shared main-task
 five-request allowance. Its button displays the actual usable count. Each
 request still repeats only the current image and cannot be made during
 confidence.
@@ -268,7 +286,7 @@ const STUDY_RESPONSE_SETTINGS = Object.freeze({
   fastStreakLength: 3,
   maxSpeedReminders: 2,
   imageReplayLimit: 5,
-  finalImageReplayLimit: 2
+  finalImageReplayLimit: 3
 });
 ```
 
@@ -281,7 +299,9 @@ have separate streaks. Metronome taps and gated MRT certainty are not screened.
 Reminders appear after a completed comparison or final judgment/confidence pair.
 For MRT, the reminder appears within the existing resume screen. There is no
 additional MRT continuation screen. At most two reminder presentations occur
-across the entire session; a presentation can cover more than one question type.
+within the general group, shared by MRT and comparisons. Final judgments have
+their own two-reminder allowance. A presentation can cover more than one
+question type within its group.
 
 ## Replays
 

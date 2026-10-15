@@ -4,13 +4,20 @@ const STUDY_RESPONSE_SETTINGS = Object.freeze({
   fastStreakLength: 3,
   maxSpeedReminders: 2,
   imageReplayLimit: 5,
-  finalImageReplayLimit: 2
+  finalImageReplayLimit: 3
 });
 
 const StudyResponses = (() => {
-  const streaks = new Map();
-  const pending = new Set();
-  let remindersShown = 0;
+  // Earlier tasks share the default allowance. Final picture judgments have
+  // their own allowance so earlier reminders cannot exhaust it.
+  const reminderGroups = new Map();
+  function reminderState(options = {}) {
+    const group = options.reminderGroup ?? 'general';
+    if (!reminderGroups.has(group)) {
+      reminderGroups.set(group, { group, streaks: new Map(), pending: new Set(), shown: 0 });
+    }
+    return reminderGroups.get(group);
+  }
   let cursorPosition = null;
   const trackCursor = event => {
     if (event.pointerType === 'mouse') cursorPosition = { x: event.clientX, y: event.clientY };
@@ -20,25 +27,28 @@ const StudyResponses = (() => {
   document.addEventListener('pointerup', trackCursor, true);
   const reminderText = "You have been responding very quickly. Please take the time you need to consider each question and choose the response that best reflects your experience. Thank you.";
 
-  function recordSpeed(kind, rt) {
+  function recordSpeed(kind, rt, options = {}) {
+    const state = reminderState(options);
     const fast = Number.isFinite(rt) && rt >= 0 && rt < STUDY_RESPONSE_SETTINGS.fastThresholdMs;
-    const streak = fast ? (streaks.get(kind) || 0) + 1 : 0;
-    streaks.set(kind, streak);
-    const due = streak >= STUDY_RESPONSE_SETTINGS.fastStreakLength && remindersShown < STUDY_RESPONSE_SETTINGS.maxSpeedReminders;
-    if (due) { pending.add(kind); streaks.set(kind, 0); }
-    return { fast_response: fast, fast_streak: streak, speed_reminder_requested: due };
+    const streak = fast ? (state.streaks.get(kind) || 0) + 1 : 0;
+    state.streaks.set(kind, streak);
+    const due = streak >= STUDY_RESPONSE_SETTINGS.fastStreakLength && state.shown < STUDY_RESPONSE_SETTINGS.maxSpeedReminders;
+    if (due) { state.pending.add(kind); state.streaks.set(kind, 0); }
+    return { fast_response: fast, fast_streak: streak, speed_reminder_requested: due, speed_reminder_group: state.group };
   }
 
-  function hasReminder(prefix) {
-    return remindersShown < STUDY_RESPONSE_SETTINGS.maxSpeedReminders && [...pending].some(kind => kind.startsWith(prefix));
+  function hasReminder(prefix, options = {}) {
+    const state = reminderState(options);
+    return state.shown < STUDY_RESPONSE_SETTINGS.maxSpeedReminders && [...state.pending].some(kind => kind.startsWith(prefix));
   }
 
-  function takeReminder(prefix) {
-    const kinds = [...pending].filter(kind => kind.startsWith(prefix));
-    kinds.forEach(kind => pending.delete(kind));
-    if (!kinds.length || remindersShown >= STUDY_RESPONSE_SETTINGS.maxSpeedReminders) return [];
-    remindersShown++;
-    kinds.forEach(kind => streaks.set(kind, 0));
+  function takeReminder(prefix, options = {}) {
+    const state = reminderState(options);
+    const kinds = [...state.pending].filter(kind => kind.startsWith(prefix));
+    kinds.forEach(kind => state.pending.delete(kind));
+    if (!kinds.length || state.shown >= STUDY_RESPONSE_SETTINGS.maxSpeedReminders) return [];
+    state.shown++;
+    kinds.forEach(kind => state.streaks.set(kind, 0));
     return kinds;
   }
 
@@ -146,18 +156,18 @@ const StudyResponses = (() => {
 
   function reminderHtml() { return `<p class="speed-reminder" role="status">${reminderText}</p>`; }
 
-  function reminderTrial(jsPsych, onShown) {
+  function reminderTrial(jsPsych, onShown, options = {}) {
     return {
       timeline: [mouseTrial(jsPsych, {
         stimulus: `<section class="emotion-response-screen">${reminderHtml()}<button class="study-response-button" data-study-response="continue" tabindex="-1">Continue</button></section>`,
-        data: { task: 'system', event: 'speed_reminder' },
+        data: { task: 'system', event: 'speed_reminder', speed_reminder_group: reminderState(options).group },
         on_start: trial => {
-          const kinds = takeReminder('emotion_');
-          trial.data = { ...trial.data, reminder_kinds: kinds, reminder_number: remindersShown };
+          const kinds = takeReminder('emotion_', options);
+          trial.data = { ...trial.data, reminder_kinds: kinds, reminder_number: reminderState(options).shown };
           onShown(kinds);
         }
       })],
-      conditional_function: () => hasReminder('emotion_')
+      conditional_function: () => hasReminder('emotion_', options)
     };
   }
 

@@ -1,6 +1,6 @@
 # FAE data exports and Lee archive audit
 
-Current schema: `fae-export-v2`. Study version: `FAE-2026-10-15-quality-check-wording`.
+Current schema: `fae-export-v2`. Study version: `FAE-2026-10-15-final-controls`.
 
 The experiment still saves four files per completed browser session: MRT TSV,
 image-practice CSV, calibration CSV, and final-judgment CSV. All have one header
@@ -81,7 +81,7 @@ practice allowance on practice rows and the main allowance on calibration/final
 rows. Each new replay request also identifies its `budget` as `practice` or
 `main`. Existing CSV headers and positions are unchanged.
 
-Final judgments additionally allow at most two requests within the main five;
+Final judgments additionally allow at most three requests within the main five;
 the main allowance is not replenished at that transition or between chunks.
 The final button shows the smaller of the remaining main allowance and the
 remaining final-phase allowance.
@@ -118,7 +118,7 @@ column positions remain intact:
 
 | Header | Meaning |
 | --- | --- |
-| final_replay_limit | Final-phase cap: 2, within the overall limit of 5 |
+| final_replay_limit | Final-phase cap: 3, within the overall limit of 5 |
 | final_replays_remaining | Remaining final-phase allowance; the button also respects the overall remaining allowance |
 | certainty_min_ms | Minimum confidence-screen time: 600 ms |
 | certainty_min_move_px | Required fresh cursor displacement: 100 CSS px |
@@ -136,6 +136,20 @@ column positions remain intact:
 | cal_check_expected / cal_check_response | Requested and selected 1/2 key response |
 | cal_check_correct | Whether the calibration response instruction was followed |
 | cal_check_rt_ms | Calibration response-check RT in milliseconds |
+| speed_reminder_group | Appended last: final_judgment for final decisions/confidence; general for scored comparisons |
+
+From `emotion-mouse-replay-v7-final-controls`, final judgments have an independent
+allowance of two speed reminders. Earlier MRT and comparison reminders share the
+existing general allowance of two. The final group has its own streaks, pending
+requests, and displayed-warning count. Three consecutive Higher/Lower responses
+strictly below 250 ms request a reminder after the completed decision, confidence,
+and any instructed check. A normal response resets that question type's streak.
+Confidence remains subject to its 600-ms and 100-pixel gate, so its responses
+cannot fall below the 250-ms fast threshold. RTs are timing flags, not exclusions;
+they start at the response screen after picture presentation. No five-second
+warning delay is added in this update. Raw warning events record their group
+and within-group `reminder_number`; the appended CSV field preserves every
+existing column position.
 
 The `final_check_*` fields are populated only on the scored final row immediately
 preceding the check. The original emotion/confidence responses remain intact.
@@ -161,7 +175,7 @@ fractions to their configured lengths.
 | Header | Meaning |
 | --- | --- |
 | export_schema_version | fae-export-v2 |
-| study_version | FAE-2026-10-15-quality-check-wording |
+| study_version | FAE-2026-10-15-final-controls |
 | session_id | Shared unique ID for this browser run |
 | session_started_at_utc | ISO UTC start time |
 | run_mode | full for 380 calibration comparisons and 35 MRT blocks; otherwise test |
