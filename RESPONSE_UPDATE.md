@@ -1,5 +1,19 @@
 # Judgment Controls and Image Replays
 
+## Simpler final-picture response checks (October 15, 2026)
+
+Final picture-judgment instructed-response checks now say "Click your answer."
+They retain the 600-ms minimum and require a fresh primary mouse click, but no
+longer require 100 pixels of cursor movement. Ordinary confidence ratings keep
+both the minimum time and movement requirement. Their instruction now specifies
+"Each confidence response" when describing the movement rule.
+
+The four answer options, layout, three checks at phase thirds, and scored trial
+counts are unchanged. Existing export fields record a zero movement minimum on
+checks and preserve the actual observed movement. No headers or column positions
+change. Current image response format:
+`emotion-mouse-replay-v10-final-check-clicks`.
+
 ## Clear boundary after picture review (October 15, 2026)
 
 The final picture-judgment instructions now begin by noting that participants

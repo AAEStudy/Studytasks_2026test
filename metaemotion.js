@@ -134,9 +134,10 @@ function instructionScreen(title, body, tag, action = "begin") {
   };
 }
 
-const META_RESPONSE_FORMAT_VERSION = "emotion-mouse-replay-v9-review-transition";
+const META_RESPONSE_FORMAT_VERSION = "emotion-mouse-replay-v10-final-check-clicks";
 const FINAL_IMAGE_REPLAY_LIMIT = STUDY_RESPONSE_SETTINGS.finalImageReplayLimit ?? 3;
 const META_CONFIDENCE_GATES = Object.freeze({ minMs: 600, minMovePx: 100 });
+const META_CHECK_GATES = Object.freeze({ minMs: 600, minMovePx: 0 });
 const FINAL_JUDGMENT_REMINDER_OPTIONS = Object.freeze({ reminderGroup: "final_judgment" });
 const COMPARISON_OPTIONS_HTML = `<p>Press <b>1</b> for the FIRST picture, <b>2</b> for the SECOND picture.</p>`;
 const EMOTION_GUIDANCE = `<p>Focus on <b>your own emotional feeling</b>, not on whether the picture itself seems positive or negative. There is no correct answer; respond intuitively.</p>`;
@@ -276,7 +277,7 @@ function finalJudgmentInstructions(jsPsych) {
       title: "<u>Confidence in your judgment</u>",
       body: `<p>After each judgment, you will be asked: <b>How confident are you in the decision you just made?</b></p>
         <p>Click one answer: <b>1 = Very unconfident</b>, <b>2 = Unconfident</b>, <b>3 = Confident</b>, or <b>4 = Very confident</b>.</p>
-        <p>Please try to use <b>all the ratings</b>. <b>Move the mouse a noticeable distance, then click your answer.</b> Each response requires a new mouse movement, and the choices become available after a brief pause.</p>
+        <p>Please try to use <b>all the ratings</b>. <b>Move the mouse a noticeable distance, then click your answer.</b> Each confidence response requires a new mouse movement, and the choices become available after a brief pause.</p>
         <p>Occasionally, a <b>third question</b> will ask you to select a particular response. Follow the instruction shown.</p>`
     },
     {
@@ -501,13 +502,13 @@ function metaTrial(state, jsPsych, pic, chunk, schedule, check = null) {
       stimulus: `<section class="emotion-response-screen emotion-confidence-screen emotion-instructed-response-screen">
         <p>To ensure quality responses are being given, please select “${META_CONFIDENCE_LABELS[Number(expected) - 1]}”.</p>
         <div class="emotion-response-options four">${META_CONFIDENCE_LABELS.map((label, i) => button(i + 1, `<span class="confidence-option-number">${i + 1}</span><span class="confidence-option-label">${label}</span>`)).join('')}</div>
-        <p>Move the mouse a noticeable distance, then click your answer.</p>
+        <p>Click your answer.</p>
       </section>`,
       data: {
         task: "metaemotion", event: "meta_instructed_response", check_id: check.id,
         after_meta_trial: check.afterTrial, presentation: "confidence_options", expected_response: expected,
-        ...responseMetadata("meta"), certainty_min_ms: META_CONFIDENCE_GATES.minMs,
-        certainty_min_move_px: META_CONFIDENCE_GATES.minMovePx
+        ...responseMetadata("meta"), certainty_min_ms: META_CHECK_GATES.minMs,
+        certainty_min_move_px: META_CHECK_GATES.minMovePx
       },
       on_finish: data => {
         data.instructed_response_correct = String(data.response ?? "") === expected;
@@ -524,7 +525,7 @@ function metaTrial(state, jsPsych, pic, chunk, schedule, check = null) {
           final_check_max_move_px: data.certainty_max_move_px
         });
       }
-    }, META_CONFIDENCE_GATES));
+    }, META_CHECK_GATES));
   }
   return { timeline: [
     withReplay(state, jsPsych, [pic], responseTrial, "meta", chunk),

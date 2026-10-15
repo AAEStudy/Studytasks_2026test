@@ -168,7 +168,7 @@ function runtime({ comparisonRemaining = 5, finalRemaining = 3 } = {}) {
       pointer.y = y;
       document.emit("pointermove", mouseEvent(display));
     },
-    press(value) { document.emit("pointerdown", mouseEvent(buttons.find(button => button.dataset.studyResponse === String(value)))); },
+    press(value, extra = {}) { document.emit("pointerdown", mouseEvent(buttons.find(button => button.dataset.studyResponse === String(value)), extra)); },
     clickOnly(value, extra = {}) { document.emit("click", mouseEvent(buttons.find(button => button.dataset.studyResponse === String(value)), extra)); },
     button: value => buttons.find(button => button.dataset.studyResponse === String(value))
   };
@@ -567,7 +567,7 @@ test("each final confidence question requires 100px of new movement, 600ms and a
   assert.equal(run.document.listenerCount("pointerdown"), 1, "only the shared cursor tracker remains");
 });
 
-test("three final checks follow phase thirds and append data only to the preceding scored row", () => {
+test("three final checks accept fresh stationary clicks after 600ms and append data only to the preceding scored row", () => {
   const run = runtime();
   const timeline = run.context.buildMetaEmotionMetaJ(run.state, 60);
   const steps = flatten(timeline).filter(trial => ["meta_type1", "meta_conf", "meta_instructed_response"].includes(trial.data?.event));
@@ -602,18 +602,35 @@ test("three final checks follow phase thirds and append data only to the precedi
       assert.equal(live.data.after_meta_trial, judgments);
       const expected = ((checkIndex - 1) % 4) + 1;
       assert.equal(Number(live.data.expected_response), expected);
+      assert.match(live.stimulus, /<p>Click your answer\.<\/p>/);
+      assert.doesNotMatch(live.stimulus, /Move the mouse/i);
+      const before = run.records.length;
       if (checkIndex === 1) {
-        const before = run.records.length;
-        run.clock.advance(700);
+        run.press(expected);
+        run.clock.advance(599);
+        run.clickOnly(expected);
+        assert.equal(run.records.length, before, "a premature held press cannot answer a final check");
         run.click(expected);
-        assert.equal(run.records.length, before, "stationary clicks cannot answer a final check");
-        run.move(x + 99);
+        assert.equal(run.records.length, before, "clicks before 600ms are rejected");
+        run.press(expected);
+        run.clock.advance(1);
+        run.clickOnly(expected);
+        assert.equal(run.records.length, before, "a press begun before activation cannot become eligible while held");
+        run.press(expected);
+        run.clickOnly(expected, { detail: 2 });
+        assert.equal(run.records.length, before, "the second click of a double-click cannot answer");
+        run.press(expected);
+        run.clickOnly(expected, { detail: 0 });
+        assert.equal(run.records.length, before, "keyboard-generated clicks cannot answer");
+        run.press(expected, { button: 2 });
+        run.clickOnly(expected, { button: 2 });
+        assert.equal(run.records.length, before, "a fresh primary mouse press is required");
         run.click(expected);
-        assert.equal(run.records.length, before, "99 pixels cannot answer a final check");
+      } else {
+        run.clock.advance(600);
+        run.click(checkIndex === 2 ? expected % 4 + 1 : expected);
       }
-      run.move(x += 125);
-      run.clock.advance(600);
-      run.click(checkIndex === 2 ? expected % 4 + 1 : expected);
+      assert.equal(run.records.length, before + 1, "a new stationary click is accepted after 600ms");
     }
   }
   const confidenceRows = run.records.filter(row => row.event === "meta_conf");
@@ -624,6 +641,7 @@ test("three final checks follow phase thirds and append data only to the precedi
   assert.equal(run.state.finalReplaysRemaining, 3, "checks cannot consume the final replay cap");
   assert.ok(confidenceRows.every(row => row.conf_key === "4" && row.confidence_label === "Very confident"));
   assert.ok(checkRows.every(row => row.conf_key === undefined && row.type1_key === undefined));
+  assert.ok(checkRows.every(row => row.certainty_min_ms === 600 && row.certainty_min_move_px === 0 && row.certainty_max_move_px === 0));
   for (const [index, row] of confidenceRows.entries()) {
     const expectedId = (index + 1) % 20 === 0 ? (index + 1) / 20 : undefined;
     assert.equal(row.final_check_id, expectedId);
@@ -632,8 +650,8 @@ test("three final checks follow phase thirds and append data only to the precedi
       assert.equal(row.final_check_presentation, "confidence_options");
       assert.equal(row.final_check_correct, expectedId !== 2);
       assert.equal(row.final_check_min_ms, 600);
-      assert.equal(row.final_check_min_move_px, 100);
-      assert.ok(row.final_check_max_move_px >= 100);
+      assert.equal(row.final_check_min_move_px, 0);
+      assert.equal(row.final_check_max_move_px, 0);
       assert.ok(row.final_check_rt_ms >= 600);
     }
   }
@@ -643,6 +661,9 @@ test("three final checks follow phase thirds and append data only to the precedi
   assert.equal(table.length, 61, "checks never create additional scored meta-emotion rows");
   assert.ok(header.indexOf("final_check_id") > header.indexOf("session_id"));
   assert.equal(table[20][header.indexOf("final_check_id")], "1");
+  assert.equal(table[20][header.indexOf("final_check_min_ms")], "600");
+  assert.equal(table[20][header.indexOf("final_check_min_move_px")], "0");
+  assert.equal(table[20][header.indexOf("final_check_max_move_px")], "0");
   assert.equal(table[40][header.indexOf("final_check_correct")], "false");
   assert.equal(table[40][header.indexOf("confidence")], "4", "check choices cannot overwrite actual confidence");
   assert.equal(table[60][header.indexOf("final_check_id")], "3");
