@@ -183,7 +183,7 @@ function replayNode(timeline, phase) {
 }
 function replayResponse(node) { return node.timeline.at(-1); }
 
-test("all final instructions precede the 20-image review and judgments begin directly after review", () => {
+test("final instructions precede review, then a self-paced SPACE reminder separates review from judgments", () => {
   const run = runtime();
   const review = run.context.buildMetaEmotionReview(run.state, 20);
   const judgments = run.context.buildMetaEmotionMetaJ(run.state, 60);
@@ -191,13 +191,55 @@ test("all final instructions precede the 20-image review and judgments begin dir
   assert.equal(review[0].pages.length, 3);
   const images = flatten(review).filter(trial => trial.data?.event === "image" && trial.data?.phase === "review");
   assert.equal(images.length, 20);
-  assert.ok(Array.from(review).slice(1).every(trial => trial.data?.phase === "review"));
+  assert.ok(Array.from(review).slice(1, -1).every(trial => trial.data?.phase === "review"));
+  const transition = review.at(-1);
+  assert.equal(transition.data.event, "review_to_judgment_transition");
+  assert.equal(transition.type, run.context.jsPsychHtmlKeyboardResponse);
+  assert.deepEqual(Array.from(transition.choices), [" "]);
+  assert.notEqual(transition.response_ends_trial, false);
+  assert.ok(transition.trial_duration === undefined || transition.trial_duration === null,
+    "the transition cannot time out or start final judgments automatically");
+  const leaves = flatten([...review, ...judgments]).filter(trial => !trial.timeline);
+  const lastReviewIndex = leaves.findLastIndex(trial => trial.data?.event === "image" && trial.data?.phase === "review");
+  const firstFinalImageIndex = leaves.findIndex(trial => trial.data?.event === "image" && trial.data?.phase === "meta");
+  assert.deepEqual(leaves.slice(lastReviewIndex + 1, firstFinalImageIndex), [transition]);
+  const transitionText = transition.stimulus.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ");
+  assert.match(transitionText, /feeling.*whole picture set/i);
+  assert.match(transitionText, /SPACE.*begin the final picture judgments/i);
+  assert.doesNotMatch(transitionText, /important|full attention|effort|minutes|near the end|new variation/i);
   assert.equal(flatten(judgments).filter(trial => trial.pages || /instructions/.test(trial.data?.event || "")).length, 0);
   assert.equal(flatten(judgments).filter(trial => trial.data?.event === "meta_type1").length, 60);
+  assert.equal(flatten(judgments).filter(trial => trial.data?.event === "meta_conf").length, 60);
   const first = flatten(judgments)[0];
-  assert.ok(first.timeline, "the final task starts with its first trial sequence");
+  assert.ok(first.timeline, "the scored final task still starts with its first trial sequence");
   assert.equal(flatten(judgments).find(trial => trial.data?.event === "image").data.phase, "meta");
   assert.deepEqual(Array.from(run.state.reviewPresented), images.map(trial => trial.stimulus.split("/").at(-1)));
+  run.response(transition);
+  run.clock.advance(120000);
+  assert.equal(run.records.length, 0, "the transition waits for an explicit SPACE response");
+  run.key(" ");
+  assert.equal(run.records.length, 1);
+  assert.equal(run.records[0].event, "review_to_judgment_transition");
+  assert.equal(run.state.practiceReplaysRemaining, 5);
+  assert.equal(run.state.replaysRemaining, 5);
+  assert.equal(run.state.finalReplaysRemaining, 3);
+  const exported = run.context.exportMetaEmotion(run.state, run.state.jsPsych);
+  assert.deepEqual({ ...exported.counts }, { practice: 0, calibration: 0, meta: 0 },
+    "the new transition cannot become a scored trial");
+});
+
+test("the approximate final-part duration and attention request appear before variation instructions and before review", () => {
+  const run = runtime();
+  const review = run.context.buildMetaEmotionReview(run.state, 20);
+  const page = review[0].pages[0].replace(/<[^>]*>/g, " ").replace(/\s+/g, " ");
+  const variationStart = page.indexOf("In this part,");
+  assert.ok(variationStart > 0);
+  const preface = page.slice(0, variationStart);
+  assert.match(preface, /near the end/i);
+  assert.match(preface, /important part/i);
+  assert.match(preface, /(?:about|approximately)\s+5[–-]7 minutes/i);
+  assert.match(preface, /full attention and effort/i);
+  assert.ok(review.indexOf(review[0]) < review.findIndex(trial => trial.data?.phase === "review"));
 });
 
 function exerciseGates(run, trial, durations) {

@@ -1,11 +1,27 @@
 # Judgment Controls and Image Replays
 
+## Clear boundary after picture review (October 15, 2026)
+
+The final picture-judgment instructions now begin by noting that participants
+are near the end of the tasks, that one very important part remains, and that
+it should take about 5–7 minutes. They ask participants to give their full
+attention and effort before the whole-set review starts. The estimate allows
+for 60 self-paced judgment/confidence pairs, their fixed presentation intervals,
+the review, and brief response checks; actual completion time will vary.
+
+After the last review picture, a separate self-paced screen reminds participants
+to keep the feeling from the whole picture set in mind and press SPACE to begin
+the final picture judgments. The first judgment picture appears only after
+that response, giving review and judgment a clear boundary. This screen adds
+no scored image response and does not alter replay allowances or CSV columns.
+Current image response format: `emotion-mouse-replay-v9-review-transition`.
+
 ## Independent final replays and longer instruction viewing (October 15, 2026)
 
 Final-judgment instruction pages one and two now require 20 seconds each on
 first viewing. The third page, covering View again and the upcoming picture
-review, requires 15 seconds. All three still precede the passive whole-set
-review, followed immediately by final judgments.
+review, requires 15 seconds. All three precede the passive whole-set review.
+The review is followed by the separate SPACE-to-begin screen described above.
 
 Main image comparisons have five View again uses, and final judgments have a
 separate three uses. Practice retains five uses of its own. Spending any one
@@ -65,8 +81,8 @@ The requested answers, response controls, frequency, and scoring are unchanged.
 ## Picture-review wording (October 15, 2026)
 
 The final instruction page now says: "During the review, keep in mind the
-emotional feelings the whole set brings you." The review still immediately
-precedes final judgments, with the existing presentation and instruction timing.
+emotional feelings the whole set brings you." A brief SPACE-to-begin screen
+now separates review from final judgments, as described in the latest update.
 
 ## Neutral focus-rating time reference (October 15, 2026)
 

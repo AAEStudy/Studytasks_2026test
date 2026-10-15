@@ -1,6 +1,6 @@
 # FAE data exports and Lee archive audit
 
-Current schema: `fae-export-v2`. Study version: `FAE-2026-10-15-independent-replays`.
+Current schema: `fae-export-v2`. Study version: `FAE-2026-10-15-review-transition`.
 
 The experiment still saves four files per completed browser session: MRT TSV,
 image-practice CSV, calibration CSV, and final-judgment CSV. All have one header
@@ -89,6 +89,14 @@ These independent pools and phase-specific limit/remaining meanings apply from
 `budget = main` for a shared main comparison/final pool. Existing CSV headers
 and positions are unchanged. Final instruction pages require 20, 20, and
 15 seconds on first viewing, all before the passive whole-set review.
+
+From `emotion-mouse-replay-v9-review-transition`, a separate SPACE-to-begin
+screen follows the last review picture and precedes the first final-judgment
+picture. It reminds participants to keep the feeling from the whole picture set
+in mind. It is self-paced, adds no scored response, and changes no CSV headers
+or response coding. The near-end message, approximate 5–7-minute duration, and
+request for full attention and effort appear at the start of the final-judgment
+instructions, before the review.
 
 The existing order-provenance fields follow:
 
@@ -179,7 +187,7 @@ fractions to their configured lengths.
 | Header | Meaning |
 | --- | --- |
 | export_schema_version | fae-export-v2 |
-| study_version | FAE-2026-10-15-independent-replays |
+| study_version | FAE-2026-10-15-review-transition |
 | session_id | Shared unique ID for this browser run |
 | session_started_at_utc | ISO UTC start time |
 | run_mode | full for 380 calibration comparisons and 35 MRT blocks; otherwise test |
