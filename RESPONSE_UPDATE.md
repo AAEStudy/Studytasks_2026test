@@ -1,5 +1,26 @@
 # Judgment Controls and Image Replays
 
+## Independent final replays and longer instruction viewing (October 15, 2026)
+
+Final-judgment instruction pages one and two now require 20 seconds each on
+first viewing. The third page, covering View again and the upcoming picture
+review, requires 15 seconds. All three still precede the passive whole-set
+review, followed immediately by final judgments.
+
+Main image comparisons have five View again uses, and final judgments have a
+separate three uses. Practice retains five uses of its own. Spending any one
+allowance does not consume another. The buttons, instructions, and recorded
+remaining counts use the allowance for the current phase; no pool resets when
+another chunk is built. Each final use repeats the current picture before its
+judgment. The passive whole-set review and confidence screens retain their
+existing response requirements.
+
+Image exports keep all column names and positions. `replay_limit` and
+`replays_remaining` now describe the relevant phase's pool, and request JSON
+uses the budget labels practice, comparison, and final. Current image response
+format: `emotion-mouse-replay-v8-independent-final-replays`. This supersedes
+the shared comparison/final allowance described in earlier updates below.
+
 ## Audio requirement and headphone preference (October 15, 2026)
 
 The opening sound check states that audio must be on and asks participants to
@@ -18,8 +39,8 @@ delay has been added.
 
 ## Final replay allowance and independent speed reminders (October 15, 2026)
 
-Final image judgments now permit three View again requests, within the five
-requests shared across main calibration and final judgments. Instructions and
+Final image judgments permit three View again requests, separate from the five
+requests available for main image comparisons. Instructions and
 the remaining-use button use the current cap. Practice retains its own allowance.
 
 Final judgments previously shared a two-warning allowance with all earlier
@@ -104,9 +125,8 @@ the three-use cap for final judgments remain in place.
 ## Practice replay allowance (October 14, 2026)
 
 Picture practice now has its own allowance of five View again uses. Spending
-them leaves all five main-task uses available. The main allowance is shared
-by calibration and final judgments, with at most three uses during final
-judgments. Neither allowance resets when a new chunk is built.
+them leaves all five main-comparison uses and three final-judgment uses
+available. None of the allowances resets when a new chunk is built.
 
 The practice replay page, practice-complete screen, and final instruction page
 state that practice uses do not count toward the main-task allowance. The
@@ -145,7 +165,7 @@ Task remains in place.
 Final-judgment instructions now appear before the passive picture-set review.
 Three pages introduce the new variation and subjective median, explain
 confidence, and describe replay/review. Their minimum viewing times are
-20, 10, and 15 seconds. Large text and selective bold/underlined emphasis mark
+20, 20, and 15 seconds. Large text and selective bold/underlined emphasis mark
 the key directions. After the review, the first final trial begins directly.
 
 Every confidence screen and confidence-format response check now requires
@@ -155,7 +175,7 @@ requirements are met. Earlier movement, a stationary click, a held press, and
 keyboard-generated clicks cannot submit the response. Normal image-comparison
 key responses and Higher/Lower mouse judgments retain their response methods.
 
-The final phase allows at most three replay requests, within the shared main-task
+The final phase allows three replay requests, separate from the main-comparison
 five-request allowance. Its button displays the actual usable count. Each
 request still repeats only the current image and cannot be made during
 confidence.
@@ -322,8 +342,8 @@ question type within its group.
 
 ## Replays
 
-Practice has five replay requests of its own. Five main-task requests are shared
-across calibration and final emotion judgments. They do not reset between chunks.
+Practice has five replay requests of its own. Main image comparisons have five,
+and final emotion judgments have a separate three. They do not reset between chunks.
 A request repeats the original
 image(s) in the same order: 750 ms per image for practice/calibration and 500 ms
 for final judgments, with 500 ms fixations in both cases. A two-image

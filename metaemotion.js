@@ -134,7 +134,7 @@ function instructionScreen(title, body, tag, action = "begin") {
   };
 }
 
-const META_RESPONSE_FORMAT_VERSION = "emotion-mouse-replay-v7-final-controls";
+const META_RESPONSE_FORMAT_VERSION = "emotion-mouse-replay-v8-independent-final-replays";
 const FINAL_IMAGE_REPLAY_LIMIT = STUDY_RESPONSE_SETTINGS.finalImageReplayLimit ?? 3;
 const META_CONFIDENCE_GATES = Object.freeze({ minMs: 600, minMovePx: 100 });
 const FINAL_JUDGMENT_REMINDER_OPTIONS = Object.freeze({ reminderGroup: "final_judgment" });
@@ -257,7 +257,7 @@ function comparisonInstructions(tag, practice = false, jsPsych) {
       title: "Viewing pictures again",
       body: `<p>If you need to view the images again, click the <b>View again</b> button in the bottom-right corner before submitting your comparison. Both images are shown again in the same order; this counts as one use.</p>
         <p>Only use the <b>View again</b> option when you absolutely need to: you did not see an image or cannot remember what one of the images was, so you cannot accurately make the comparison without seeing the images again.</p>
-        <p>You may use it up to <b>${STUDY_RESPONSE_SETTINGS.imageReplayLimit} times during the main trials</b>. Practice uses <b>do not count</b>.</p>`
+        <p>You may use it up to <b>${STUDY_RESPONSE_SETTINGS.imageReplayLimit} times during the main image comparison trials</b>. Practice uses <b>do not count</b>.</p>`
     }
   ], [20000, 10000], tag, jsPsych);
 }
@@ -281,23 +281,23 @@ function finalJudgmentInstructions(jsPsych) {
     {
       title: "<u>Viewing again and picture review</u>",
       body: `<p>If you need to view the current picture again, click the <b>View again</b> button in the bottom-right corner <b>before submitting your judgment</b>. Only use the <b>View again</b> option when you missed or cannot remember the picture and cannot accurately judge without seeing it again.</p>
-        <p>Up to <b><u>${FINAL_IMAGE_REPLAY_LIMIT} uses in this part</u></b>, within the <b>${STUDY_RESPONSE_SETTINGS.imageReplayLimit}-use total</b> shared by the main image comparisons and final judgments. <b>Practice uses do not count.</b> The button shows your remaining uses. Viewing again is <b>unavailable during confidence</b>.</p>
+        <p>You may use it up to <b><u>${FINAL_IMAGE_REPLAY_LIMIT} times in this part</u></b>. These uses are <b>separate from the ${STUDY_RESPONSE_SETTINGS.imageReplayLimit} uses allowed during the main image comparisons</b>. <b>Practice uses do not count toward either limit.</b> The button shows your remaining uses. Viewing again is <b>unavailable during confidence</b>.</p>
         <p><b>Next, review the whole picture set</b>, one picture at a time. <b>No response is needed.</b> During the review, keep in mind the emotional feelings the whole set brings you. Judgments begin <b>immediately after the review</b>.</p>`
     }
-  ], [20000, 10000, 15000], "meta_instructions", jsPsych, {
+  ], [20000, 20000, 15000], "meta_instructions", jsPsych, {
     pageClass: "emotion-final-instructions",
     lastButtonLabel: "BEGIN PICTURE REVIEW >",
     lastReadyMessage: "You may now begin the picture review."
   });
 }
 
-function responseMetadata() {
+function responseMetadata(phase = "calibration") {
   return {
     response_format_version: META_RESPONSE_FORMAT_VERSION,
     fast_threshold_ms: STUDY_RESPONSE_SETTINGS.fastThresholdMs,
     fast_streak_length: STUDY_RESPONSE_SETTINGS.fastStreakLength,
     speed_reminder_limit: STUDY_RESPONSE_SETTINGS.maxSpeedReminders,
-    replay_limit: STUDY_RESPONSE_SETTINGS.imageReplayLimit,
+    replay_limit: phase === "meta" ? FINAL_IMAGE_REPLAY_LIMIT : STUDY_RESPONSE_SETTINGS.imageReplayLimit,
     final_replay_limit: FINAL_IMAGE_REPLAY_LIMIT
   };
 }
@@ -317,11 +317,12 @@ function withReplay(state, jsPsych, pictures, responseTrial, phase, chunk) {
   const trialId = ++state.nextImageTrialId;
   const isPractice = phase === "practice";
   if (state.practiceReplaysRemaining === undefined) state.practiceReplaysRemaining = STUDY_RESPONSE_SETTINGS.imageReplayLimit;
+  if (state.replaysRemaining === undefined) state.replaysRemaining = STUDY_RESPONSE_SETTINGS.imageReplayLimit;
   if (state.finalReplaysRemaining === undefined) state.finalReplaysRemaining = FINAL_IMAGE_REPLAY_LIMIT;
-  const budgetRemaining = () => isPractice ? state.practiceReplaysRemaining : state.replaysRemaining;
-  const replaysAvailable = () => phase === "meta"
-    ? Math.min(budgetRemaining(), state.finalReplaysRemaining)
-    : budgetRemaining();
+  const budget = isPractice ? "practice" : phase === "meta" ? "final" : "comparison";
+  const poolKey = isPractice ? "practiceReplaysRemaining" : phase === "meta" ? "finalReplaysRemaining" : "replaysRemaining";
+  const budgetRemaining = () => state[poolKey];
+  const replaysAvailable = budgetRemaining;
   let firstOnset = null;
   let screenOnset = null;
   let replayRequested = false;
@@ -338,7 +339,7 @@ function withReplay(state, jsPsych, pictures, responseTrial, phase, chunk) {
   const trial = {
     ...responseTrial,
     css_classes: ["emotion-replay-trial"],
-    data: { ...responseTrial.data, image_trial_id: trialId, ...responseMetadata() },
+    data: { ...responseTrial.data, image_trial_id: trialId, ...responseMetadata(phase) },
     on_start: current => {
       const remaining = replaysAvailable();
       current.stimulus = responseTrial.stimulus + `<div><button type="button" class="study-response-button replay-button" data-study-response="replay" tabindex="-1" ${remaining > 0 ? '' : 'disabled'}>View again (${remaining} remaining)</button></div>`;
@@ -358,13 +359,11 @@ function withReplay(state, jsPsych, pictures, responseTrial, phase, chunk) {
       cleanup();
       replayRequested = data.response === 'replay';
       if (replayRequested) {
-        if (isPractice) state.practiceReplaysRemaining--;
-        else state.replaysRemaining--;
-        if (phase === "meta") state.finalReplaysRemaining--;
+        state[poolKey]--;
         const request = {
           request_index: requests.length + 1, image_trial_id: trialId,
           elapsed_ms: performance.now() - firstOnset, screen_rt_ms: data.rt,
-          remaining: budgetRemaining(), budget: isPractice ? "practice" : "main", pictures: [...pictures],
+          remaining: budgetRemaining(), replays_remaining: budgetRemaining(), budget, pictures: [...pictures],
           final_replay_limit: FINAL_IMAGE_REPLAY_LIMIT,
           final_replays_remaining: state.finalReplaysRemaining
         };
@@ -421,7 +420,7 @@ function twoIFC(state, jsPsych, pic1, pic2, cat, phase, chunk, schedule = {}, ch
       data: {
         task: "metaemotion", event: "calibration_instructed_response", phase: "calibration",
         chunk, check_id: check.id, after_calibration_trial: check.afterTrial,
-        expected_response: expected, ...responseMetadata()
+        expected_response: expected, ...responseMetadata(phase)
       },
       on_finish: data => {
         data.instructed_response_correct = String(data.response ?? "") === expected;
@@ -475,7 +474,7 @@ function metaTrial(state, jsPsych, pic, chunk, schedule, check = null) {
       <div class="emotion-response-options four">${META_CONFIDENCE_LABELS.map((label, i) => button(i + 1, `<span class="confidence-option-number">${i + 1}</span><span class="confidence-option-label">${label}</span>`)).join('')}</div>
       <p>Move the mouse a noticeable distance, then click your answer.</p>
     </section>`,
-    data: {task:"metaemotion", event:"meta_conf", chunk, pic, pic_id, ...responseMetadata(), speed_reminder_group: FINAL_JUDGMENT_REMINDER_OPTIONS.reminderGroup, certainty_min_ms: META_CONFIDENCE_GATES.minMs, certainty_min_move_px: META_CONFIDENCE_GATES.minMovePx},
+    data: {task:"metaemotion", event:"meta_conf", chunk, pic, pic_id, ...responseMetadata("meta"), speed_reminder_group: FINAL_JUDGMENT_REMINDER_OPTIONS.reminderGroup, certainty_min_ms: META_CONFIDENCE_GATES.minMs, certainty_min_move_px: META_CONFIDENCE_GATES.minMovePx},
     on_finish: data => {
       data.conf_key = data.response;
       data.confidence_label = confidenceLabel(data.response);
@@ -506,7 +505,7 @@ function metaTrial(state, jsPsych, pic, chunk, schedule, check = null) {
       data: {
         task: "metaemotion", event: "meta_instructed_response", check_id: check.id,
         after_meta_trial: check.afterTrial, presentation: "confidence_options", expected_response: expected,
-        ...responseMetadata(), certainty_min_ms: META_CONFIDENCE_GATES.minMs,
+        ...responseMetadata("meta"), certainty_min_ms: META_CONFIDENCE_GATES.minMs,
         certainty_min_move_px: META_CONFIDENCE_GATES.minMovePx
       },
       on_finish: data => {
@@ -594,7 +593,7 @@ export function buildMetaEmotionPractice(state){
   for(const t of state.practicePairs){
     tl.push(twoIFC(state, state.jsPsych, META_PATHS.practice + t.p1, META_PATHS.practice + t.p2, t.cat, "practice", 0));
   }
-  tl.push(instructionScreen("Practice complete", `<p>You have finished the practice image comparisons.</p><p>You may use <b>View again</b> up to <b>${STUDY_RESPONSE_SETTINGS.imageReplayLimit} times during the main trials</b>. Practice uses <b>do not count</b>.</p><p>The main trials will alternate between image comparisons and the Metronome Task.</p>`, "practice_end", "begin the first set of image comparisons"));
+  tl.push(instructionScreen("Practice complete", `<p>You have finished the practice image comparisons.</p><p>You may use <b>View again</b> up to <b>${STUDY_RESPONSE_SETTINGS.imageReplayLimit} times during the main image comparison trials</b>. Practice uses <b>do not count</b>.</p><p>The main trials will alternate between image comparisons and the Metronome Task.</p>`, "practice_end", "begin the first set of image comparisons"));
   return tl;
 }
 

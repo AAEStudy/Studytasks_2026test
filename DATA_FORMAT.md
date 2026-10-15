@@ -1,6 +1,6 @@
 # FAE data exports and Lee archive audit
 
-Current schema: `fae-export-v2`. Study version: `FAE-2026-10-15-audio-instructions`.
+Current schema: `fae-export-v2`. Study version: `FAE-2026-10-15-independent-replays`.
 
 The experiment still saves four files per completed browser session: MRT TSV,
 image-practice CSV, calibration CSV, and final-judgment CSV. All have one header
@@ -75,16 +75,20 @@ On final rows, `fast_response` and `fast_streak` concern confidence;
 `type1_fast` and `type1_fast_streak` concern Higher/Lower. Comparison rows leave
 the type1-specific fields blank. Fast responses are flagged, not removed.
 Replay requests are saved as properly quoted JSON. Practice has its own five
-requests and does not consume the five requests shared by main calibration and
-final judgments. `replays_remaining` and each request's `remaining` refer to the
-practice allowance on practice rows and the main allowance on calibration/final
-rows. Each new replay request also identifies its `budget` as `practice` or
-`main`. Existing CSV headers and positions are unchanged.
+requests, main image comparisons have five, and final judgments have three.
+These allowances are independent and do not reset between chunks or on repeated
+builder calls. `replays_remaining` and each request's `remaining` refer to that
+phase's allowance. Each request identifies its `budget` as `practice`,
+`comparison`, or `final`. `replay_limit` is five on practice/calibration rows and
+three on final rows. Final requests do not decrement the main-comparison pool,
+and exhausting main-comparison replays does not limit final replays. The final
+button shows the remaining final-phase allowance.
 
-Final judgments additionally allow at most three requests within the main five;
-the main allowance is not replenished at that transition or between chunks.
-The final button shows the smaller of the remaining main allowance and the
-remaining final-phase allowance.
+These independent pools and phase-specific limit/remaining meanings apply from
+`emotion-mouse-replay-v8-independent-final-replays`. Earlier versions used
+`budget = main` for a shared main comparison/final pool. Existing CSV headers
+and positions are unchanged. Final instruction pages require 20, 20, and
+15 seconds on first viewing, all before the passive whole-set review.
 
 The existing order-provenance fields follow:
 
@@ -118,8 +122,8 @@ column positions remain intact:
 
 | Header | Meaning |
 | --- | --- |
-| final_replay_limit | Final-phase cap: 3, within the overall limit of 5 |
-| final_replays_remaining | Remaining final-phase allowance; the button also respects the overall remaining allowance |
+| final_replay_limit | Independent final-phase allowance: 3 |
+| final_replays_remaining | Remaining final-phase allowance, independent of comparison replays |
 | certainty_min_ms | Minimum confidence-screen time: 600 ms |
 | certainty_min_move_px | Required fresh cursor displacement: 100 CSS px |
 | certainty_max_move_px | Observed maximum displacement from the cursor's position at confidence-screen onset |
@@ -175,7 +179,7 @@ fractions to their configured lengths.
 | Header | Meaning |
 | --- | --- |
 | export_schema_version | fae-export-v2 |
-| study_version | FAE-2026-10-15-audio-instructions |
+| study_version | FAE-2026-10-15-independent-replays |
 | session_id | Shared unique ID for this browser run |
 | session_started_at_utc | ISO UTC start time |
 | run_mode | full for 380 calibration comparisons and 35 MRT blocks; otherwise test |
