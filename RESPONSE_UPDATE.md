@@ -1,5 +1,14 @@
 # Judgment Controls and Image Replays
 
+## Five speed reminders per group (October 15, 2026)
+
+The speed-warning cap is now five for the general group shared by MRT and image
+comparisons, and a separate five for final image judgments. Earlier warnings
+cannot consume final-phase warnings. The three-response streak and strict
+250-ms threshold are unchanged. Each row's `speed_reminder_limit` records five;
+warnings remain reminders rather than automatic data exclusions. No five-second
+delay has been added.
+
 ## Final replay allowance and independent speed reminders (October 15, 2026)
 
 Final image judgments now permit three View again requests, within the five
@@ -9,7 +18,7 @@ the remaining-use button use the current cap. Practice retains its own allowance
 Final judgments previously shared a two-warning allowance with all earlier
 tasks, allowing those tasks to exhaust the final phase's warnings. Final
 Higher/Lower and confidence responses now use the independent final_judgment
-group, with its own two-warning allowance. The earlier tasks keep their shared
+group, with its own five-warning allowance. The earlier tasks keep their shared
 general allowance. Three consecutive Higher/Lower responses below 250 ms
 request a warning after the completed judgment/confidence pair and any response
 check. Final confidence retains its 600-ms and 100-pixel movement requirements.
@@ -284,7 +293,7 @@ methods, timing, replay limits, or export columns change in this follow-up.
 const STUDY_RESPONSE_SETTINGS = Object.freeze({
   fastThresholdMs: 250,
   fastStreakLength: 3,
-  maxSpeedReminders: 2,
+  maxSpeedReminders: 5,
   imageReplayLimit: 5,
   finalImageReplayLimit: 3
 });
@@ -298,9 +307,9 @@ have separate streaks. Metronome taps and gated MRT certainty are not screened.
 
 Reminders appear after a completed comparison or final judgment/confidence pair.
 For MRT, the reminder appears within the existing resume screen. There is no
-additional MRT continuation screen. At most two reminder presentations occur
+additional MRT continuation screen. At most five reminder presentations occur
 within the general group, shared by MRT and comparisons. Final judgments have
-their own two-reminder allowance. A presentation can cover more than one
+their own five-reminder allowance. A presentation can cover more than one
 question type within its group.
 
 ## Replays

@@ -654,7 +654,7 @@ test("full and shortened calibration schedules retain four distinct global quart
 
 test("final judgment reminders still appear after earlier reminders are exhausted and are saved after the completed pair", () => {
   const run = runtime();
-  run.state.practicePairs = Array.from({ length: 6 }, (_, index) => ({
+  run.state.practicePairs = Array.from({ length: 15 }, (_, index) => ({
     p1: `${3000 + index * 2}.jpg`, p2: `${3001 + index * 2}.jpg`, cat: 0
   }));
   const reminderIn = group => Array.from(group.timeline).find(trial => trial.timeline?.[0]?.data?.event === "speed_reminder");
@@ -672,7 +672,7 @@ test("final judgment reminders still appear after earlier reminders are exhauste
     }
   }
   const earlierReminders = run.records.filter(row => row.event === "speed_reminder");
-  assert.equal(earlierReminders.length, 2);
+  assert.equal(earlierReminders.length, 5);
   assert.ok(earlierReminders.every(row => row.speed_reminder_group === "general"));
 
   const finalGroups = Array.from(run.context.buildMetaEmotionMetaJ(run.state, 60)).slice(0, 3);

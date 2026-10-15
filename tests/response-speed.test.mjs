@@ -12,8 +12,8 @@ function runtime() {
     window: { addEventListener() {}, removeEventListener() {} },
     jsPsychHtmlKeyboardResponse: {}
   });
-  vm.runInContext(`${source}\nglobalThis.responses = StudyResponses;`, context);
-  return context.responses;
+  vm.runInContext(`${source}\nglobalThis.responses = StudyResponses; globalThis.settings = STUDY_RESPONSE_SETTINGS;`, context);
+  return { ...context.responses, settings: context.settings };
 }
 
 function streak(responses, kind, options, rt = 100) {
@@ -35,7 +35,7 @@ test("fast responses use a strict 250 ms threshold and a same-kind three-respons
   assert.equal(responses.hasReminder("emotion_"), true);
 });
 
-test("default MRT and comparison warnings share two displays without consuming the cap when requested", () => {
+test("default MRT and comparison warnings share the five-display cap without consuming it when requested", () => {
   const responses = runtime();
   assert.equal(streak(responses, "mrt_focus").speed_reminder_requested, true);
   assert.equal(streak(responses, "emotion_calibration_comparison").speed_reminder_requested, true);
@@ -48,6 +48,12 @@ test("default MRT and comparison warnings share two displays without consuming t
   assert.deepEqual(Array.from(responses.takeReminder("emotion_")), ["emotion_calibration_comparison"]);
   assert.equal(responses.hasReminder("mrt_"), false);
   assert.equal(responses.hasReminder("emotion_"), false);
+  for (let display = 2; display < responses.settings.maxSpeedReminders; display++) {
+    const kind = display % 2 === 0 ? "mrt_basis" : "emotion_calibration_comparison";
+    const prefix = kind.startsWith("mrt_") ? "mrt_" : "emotion_";
+    assert.equal(streak(responses, kind).speed_reminder_requested, true);
+    assert.deepEqual(Array.from(responses.takeReminder(prefix)), [kind]);
+  }
   assert.equal(streak(responses, "emotion_calibration_comparison").speed_reminder_requested, false);
   assert.equal(streak(responses, "mrt_basis").speed_reminder_requested, false);
   assert.deepEqual(Array.from(responses.takeReminder("emotion_")), []);
@@ -59,19 +65,21 @@ test("multiple pending kinds shown together consume one warning and unmatched re
   streak(responses, "emotion_confidence");
   assert.deepEqual(Array.from(responses.takeReminder("mrt_")), []);
   assert.deepEqual(Array.from(responses.takeReminder("emotion_")), ["emotion_judgment", "emotion_confidence"]);
-  assert.equal(streak(responses, "mrt_focus").speed_reminder_requested, true);
-  assert.deepEqual(Array.from(responses.takeReminder("mrt_")), ["mrt_focus"]);
+  for (let display = 1; display < responses.settings.maxSpeedReminders; display++) {
+    assert.equal(streak(responses, "mrt_focus").speed_reminder_requested, true);
+    assert.deepEqual(Array.from(responses.takeReminder("mrt_")), ["mrt_focus"]);
+  }
   assert.equal(streak(responses, "emotion_judgment").speed_reminder_requested, false);
 });
 
-test("exhausting the general cap leaves two independent final-judgment warnings", () => {
+test("exhausting all five general warnings leaves five independent final-judgment warnings", () => {
   const responses = runtime();
-  for (let display = 0; display < 2; display++) {
+  for (let display = 0; display < responses.settings.maxSpeedReminders; display++) {
     assert.equal(streak(responses, "mrt_focus").speed_reminder_requested, true);
     assert.deepEqual(Array.from(responses.takeReminder("mrt_")), ["mrt_focus"]);
   }
   assert.equal(streak(responses, "emotion_calibration_comparison").speed_reminder_requested, false);
-  for (let display = 0; display < 2; display++) {
+  for (let display = 0; display < responses.settings.maxSpeedReminders; display++) {
     const result = streak(responses, "emotion_judgment", finalGroup);
     assert.equal(result.speed_reminder_requested, true);
     assert.equal(result.speed_reminder_group, "final_judgment");
@@ -118,7 +126,7 @@ test("reminder nodes consume warnings at display and record their group-local or
   const shown = [];
   const node = responses.reminderTrial({}, kinds => shown.push(Array.from(kinds)), finalGroup);
   assert.equal(node.conditional_function(), false);
-  for (let ordinal = 1; ordinal <= 2; ordinal++) {
+  for (let ordinal = 1; ordinal <= responses.settings.maxSpeedReminders; ordinal++) {
     streak(responses, "emotion_judgment", finalGroup);
     for (let inspection = 0; inspection < 5; inspection++) assert.equal(node.conditional_function(), true);
     const trial = { ...node.timeline[0], data: { ...node.timeline[0].data } };
@@ -129,6 +137,6 @@ test("reminder nodes consume warnings at display and record their group-local or
     assert.deepEqual(Array.from(trial.data.reminder_kinds), ["emotion_judgment"]);
     assert.equal(node.conditional_function(), false);
   }
-  assert.deepEqual(shown, [["emotion_judgment"], ["emotion_judgment"]]);
+  assert.deepEqual(shown, Array.from({ length: responses.settings.maxSpeedReminders }, () => ["emotion_judgment"]));
   assert.equal(streak(responses, "emotion_judgment", finalGroup).speed_reminder_requested, false);
 });

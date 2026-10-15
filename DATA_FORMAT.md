@@ -1,6 +1,6 @@
 # FAE data exports and Lee archive audit
 
-Current schema: `fae-export-v2`. Study version: `FAE-2026-10-15-final-controls`.
+Current schema: `fae-export-v2`. Study version: `FAE-2026-10-15-five-warnings`.
 
 The experiment still saves four files per completed browser session: MRT TSV,
 image-practice CSV, calibration CSV, and final-judgment CSV. All have one header
@@ -139,8 +139,8 @@ column positions remain intact:
 | speed_reminder_group | Appended last: final_judgment for final decisions/confidence; general for scored comparisons |
 
 From `emotion-mouse-replay-v7-final-controls`, final judgments have an independent
-allowance of two speed reminders. Earlier MRT and comparison reminders share the
-existing general allowance of two. The final group has its own streaks, pending
+allowance of five speed reminders. Earlier MRT and comparison reminders share
+a general allowance of five. The final group has its own streaks, pending
 requests, and displayed-warning count. Three consecutive Higher/Lower responses
 strictly below 250 ms request a reminder after the completed decision, confidence,
 and any instructed check. A normal response resets that question type's streak.
@@ -175,7 +175,7 @@ fractions to their configured lengths.
 | Header | Meaning |
 | --- | --- |
 | export_schema_version | fae-export-v2 |
-| study_version | FAE-2026-10-15-final-controls |
+| study_version | FAE-2026-10-15-five-warnings |
 | session_id | Shared unique ID for this browser run |
 | session_started_at_utc | ISO UTC start time |
 | run_mode | full for 380 calibration comparisons and 35 MRT blocks; otherwise test |
