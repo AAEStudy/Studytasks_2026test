@@ -1,5 +1,12 @@
 # Judgment Controls and Image Replays
 
+## Audio requirement and headphone preference (October 15, 2026)
+
+The opening sound check states that audio must be on and asks participants to
+use headphones if available, with speakers permitted otherwise. Audio-on,
+headphones, and speakers receive bold emphasis. Sample playback and volume
+adjustment controls are unchanged.
+
 ## Five speed reminders per group (October 15, 2026)
 
 The speed-warning cap is now five for the general group shared by MRT and image
@@ -65,7 +72,8 @@ See [DATA_FORMAT.md](DATA_FORMAT.md) for values. Current MRT response format:
 
 ## Restored metronome directions and pause behavior (October 14, 2026)
 
-The opening sound check states that headphones or speakers are required. Four
+The opening sound check requires audio on, preferring headphones when available
+and allowing speakers otherwise. Four
 recap pages, each requiring 10 seconds on first viewing, explain synchronizing
 SPACEBAR presses with the constant-paced sounds, accuracy as temporal closeness,
 focus ratings for the last 15 seconds or so, the basis question, and confidence.

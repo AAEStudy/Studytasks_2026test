@@ -50,7 +50,7 @@ function safeFilenamePart(value){
 }
 
 const EXPORT_SCHEMA_VERSION = "fae-export-v2";
-const STUDY_VERSION = "FAE-2026-10-15-five-warnings";
+const STUDY_VERSION = "FAE-2026-10-15-audio-instructions";
 const SESSION_STARTED_AT_UTC = new Date().toISOString();
 const SESSION_STAMP = sessionStamp(new Date(SESSION_STARTED_AT_UTC));
 const SESSION_RANDOM_ID = globalThis.crypto?.randomUUID?.()
@@ -188,7 +188,7 @@ function metronomeSoundCheckTrial(){
     type: jsPsychHtmlKeyboardResponse,
     stimulus: `<section class="mrt-sound-check-screen">
       <h2>Metronome Task</h2>
-      <p>This part of the experiment requires <b>headphones or speakers</b>.</p>
+      <p>Please note that this part of the experiment requires your <b>audio to be on</b>. Please use <b>headphones</b> if you have them available. If not, you may use your <b>speakers</b>.</p>
       <p>Before you begin, check your volume.</p>
       <p>Play the metronome sound, then adjust your volume to a level that is clearly audible and comfortable to listen to for a while.</p>
       <button type="button" id="metronome-sound-check-toggle" class="mrt-sound-check-button" aria-pressed="false">Play metronome sound</button>
