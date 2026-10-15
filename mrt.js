@@ -285,7 +285,7 @@ var jsPsych = params.jsPsych;
         `<section class="mrt-instructions">
           <h2><u>Metronome Task</u></h2>
           <p>Occasionally, the metronome will automatically pause for three questions, in this order: <strong>focus, main basis, and confidence</strong>.</p>
-          <p>For your focus rating, think back to the <strong>last 15 seconds or so of tapping before the questions appeared</strong>.</p>
+          <p>Your focus rating should refer to the <strong>preceding 15 seconds or so of tapping</strong>.</p>
           <p>First, press <strong>1–6</strong> to indicate how focused you were on keeping your presses synchronized with the metronome. Rate your focus relative to your <strong>own</strong> levels throughout the task: <strong>1 = least on task; 6 = most on task</strong>. Choose <strong>1–3</strong> for below your middle level and <strong>4–6</strong> for above it.</p>
           <p>Use the <strong>full range of focus ratings</strong> as appropriate.</p>
         </section>`,

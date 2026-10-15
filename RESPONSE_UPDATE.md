@@ -1,5 +1,12 @@
 # Judgment Controls and Image Replays
 
+## Neutral focus-rating time reference (October 15, 2026)
+
+The focus recap now says: "Your focus rating should refer to the **preceding
+15 seconds or so of tapping**." This replaces the instruction to "think back"
+with a source-neutral reference to the same period. It does not direct
+participants to retrieve memories when forming their rating.
+
 ## Horizontal basis options and assigned order (October 14, 2026)
 
 The main-basis question now presents three equal horizontal columns with each
