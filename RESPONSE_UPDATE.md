@@ -1,5 +1,11 @@
 # Judgment Controls and Image Replays
 
+## Picture-review wording (October 15, 2026)
+
+The final instruction page now says: "During the review, keep in mind the
+emotional feelings the whole set brings you." The review still immediately
+precedes final judgments, with the existing presentation and instruction timing.
+
 ## Neutral focus-rating time reference (October 15, 2026)
 
 The focus recap now says: "Your focus rating should refer to the **preceding

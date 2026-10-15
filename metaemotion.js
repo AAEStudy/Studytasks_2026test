@@ -281,7 +281,7 @@ function finalJudgmentInstructions(jsPsych) {
       title: "<u>Viewing again and picture review</u>",
       body: `<p>If you need to view the current picture again, click the <b>View again</b> button in the bottom-right corner <b>before submitting your judgment</b>. Only use the <b>View again</b> option when you missed or cannot remember the picture and cannot accurately judge without seeing it again.</p>
         <p>Up to <b><u>${FINAL_IMAGE_REPLAY_LIMIT} uses in this part</u></b>, within the <b>${STUDY_RESPONSE_SETTINGS.imageReplayLimit}-use total</b> shared by the main image comparisons and final judgments. <b>Practice uses do not count.</b> The button shows your remaining uses. Viewing again is <b>unavailable during confidence</b>.</p>
-        <p><b>Next, review the whole picture set</b>, one picture at a time. <b>No response is needed.</b> During the review, keep the positive emotional feelings the set brings you in mind. Judgments begin <b>immediately after the review</b>.</p>`
+        <p><b>Next, review the whole picture set</b>, one picture at a time. <b>No response is needed.</b> During the review, keep in mind the emotional feelings the whole set brings you. Judgments begin <b>immediately after the review</b>.</p>`
     }
   ], [20000, 10000, 15000], "meta_instructions", jsPsych, {
     pageClass: "emotion-final-instructions",
