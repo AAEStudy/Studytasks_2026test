@@ -1,5 +1,12 @@
 # Judgment Controls and Image Replays
 
+## Quality-check introduction (October 15, 2026)
+
+Instructed-response checks now begin: "To ensure quality responses are being
+given, please select..." This wording is used for metronome confidence-format
+checks, final picture confidence-format checks, and calibration picture checks.
+The requested answers, response controls, frequency, and scoring are unchanged.
+
 ## Picture-review wording (October 15, 2026)
 
 The final instruction page now says: "During the review, keep in mind the

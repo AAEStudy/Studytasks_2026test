@@ -869,7 +869,7 @@ var jsPsych = params.jsPsych;
         const checkIndex = Math.max(0, Math.floor(params._state.probeBlockCounter / 10) - 1);
         instructedResponseExpected = (checkIndex % MRT_CERTAINTY_LABELS.length) + 1;
         const label = MRT_CERTAINTY_LABELS[instructedResponseExpected - 1];
-        trial.stimulus = mrtConfidenceStimulus(`For this item, please select “${label}”.`, "mrt-instructed-response-screen");
+        trial.stimulus = mrtConfidenceStimulus(`To ensure quality responses are being given, please select “${label}”.`, "mrt-instructed-response-screen");
         trial.data = {
           ...trial.data,
           instructed_response_expected: instructedResponseExpected,

@@ -413,7 +413,7 @@ function twoIFC(state, jsPsych, pic1, pic2, cat, phase, chunk, schedule = {}, ch
     checkTrials.push({
       type: jsPsychHtmlKeyboardResponse,
       stimulus: `<section class="emotion-response-screen">
-        <p>For this item, please select the ${expected === "1" ? "FIRST" : "SECOND"} picture.</p>
+        <p>To ensure quality responses are being given, please select the ${expected === "1" ? "FIRST" : "SECOND"} picture.</p>
         ${COMPARISON_OPTIONS_HTML}
       </section>`,
       choices: META_KEYS.choice12,
@@ -498,7 +498,7 @@ function metaTrial(state, jsPsych, pic, chunk, schedule, check = null) {
     const expected = String((check.id - 1) % META_CONFIDENCE_LABELS.length + 1);
     checkTrials.push(StudyResponses.mouseTrial(jsPsych, {
       stimulus: `<section class="emotion-response-screen emotion-confidence-screen emotion-instructed-response-screen">
-        <p>For this item, please select “${META_CONFIDENCE_LABELS[Number(expected) - 1]}”.</p>
+        <p>To ensure quality responses are being given, please select “${META_CONFIDENCE_LABELS[Number(expected) - 1]}”.</p>
         <div class="emotion-response-options four">${META_CONFIDENCE_LABELS.map((label, i) => button(i + 1, `<span class="confidence-option-number">${i + 1}</span><span class="confidence-option-label">${label}</span>`)).join('')}</div>
         <p>Move the mouse a noticeable distance, then click your answer.</p>
       </section>`,
