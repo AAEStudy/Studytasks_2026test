@@ -266,7 +266,7 @@ function finalJudgmentInstructions(jsPsych) {
   return timedInstructionPages([
     {
       title: "<u>Picture judgments: a new variation</u>",
-      body: `<p>You are near the end of the tasks. There is one more very important part, which should take about <b>5–7 minutes</b>. Please <b>give your full attention and effort</b> to this final part.</p>
+      body: `<p>You are near the end of the tasks. There is one more very important part, which should take about <b>5–7 minutes</b>. Please do your best to <b>give your full attention and effort</b> to this final part.</p>
         <p>In this part, you will see <b><u>one picture at a time</u></b>.</p>
         <p>Judge whether the positive emotional feeling the picture brings you is <b><u>higher</u></b> or <b><u>lower</u></b> than the <b><u>middle (median)</u></b> of <b>your own positive emotional responses</b> to the pictures in the <b>whole set</b>.</p>
         <p>Click <b>Higher</b> or <b>Lower</b> to answer.</p>
@@ -283,7 +283,7 @@ function finalJudgmentInstructions(jsPsych) {
       title: "<u>Viewing again and picture review</u>",
       body: `<p>If you need to view the current picture again, click the <b>View again</b> button in the bottom-right corner <b>before submitting your judgment</b>. Only use the <b>View again</b> option when you missed or cannot remember the picture and cannot accurately judge without seeing it again.</p>
         <p>You may use it up to <b><u>${FINAL_IMAGE_REPLAY_LIMIT} times in this part</u></b>. These uses are <b>separate from the ${STUDY_RESPONSE_SETTINGS.imageReplayLimit} uses allowed during the main image comparisons</b>. <b>Practice uses do not count toward either limit.</b> The button shows your remaining uses. Viewing again is <b>unavailable during confidence</b>.</p>
-        <p><b>Next, review the whole picture set</b>, one picture at a time. <b>No response is needed.</b> During the review, keep in mind the emotional feelings the whole set brings you. After the review, a brief reminder screen will appear. Press <b>SPACE</b> there to begin the final picture judgments.</p>`
+        <p><b>Next, you will review the whole picture set</b>. The images will be displayed in one sequence. <b>No response is needed during that time.</b> During the review, keep in mind the emotional feelings the whole set brings you as the images are displayed (rather than just one or two images). After the review, you will begin the final picture judgments.</p>`
     }
   ], [20000, 20000, 15000], "meta_instructions", jsPsych, {
     pageClass: "emotion-final-instructions",

@@ -5,7 +5,11 @@
 The final picture-judgment instructions now begin by noting that participants
 are near the end of the tasks, that one very important part remains, and that
 it should take about 5–7 minutes. They ask participants to give their full
-attention and effort before the whole-set review starts. The estimate allows
+attention and effort before the whole-set review starts, using the wording
+"Please do your best to give your full attention and effort to this final part."
+The review introduction explains that the images appear in one sequence, with
+no response needed, and asks participants to keep in mind the feelings from the
+whole set as it is displayed, rather than just one or two images. The estimate allows
 for 60 self-paced judgment/confidence pairs, their fixed presentation intervals,
 the review, and brief response checks; actual completion time will vary.
 
