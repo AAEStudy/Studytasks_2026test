@@ -344,6 +344,7 @@ test("practice has its own persistent five-use budget and cannot consume formal 
   assert.equal(practiceRecord.replay_count, 5);
   assert.deepEqual(Array.from(practiceRecord.replay_requests, request => request.remaining), [4, 3, 2, 1, 0]);
   assert.ok(practiceRecord.replay_requests.every(request => request.budget === "practice"));
+  assert.ok(practiceRecord.replay_requests.every(request => request.replays_remaining === request.remaining));
 
   const rebuiltPractice = replayNode(run.context.buildMetaEmotionPractice(run.state), "practice");
   run.response(replayResponse(rebuiltPractice));
@@ -355,6 +356,8 @@ test("practice has its own persistent five-use budget and cannot consume formal 
   assert.equal(run.state.replaysRemaining, 5);
   assert.equal(run.state.finalReplaysRemaining, 3);
 
+  run.state.calibrationPairs.push({ p1: "7.jpg", p2: "8.jpg", cat: 0 });
+  run.state.calibrationTargetCount = 3;
   for (let chunk = 1; chunk <= 2; chunk++) {
     const calibration = replayNode(run.context.buildMetaEmotionCalibrationChunk(run.state, 1, chunk), "calibration");
     const response = replayResponse(calibration);
@@ -372,6 +375,12 @@ test("practice has its own persistent five-use budget and cannot consume formal 
   }
   assert.equal(run.state.replaysRemaining, 0);
   assert.equal(run.state.finalReplaysRemaining, 3);
+  const exhaustedComparison = replayNode(run.context.buildMetaEmotionCalibrationChunk(run.state, 1, 3), "calibration");
+  run.response(replayResponse(exhaustedComparison));
+  assert.equal(run.button("replay").disabled, true, "another comparison chunk cannot reset an exhausted pool");
+  assert.match(run.button("replay").textContent, /0 remaining/);
+  run.clock.advance(1);
+  run.key("1");
   const finalTimeline = run.context.buildMetaEmotionMetaJ(run.state, 1);
   const finalNode = replayNode(finalTimeline, "meta");
   run.response(replayResponse(finalNode));
@@ -412,9 +421,10 @@ test("practice has its own persistent five-use budget and cannot consume formal 
   run.click("3");
 
   const calRows = run.records.filter(row => row.event === "2ifc" && row.phase === "calibration");
-  assert.deepEqual(calRows.map(row => row.replays_remaining), [2, 0]);
+  assert.deepEqual(calRows.map(row => row.replays_remaining), [2, 0, 0]);
   assert.ok(calRows.every(row => row.replay_limit === 5));
   assert.ok(calRows.every(row => row.replay_requests.every(request => request.budget === "comparison")));
+  assert.ok(calRows.every(row => row.replay_requests.every(request => request.replays_remaining === request.remaining)));
   assert.deepEqual(Array.from(calRows[0].replay_requests, request => request.remaining), [4, 3, 2]);
   assert.deepEqual(Array.from(calRows[1].replay_requests, request => request.remaining), [1, 0]);
   const finalRecord = run.records.find(row => row.event === "meta_conf");
@@ -437,6 +447,7 @@ test("practice has its own persistent five-use budget and cannot consume formal 
   assert.ok(practiceRequests.every(request => request.budget === "practice"));
   assert.equal(calibrationCSV[1][calibrationCSV[0].indexOf("replays_remaining")], "2");
   assert.equal(calibrationCSV[2][calibrationCSV[0].indexOf("replays_remaining")], "0");
+  assert.equal(calibrationCSV[3][calibrationCSV[0].indexOf("replays_remaining")], "0");
   const finalCSV = run.context.parseCSV(exported.metaJCsvText);
   assert.equal(finalCSV[1][finalCSV[0].indexOf("replay_limit")], "3");
   assert.equal(finalCSV[1][finalCSV[0].indexOf("final_replays_remaining")], "2");
