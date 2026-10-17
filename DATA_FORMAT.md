@@ -1,6 +1,6 @@
 # FAE data exports and Lee archive audit
 
-Current schema: `fae-export-v2`. Study version: `FAE-2026-10-17-qualtrics-return`.
+Current schema: `fae-export-v2`. Study version: `FAE-2026-10-17-save-status`.
 
 The experiment still saves four files per completed browser session: MRT TSV,
 image-practice CSV, calibration CSV, and final-judgment CSV. All have one header
@@ -8,6 +8,15 @@ row. Task responses, numerical coding, reaction-time units, and the original
 core column positions are preserved. Extra fields follow the core columns.
 Use a CSV/TSV reader and select columns by name; do not split lines on commas.
 Quoted replay JSON can contain commas and quotation marks.
+
+From `FAE-2026-10-17-save-status`, each raw `pipe_save` event records
+`pipe_http_status` and `pipe_save_state`. A 202 response means accepted/queued,
+not confirmed delivery to Dataverse. A status-only manifest is retained in
+`window.__FAEUploadStatus` and, when permitted, browser storage under
+`FAE:last-upload-status`; it contains no trial responses. These diagnostics add
+no columns to the four exported task files. Unconfirmed saves trigger a backup
+download instruction, while the exported bytes and existing ID coding stay the
+same. The last browser manifest applies only to the most recent save session.
 
 ## Headers taken from Lee's analysis code
 
@@ -202,7 +211,7 @@ fractions to their configured lengths.
 | Header | Meaning |
 | --- | --- |
 | export_schema_version | fae-export-v2 |
-| study_version | FAE-2026-10-17-qualtrics-return |
+| study_version | FAE-2026-10-17-save-status |
 | session_id | Shared unique ID for this browser run |
 | session_started_at_utc | ISO UTC start time |
 | run_mode | full for 380 calibration comparisons and 35 MRT blocks; otherwise test |

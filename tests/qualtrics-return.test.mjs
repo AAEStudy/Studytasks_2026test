@@ -199,7 +199,7 @@ test("building the study and save payloads cannot navigate or mark study complet
   const end = timeline.at(-1);
   assert.equal(end.data.event, "end_download");
   assert.deepEqual(Array.from(end.choices), [" "]);
-  assert.match(end.stimulus, /continue to the questionnaires/i);
+  assert.match(typeof end.stimulus === "function" ? end.stimulus() : end.stimulus, /continue to the questionnaires/i);
 });
 
 test("completion renders a usable fallback before one delayed location.replace navigation", async () => {

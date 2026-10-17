@@ -1,5 +1,40 @@
 # Judgment Controls and Image Replays
 
+## Per-file upload status and backup recovery (October 17, 2026)
+
+The pinned DataPipe 0.3.0 plugin is now followed by a local save adapter. It keeps
+the same endpoint, experiment ID, filenames, and file contents, but checks the
+HTTP status and catches both fetch and response-parsing failures. The original
+plugin returned a native network Error and then treated it as success because
+it checked only an `error` property. Invalid JSON could leave its spinner active.
+The adapter returns a normalized result so neither case silently reports success
+or throws out of the save trial.
+
+Responses are recorded as stored (201), queued (202), accepted (other successful
+2xx), rejected, or unconfirmed. Accepted/queued requests are never automatically
+resubmitted, and ambiguous network failures are not blindly retried. DataPipe's
+202 means the service holds the submission for delivery to the provider, so an
+accepted file can be temporarily absent from Dataverse. The existing four
+sequential saves still precede the completion gesture and Qualtrics return.
+
+Each save's HTTP status, normalized state, error code, and filename are retained
+in raw save events and a browser diagnostic manifest. The latest manifest is
+available as `window.__FAEUploadStatus`, and (when browser storage is available)
+as `JSON.parse(localStorage.getItem("FAE:last-upload-status"))` after navigation
+back to this site's origin. It contains identifiers and save statuses, never
+trial responses. Browser storage being unavailable does not interrupt the study.
+
+If any upload is rejected or cannot be confirmed, the final screen explains that
+backup files must be kept and the researcher informed. The final SPACE gesture
+downloads the same four file contents even if ordinary test downloads were
+disabled. The existing delayed Qualtrics return remains after that gesture.
+
+An isolated VM comparison using actual MRT callbacks produced the same 63-row,
+51-column test export for a generated identifier and a Qualtrics-style SID with
+an empty secondary id. This verifies client generation, not server acceptance;
+the reported missing MRT file still requires its DataPipe/provider status to
+identify the cause. No live test uploads were made by these checks.
+
 ## Qualtrics return with participant identifiers (October 17, 2026)
 
 The return redirect is now enabled, with the configured destination

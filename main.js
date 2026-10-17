@@ -74,7 +74,7 @@ function safeFilenamePart(value){
 }
 
 const EXPORT_SCHEMA_VERSION = "fae-export-v2";
-const STUDY_VERSION = "FAE-2026-10-17-qualtrics-return";
+const STUDY_VERSION = "FAE-2026-10-17-save-status";
 const SESSION_STARTED_AT_UTC = new Date().toISOString();
 const SESSION_STAMP = sessionStamp(new Date(SESSION_STARTED_AT_UTC));
 const SESSION_RANDOM_ID = globalThis.crypto?.randomUUID?.()
@@ -169,6 +169,55 @@ function downloadAllResults(jsPsych){
   getResultFiles(jsPsych).forEach(file => downloadTextFile(file.filename, file.text, file.mime));
 }
 
+function recordPipeSave(file, data){
+  const result = data.result || {};
+  const acceptedStates = ["stored", "queued", "accepted"];
+  const saveState = typeof result.save_state === "string" ? result.save_state : "unconfirmed";
+  data.success = acceptedStates.includes(saveState) && !result.error;
+  data.pipe_http_status = typeof result.http_status === "number" ? result.http_status : null;
+  const entry = {
+    file: file.key, filename: file.filename,
+    http_status: data.pipe_http_status, save_state: data.success ? saveState : (acceptedStates.includes(saveState) ? "unconfirmed" : saveState),
+    error: result.error ? String(result.error) : (data.success ? null : "The upload could not be confirmed."),
+    error_code: result.code || null
+  };
+  data.pipe_save_state = entry.save_state;
+  sharedState.uploadStatuses = sharedState.uploadStatuses.filter(saved => saved.file !== file.key);
+  sharedState.uploadStatuses.push(entry);
+  const manifest = {
+    subjectID, session_id: SESSION_ID,
+    files: sharedState.uploadStatuses.map(saved => ({ ...saved }))
+  };
+  window.__FAEUploadStatus = manifest;
+  try {
+    // Status only, never trial responses. Retain it across the Qualtrics redirect.
+    window.localStorage?.setItem("FAE:last-upload-status", JSON.stringify(manifest));
+  } catch (error) {
+    console.warn("Upload status could not be retained in this browser.");
+  }
+  if (!data.success) console.warn("An experiment upload was not confirmed:", entry);
+}
+
+function hasUnconfirmedSaves(){
+  return sharedState.uploadStatuses.some(saved => !["stored", "queued", "accepted"].includes(saved.save_state));
+}
+
+function shouldDownloadResults(){
+  return DOWNLOAD_RESULTS_AT_END || hasUnconfirmedSaves();
+}
+
+function completionPromptHtml(){
+  const unconfirmed = hasUnconfirmedSaves();
+  const action = shouldDownloadResults()
+    ? (unconfirmed ? "download backup files" : "download your result files")
+    : "finish";
+  return `<div class="center" style="font-size:24px; line-height:1.35;">
+    <p>Done.</p>
+    ${unconfirmed ? "<p>Some responses could not be confirmed as saved online. Please keep the backup files and let the researcher know.</p>" : ""}
+    <p>Press <b>SPACE</b> to ${action}${REDIRECT_TO_QUALTRICS ? " and continue to the questionnaires" : ""}.</p>
+  </div>`;
+}
+
 function buildPipeSaveTrials(jsPsych){
   const fileDefs = [
     { key: "mrt", filename: RESULT_FILENAMES.mrt, getText: () => getResultExports(jsPsych).mrtTsv },
@@ -183,7 +232,8 @@ function buildPipeSaveTrials(jsPsych){
     experiment_id: DATA_PIPE_EXPERIMENT_ID,
     filename: file.filename,
     data_string: file.getText,
-    data: { task: "system", event: "pipe_save", file: file.key }
+    data: { task: "system", event: "pipe_save", file: file.key },
+    on_finish: data => recordPipeSave(file, data)
   }));
 }
 
@@ -371,7 +421,7 @@ function audioUnlockTrial(nextSet = false){
 
 
 // Global shared state for interleaving
-const sharedState = { mrtCursor: 0, mrtInitialized: false, mrtMainStarted: false, trialNum: 0, probeBlockCounter: 0, studyCompleted: false };
+const sharedState = { mrtCursor: 0, mrtInitialized: false, mrtMainStarted: false, trialNum: 0, probeBlockCounter: 0, studyCompleted: false, uploadStatuses: [] };
 
 function finishStudy(){
   if (sharedState.studyCompleted) return;
@@ -490,13 +540,10 @@ async function start(){
   // End screen. Local downloads happen here because the SPACE press counts as a user gesture.
   timeline.push({
     type: jsPsychHtmlKeyboardResponse,
-    stimulus: `<div class="center" style="font-size:24px; line-height:1.35;">
-      <p>Done.</p>
-      <p>Press <b>SPACE</b> to ${DOWNLOAD_RESULTS_AT_END ? "download your result files" : "finish"}${REDIRECT_TO_QUALTRICS ? " and continue to the questionnaires" : ""}.</p>
-    </div>`,
+    stimulus: completionPromptHtml,
     choices: [" "],
     on_finish: () => {
-      if (DOWNLOAD_RESULTS_AT_END) downloadAllResults(jsPsych);
+      if (shouldDownloadResults()) downloadAllResults(jsPsych);
     },
     data: {task:"system", event:"end_download"}
   });
