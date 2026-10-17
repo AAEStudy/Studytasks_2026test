@@ -1,5 +1,20 @@
 # Judgment Controls and Image Replays
 
+## Numeric comparison checks and aligned questions (October 17, 2026)
+
+Calibration response checks now request the numeric key directly: "To ensure
+quality responses are being given, please select 1." (or 2). Their hint says
+"Press 1 or 2 to indicate your response." Neither sentence identifies a picture.
+This separates the response instruction from the image comparison already made.
+
+Ordinary comparisons and checks now share the same page frame and question/key
+spacing, including the space reserved at the bottom of ordinary comparisons for
+View again. Question and key positions match across the transition. Only scored
+comparisons retain the replay button. Numeric coding, check frequency, and export
+columns are unchanged. The ordinary comparison question's tense is unchanged.
+Current image response format:
+`emotion-mouse-replay-v11-comparison-check-layout`.
+
 ## Simpler final-picture response checks (October 15, 2026)
 
 Final picture-judgment instructed-response checks now say "Click your answer."

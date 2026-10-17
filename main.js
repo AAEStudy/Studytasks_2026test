@@ -3,7 +3,7 @@
 //
 // Data saving uses DataPipe and local downloads; Qualtrics redirect is optional.
 
-import { initMetaEmotion, buildMetaEmotionPractice, buildMetaEmotionCalibrationChunk, buildMetaEmotionReview, buildMetaEmotionMetaJ, exportMetaEmotion } from "./metaemotion.js?v=20261015-final-check-clicks";
+import { initMetaEmotion, buildMetaEmotionPractice, buildMetaEmotionCalibrationChunk, buildMetaEmotionReview, buildMetaEmotionMetaJ, exportMetaEmotion } from "./metaemotion.js?v=20261017-comparison-check-layout";
 
 // ===================== QUICK TEST CONTROLS =====================
 // Full study: const META_CALIBRATION_COMPARISONS = "ALL";
@@ -50,7 +50,7 @@ function safeFilenamePart(value){
 }
 
 const EXPORT_SCHEMA_VERSION = "fae-export-v2";
-const STUDY_VERSION = "FAE-2026-10-15-final-check-clicks";
+const STUDY_VERSION = "FAE-2026-10-17-comparison-check-layout";
 const SESSION_STARTED_AT_UTC = new Date().toISOString();
 const SESSION_STAMP = sessionStamp(new Date(SESSION_STARTED_AT_UTC));
 const SESSION_RANDOM_ID = globalThis.crypto?.randomUUID?.()

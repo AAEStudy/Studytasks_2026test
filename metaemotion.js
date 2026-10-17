@@ -134,12 +134,12 @@ function instructionScreen(title, body, tag, action = "begin") {
   };
 }
 
-const META_RESPONSE_FORMAT_VERSION = "emotion-mouse-replay-v10-final-check-clicks";
+const META_RESPONSE_FORMAT_VERSION = "emotion-mouse-replay-v11-comparison-check-layout";
 const FINAL_IMAGE_REPLAY_LIMIT = STUDY_RESPONSE_SETTINGS.finalImageReplayLimit ?? 3;
 const META_CONFIDENCE_GATES = Object.freeze({ minMs: 600, minMovePx: 100 });
 const META_CHECK_GATES = Object.freeze({ minMs: 600, minMovePx: 0 });
 const FINAL_JUDGMENT_REMINDER_OPTIONS = Object.freeze({ reminderGroup: "final_judgment" });
-const COMPARISON_OPTIONS_HTML = `<p>Press <b>1</b> for the FIRST picture, <b>2</b> for the SECOND picture.</p>`;
+const COMPARISON_OPTIONS_HTML = `<p class="emotion-comparison-options">Press <b>1</b> for the FIRST picture, <b>2</b> for the SECOND picture.</p>`;
 const EMOTION_GUIDANCE = `<p>Focus on <b>your own emotional feeling</b>, not on whether the picture itself seems positive or negative. There is no correct answer; respond intuitively.</p>`;
 
 function timedInstructionPages(pageDefinitions, minimumViewMs, tag, jsPsych, {
@@ -340,7 +340,7 @@ function withReplay(state, jsPsych, pictures, responseTrial, phase, chunk) {
   ]);
   const trial = {
     ...responseTrial,
-    css_classes: ["emotion-replay-trial"],
+    css_classes: ["emotion-replay-trial", ...(responseTrial.css_classes || [])],
     data: { ...responseTrial.data, image_trial_id: trialId, ...responseMetadata(phase) },
     on_start: current => {
       const remaining = replaysAvailable();
@@ -394,8 +394,9 @@ function twoIFC(state, jsPsych, pic1, pic2, cat, phase, chunk, schedule = {}, ch
   let result;
   const responseTrial = {
     type: jsPsychHtmlKeyboardResponse,
-    stimulus: `<section class="emotion-response-screen">
-      <p>Does the first or the second image bring you a more positive emotional feeling?</p>
+    css_classes: ["emotion-comparison-trial"],
+    stimulus: `<section class="emotion-response-screen emotion-comparison-screen">
+      <p class="emotion-comparison-question">Does the first or the second image bring you a more positive emotional feeling?</p>
       ${COMPARISON_OPTIONS_HTML}
     </section>`,
     choices: META_KEYS.choice12,
@@ -414,9 +415,10 @@ function twoIFC(state, jsPsych, pic1, pic2, cat, phase, chunk, schedule = {}, ch
     const expected = String((check.id - 1) % 2 + 1);
     checkTrials.push({
       type: jsPsychHtmlKeyboardResponse,
-      stimulus: `<section class="emotion-response-screen">
-        <p>To ensure quality responses are being given, please select the ${expected === "1" ? "FIRST" : "SECOND"} picture.</p>
-        ${COMPARISON_OPTIONS_HTML}
+      css_classes: ["emotion-replay-trial", "emotion-comparison-trial"],
+      stimulus: `<section class="emotion-response-screen emotion-comparison-screen">
+        <p class="emotion-comparison-question">To ensure quality responses are being given, please select <b>${expected}</b>.</p>
+        <p class="emotion-comparison-options">Press <b>1</b> or <b>2</b> to indicate your response.</p>
       </section>`,
       choices: META_KEYS.choice12,
       data: {

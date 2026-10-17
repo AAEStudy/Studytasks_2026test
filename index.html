@@ -130,6 +130,18 @@
       padding: 24px 0;
     }
     .emotion-replay-trial .emotion-response-screen { margin: auto; }
+    /* Comparisons and their numeric checks share the same question/key positions. */
+    .emotion-comparison-screen {
+      display: grid;
+      grid-template-rows: minmax(2.9em, auto) minmax(2.9em, auto);
+      row-gap: 24px;
+      min-height: 180px;
+      text-align: center;
+    }
+    .emotion-comparison-question, .emotion-comparison-options {
+      margin: 0;
+      font: inherit;
+    }
     .replay-button {
       position: fixed;
       right: max(16px, env(safe-area-inset-right));
@@ -193,6 +205,9 @@
       .emotion-instructions h3 { font-size: 20px; }
       .emotion-final-instructions { font-size: 20px; }
       .emotion-final-instructions h2 { font-size: 26px; }
+      .emotion-comparison-screen {
+        grid-template-rows: minmax(5.8em, auto) minmax(4.35em, auto);
+      }
     }
     @media (max-width: 360px) {
       .mrt-certainty-option, .emotion-response-options.four .study-response-button { font-size: 13px; }
@@ -244,5 +259,5 @@
 <script src="mrt.js?v=20261015-quality-check-wording"></script>
 
 <!-- Main orchestration (ES module) -->
-<script type="module" src="main.js?v=20261015-final-check-clicks"></script>
+<script type="module" src="main.js?v=20261017-comparison-check-layout"></script>
 </html>
