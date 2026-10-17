@@ -1,5 +1,15 @@
 # Judgment Controls and Image Replays
 
+## Numeric final-judgment response-check requests (October 17, 2026)
+
+Final instructed-response prompts now request "option 1," "option 2," and so on
+instead of quoting a confidence label. The displayed request reads: "To ensure
+quality responses are being given, please select option 1." The number matches
+the expected response and the existing numbered confidence buttons. It has no
+quotation marks or added emphasis. Buttons, check frequency, 600-ms minimum,
+zero movement requirement, scoring, and export columns are unchanged.
+Image response format: `emotion-mouse-replay-v13-final-check-numbers`.
+
 ## Separate whole-set review page and confidence reminder (October 17, 2026)
 
 Final instructions now have four pages: the judgment rule, confidence, viewing

@@ -134,7 +134,7 @@ function instructionScreen(title, body, tag, action = "begin") {
   };
 }
 
-const META_RESPONSE_FORMAT_VERSION = "emotion-mouse-replay-v12-final-review-page";
+const META_RESPONSE_FORMAT_VERSION = "emotion-mouse-replay-v13-final-check-numbers";
 const FINAL_IMAGE_REPLAY_LIMIT = STUDY_RESPONSE_SETTINGS.finalImageReplayLimit ?? 3;
 const META_CONFIDENCE_GATES = Object.freeze({ minMs: 600, minMovePx: 100 });
 const META_CHECK_GATES = Object.freeze({ minMs: 600, minMovePx: 0 });
@@ -504,7 +504,7 @@ function metaTrial(state, jsPsych, pic, chunk, schedule, check = null) {
     const expected = String((check.id - 1) % META_CONFIDENCE_LABELS.length + 1);
     checkTrials.push(StudyResponses.mouseTrial(jsPsych, {
       stimulus: `<section class="emotion-response-screen emotion-confidence-screen emotion-instructed-response-screen">
-        <p>To ensure quality responses are being given, please select “${META_CONFIDENCE_LABELS[Number(expected) - 1]}”.</p>
+        <p>To ensure quality responses are being given, please select option ${expected}.</p>
         <div class="emotion-response-options four">${META_CONFIDENCE_LABELS.map((label, i) => button(i + 1, `<span class="confidence-option-number">${i + 1}</span><span class="confidence-option-label">${label}</span>`)).join('')}</div>
         <p>Click your answer.</p>
       </section>`,
