@@ -1,5 +1,32 @@
 # Judgment Controls and Image Replays
 
+## Qualtrics return with participant identifiers (October 17, 2026)
+
+The return redirect is now enabled, with the configured destination
+`https://usf.az1.qualtrics.com/jfe/form/SV_8wijLZLkAmgskVE`. It no longer requires
+the launch URL to include a `return` parameter. A supplied HTTPS Qualtrics return
+URL still takes precedence, preserving its existing query and fragment values;
+invalid destinations fall back to the configured survey.
+
+The return URL includes the full `subjectID` used in task data. A nonempty launch
+`id` takes precedence over an ID already in the return URL. If neither is present,
+an exact legacy `ID` followed by digits supplies its numeric suffix, following
+the working [Metronome](https://github.com/AAEStudy/Metronome/blob/main/index.html)
+and [Tasks](https://github.com/AAEStudy/Tasks/blob/main/index.html) return logic.
+`SID` and `UID` identifiers are not converted into numeric credit identifiers.
+An absent ID is omitted rather than sent as an empty `id=`. URLSearchParams
+encodes identifiers and preserves leading zeros. No resume/completion flag is
+invented; the Qualtrics survey flow still controls where a response resumes.
+
+The four existing save trials remain before the final SPACE screen. That screen
+now explains that SPACE starts the backup downloads and continues to the
+questionnaires. On completion, a visible fallback link replaces the cleared trial
+screen; navigation uses `location.replace` after 500 ms, matching the older
+tasks' delay. MRT's accidental-unload guards remain active during the tasks and
+stop prompting after completion, so they do not block the intentional return.
+Exports, task schedules, and response controls are unchanged. No live Qualtrics
+response or Dataverse upload is created by the routing tests.
+
 ## Numeric final-judgment response-check requests (October 17, 2026)
 
 Final instructed-response prompts now request "option 1," "option 2," and so on

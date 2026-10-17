@@ -181,6 +181,7 @@ const practiceOnly = params.practiceOnly === true;
 var jsPsych = params.jsPsych;
       // Prevent accidental page unload.
       function handleBeforeUnload(e) {
+          if (params._state.studyCompleted) return;
           e.preventDefault();
           e.returnValue = '';
         };

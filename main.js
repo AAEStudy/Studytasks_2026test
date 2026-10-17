@@ -24,7 +24,8 @@ const SHUFFLE_REVIEW_AND_META_JUDGMENTS = true;
 const DOWNLOAD_RESULTS_AT_END = true;
 const SAVE_TO_DATA_PIPE = true;
 const DATA_PIPE_EXPERIMENT_ID = "9XShb2sstH1d";
-const REDIRECT_TO_QUALTRICS = false;
+const REDIRECT_TO_QUALTRICS = true;
+const DEFAULT_QUALTRICS_RETURN_URL = "https://usf.az1.qualtrics.com/jfe/form/SV_8wijLZLkAmgskVE";
 const QUALTRICS_RETURN_PARAM = "return";
 
 // Qualtrics-provided participant identifiers.
@@ -39,8 +40,31 @@ if (!subjectID) {
   subjectID = "random" + Math.floor(10000 + Math.random() * 90000);
 }
 
-// Qualtrics return link (edit key if needed)
-const qualtricsReturn = getParam(QUALTRICS_RETURN_PARAM) || null;
+// Keep participant matching separate from any survey-specific resume parameters.
+function buildQualtricsReturnUrl(baseUrl, fullSubjectID, suppliedId){
+  const destination = new URL(baseUrl);
+  if (destination.protocol !== "https:" || !destination.hostname.endsWith(".qualtrics.com")
+      || destination.username || destination.password) {
+    throw new TypeError("The return destination must be an HTTPS Qualtrics URL.");
+  }
+  if (fullSubjectID) destination.searchParams.set("subjectID", fullSubjectID);
+  const legacyId = /^ID(\d+)$/.exec(String(fullSubjectID || ""))?.[1];
+  const returnId = destination.searchParams.get("id")?.trim();
+  const participantId = String(suppliedId ?? "").trim() || returnId || legacyId;
+  if (participantId) destination.searchParams.set("id", participantId);
+  else destination.searchParams.delete("id");
+  return destination.toString();
+}
+
+function getQualtricsReturnUrl(){
+  const requestedReturn = getParam(QUALTRICS_RETURN_PARAM) || DEFAULT_QUALTRICS_RETURN_URL;
+  try {
+    return buildQualtricsReturnUrl(requestedReturn, subjectID, numericID);
+  } catch (error) {
+    console.warn("Invalid Qualtrics return URL; using the configured survey destination.");
+    return buildQualtricsReturnUrl(DEFAULT_QUALTRICS_RETURN_URL, subjectID, numericID);
+  }
+}
 
 function sessionStamp(d=new Date()){
   return d.toISOString().replace("T", "_").replace(/:/g, ".");
@@ -50,7 +74,7 @@ function safeFilenamePart(value){
 }
 
 const EXPORT_SCHEMA_VERSION = "fae-export-v2";
-const STUDY_VERSION = "FAE-2026-10-17-final-check-numbers";
+const STUDY_VERSION = "FAE-2026-10-17-qualtrics-return";
 const SESSION_STARTED_AT_UTC = new Date().toISOString();
 const SESSION_STAMP = sessionStamp(new Date(SESSION_STARTED_AT_UTC));
 const SESSION_RANDOM_ID = globalThis.crypto?.randomUUID?.()
@@ -347,14 +371,29 @@ function audioUnlockTrial(nextSet = false){
 
 
 // Global shared state for interleaving
-const sharedState = { mrtCursor: 0, mrtInitialized: false, mrtMainStarted: false, trialNum: 0, probeBlockCounter: 0 };
+const sharedState = { mrtCursor: 0, mrtInitialized: false, mrtMainStarted: false, trialNum: 0, probeBlockCounter: 0, studyCompleted: false };
+
+function finishStudy(){
+  if (sharedState.studyCompleted) return;
+  sharedState.studyCompleted = true;
+  const display = jsPsych.getDisplayElement();
+  if (REDIRECT_TO_QUALTRICS) {
+    const destination = getQualtricsReturnUrl();
+    const href = destination.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    // The final keyboard trial clears its screen; keep a usable link after it ends.
+    display.innerHTML = `<div class="center" style="font-size:24px; line-height:1.35;">
+      <p>The tasks are complete. Continuing to the questionnaires…</p>
+      <p>If you are not taken there automatically, <a href="${href}" style="color:inherit; text-decoration:underline;">continue to the questionnaires</a>.</p>
+    </div>`;
+    // Allow the final SPACE gesture's backup downloads to start before navigation.
+    window.setTimeout(() => window.location.replace(destination), 500);
+  } else {
+    display.innerHTML = '<p>The tasks are complete. Thank you.</p>';
+  }
+}
 
 const jsPsych = initJsPsych({
-  on_finish: async () => {
-    if (REDIRECT_TO_QUALTRICS && qualtricsReturn) {
-      window.location.href = qualtricsReturn;
-    }
-  }
+  on_finish: finishStudy
 });
 
 jsPsych.data.addProperties({ subject: subjectID });
@@ -453,7 +492,7 @@ async function start(){
     type: jsPsychHtmlKeyboardResponse,
     stimulus: `<div class="center" style="font-size:24px; line-height:1.35;">
       <p>Done.</p>
-      <p>Press <b>SPACE</b> to ${DOWNLOAD_RESULTS_AT_END ? "download your result files" : "finish"}.</p>
+      <p>Press <b>SPACE</b> to ${DOWNLOAD_RESULTS_AT_END ? "download your result files" : "finish"}${REDIRECT_TO_QUALTRICS ? " and continue to the questionnaires" : ""}.</p>
     </div>`,
     choices: [" "],
     on_finish: () => {
