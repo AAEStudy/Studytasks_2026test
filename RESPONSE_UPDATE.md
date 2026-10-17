@@ -1,5 +1,24 @@
 # Judgment Controls and Image Replays
 
+## Separate whole-set review page and confidence reminder (October 17, 2026)
+
+Final instructions now have four pages: the judgment rule, confidence, viewing
+pictures again, and reviewing the whole picture set. Their minimum viewing times
+are 20, 20, 15, and 20 seconds. Only the fourth page offers BEGIN PICTURE REVIEW.
+The review directions begin "First, you will review the whole picture set" and
+explain that no response is needed before the final one by one judgments.
+
+The confidence reminder now says: "Remember, you can use the full range of
+answer options to indicate your level of confidence." This replaces the request
+to try to use all ratings. The median instruction now refers to "the positive
+feelings you get from each picture in the whole set," avoiding "responses" as a
+possible reference to earlier answers. The repeated question now asks: "Does this
+picture bring you a positive feeling that is higher or lower than the median for
+the whole picture set?" The wording "brings you" follows the original Chinese
+instructions' 帶給你. The post-review SPACE boundary, replay allowances, response
+requirements, trial counts, CSV headers, and coding remain unchanged.
+Image response format: `emotion-mouse-replay-v12-final-review-page`.
+
 ## Numeric comparison checks and aligned questions (October 17, 2026)
 
 Calibration response checks now request the numeric key directly: "To ensure

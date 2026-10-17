@@ -188,7 +188,7 @@ test("final instructions precede review, then a self-paced SPACE reminder separa
   const review = run.context.buildMetaEmotionReview(run.state, 20);
   const judgments = run.context.buildMetaEmotionMetaJ(run.state, 60);
   assert.equal(review[0].data.event, "meta_instructions");
-  assert.equal(review[0].pages.length, 3);
+  assert.equal(review[0].pages.length, 4);
   const images = flatten(review).filter(trial => trial.data?.event === "image" && trial.data?.phase === "review");
   assert.equal(images.length, 20);
   assert.ok(Array.from(review).slice(1, -1).every(trial => trial.data?.phase === "review"));
@@ -242,16 +242,21 @@ test("the approximate final-part duration and attention request appear before va
   assert.ok(review.indexOf(review[0]) < review.findIndex(trial => trial.data?.phase === "review"));
 });
 
-function exerciseGates(run, trial, durations) {
+function exerciseGates(run, trial, durations, lastButtonLabel) {
+  const assertNavigationLabel = page => {
+    if (lastButtonLabel) assert.equal(run.next.textContent, page === durations.length - 1 ? lastButtonLabel : "NEXT >");
+  };
   run.instruction(trial);
   assert.equal(trial.allow_keys, false);
   assert.equal(run.forward(), false);
+  assertNavigationLabel(0);
   run.clock.advance(durations[0] - 1);
   assert.equal(run.forward(), false);
   run.clock.advance(1);
   assert.equal(run.forward(), true);
   run.setPage(1, false);
   assert.equal(run.forward(), false, "a rapid second click must see the new page before its observer runs");
+  assertNavigationLabel(1);
   run.clock.advance(4000);
   run.setPage(0);
   assert.equal(run.forward(), true, "returning to a completed page retains its reading time");
@@ -262,11 +267,12 @@ function exerciseGates(run, trial, durations) {
   assert.equal(run.forward(), false);
   run.clock.advance(1);
   assert.equal(run.forward(), true, "returning to a partly read page retains its prior viewing time");
-  if (durations.length === 3) {
-    run.setPage(2, false);
-    assert.equal(run.forward(), false);
-    run.clock.advance(durations[2] - 1);
-    assert.equal(run.forward(), false);
+  for (let page = 2; page < durations.length; page++) {
+    run.setPage(page, false);
+    assert.equal(run.forward(), false, "a rapid click cannot bypass the next page's own reading period");
+    assertNavigationLabel(page);
+    run.clock.advance(durations[page] - 1);
+    assert.equal(run.forward(), false, `page ${page + 1} remains locked until its full reading time`);
     run.clock.advance(1);
     assert.equal(run.forward(), true);
   }
@@ -276,10 +282,10 @@ function exerciseGates(run, trial, durations) {
   assert.equal(run.display.listenerCount("click"), 0);
 }
 
-test("final 20/20/15-second gates resist rapid clicks, preserve back-navigation time and clean up", () => {
+test("final 20/20/15/20-second gates resist rapid clicks, preserve back-navigation time and clean up", () => {
   const run = runtime();
   const trial = run.context.buildMetaEmotionReview(run.state, 20)[0];
-  exerciseGates(run, trial, [20000, 20000, 15000]);
+  exerciseGates(run, trial, [20000, 20000, 15000, 20000], "BEGIN PICTURE REVIEW >");
   run.instruction(trial);
   assert.equal(run.forward(), false, "a new instructions run starts a new reading period");
   run.clock.advance(1000);
@@ -287,6 +293,20 @@ test("final 20/20/15-second gates resist rapid clicks, preserve back-navigation 
   assert.equal(run.clock.pending(), 0, "leaving a locked page also clears timers");
   assert.equal(run.observers(), 0);
   assert.equal(run.display.listenerCount("click"), 0);
+});
+
+test("final replay and whole-set review instructions occupy separate pages with the approved confidence reminder", () => {
+  const run = runtime();
+  const trial = run.context.buildMetaEmotionReview(run.state, 20)[0];
+  const plain = html => html.replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim();
+  const pages = Array.from(trial.pages, plain);
+  assert.match(pages[1], /Remember, you can use the full range of answer options to indicate your level of confidence\./);
+  assert.match(pages[2], /View again/);
+  assert.doesNotMatch(pages[2], /\breview\b|one sequence|No response is needed/i);
+  assert.doesNotMatch(pages[3], /View again|replay|remaining uses/i);
+  const reviewParagraphs = [...trial.pages[3].matchAll(/<p\b[^>]*>([\s\S]*?)<\/p>/g)]
+    .map(([, html]) => plain(html)).filter(Boolean);
+  assert.deepEqual(reviewParagraphs, ["First, you will review the whole picture set. The images will be displayed in one sequence. No response is needed during that time. During the review, keep in mind the emotional feelings the whole set brings you as the images are displayed (rather than just one or two images). After the review, you will begin the final one by one picture judgments."]);
 });
 
 test("comparison instructions retain independent 20/10-second page gates", () => {

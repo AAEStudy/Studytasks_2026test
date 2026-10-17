@@ -134,7 +134,7 @@ function instructionScreen(title, body, tag, action = "begin") {
   };
 }
 
-const META_RESPONSE_FORMAT_VERSION = "emotion-mouse-replay-v11-comparison-check-layout";
+const META_RESPONSE_FORMAT_VERSION = "emotion-mouse-replay-v12-final-review-page";
 const FINAL_IMAGE_REPLAY_LIMIT = STUDY_RESPONSE_SETTINGS.finalImageReplayLimit ?? 3;
 const META_CONFIDENCE_GATES = Object.freeze({ minMs: 600, minMovePx: 100 });
 const META_CHECK_GATES = Object.freeze({ minMs: 600, minMovePx: 0 });
@@ -269,7 +269,7 @@ function finalJudgmentInstructions(jsPsych) {
       title: "<u>Picture judgments: a new variation</u>",
       body: `<p>You are near the end of the tasks. There is one more very important part, which should take about <b>5–7 minutes</b>. Please do your best to <b>give your full attention and effort</b> to this final part.</p>
         <p>In this part, you will see <b><u>one picture at a time</u></b>.</p>
-        <p>Judge whether the positive emotional feeling the picture brings you is <b><u>higher</u></b> or <b><u>lower</u></b> than the <b><u>middle (median)</u></b> of <b>your own positive emotional responses</b> to the pictures in the <b>whole set</b>.</p>
+        <p>Judge whether the positive feeling this picture brings you is <b><u>higher</u></b> or <b><u>lower</u></b> than the <b><u>middle (median)</u></b> of the positive feelings you get from <b>each picture in the whole set</b>.</p>
         <p>Click <b>Higher</b> or <b>Lower</b> to answer.</p>
         ${EMOTION_GUIDANCE}`
     },
@@ -277,16 +277,19 @@ function finalJudgmentInstructions(jsPsych) {
       title: "<u>Confidence in your judgment</u>",
       body: `<p>After each judgment, you will be asked: <b>How confident are you in the decision you just made?</b></p>
         <p>Click one answer: <b>1 = Very unconfident</b>, <b>2 = Unconfident</b>, <b>3 = Confident</b>, or <b>4 = Very confident</b>.</p>
-        <p>Please try to use <b>all the ratings</b>. <b>Move the mouse a noticeable distance, then click your answer.</b> Each confidence response requires a new mouse movement, and the choices become available after a brief pause.</p>
+        <p>Remember, you can use the <b>full range of answer options</b> to indicate your level of confidence. <b>Move the mouse a noticeable distance, then click your answer.</b> Each confidence response requires a new mouse movement, and the choices become available after a brief pause.</p>
         <p>Occasionally, a <b>third question</b> will ask you to select a particular response. Follow the instruction shown.</p>`
     },
     {
-      title: "<u>Viewing again and picture review</u>",
+      title: "<u>Viewing pictures again</u>",
       body: `<p>If you need to view the current picture again, click the <b>View again</b> button in the bottom-right corner <b>before submitting your judgment</b>. Only use the <b>View again</b> option when you missed or cannot remember the picture and cannot accurately judge without seeing it again.</p>
-        <p>You may use it up to <b><u>${FINAL_IMAGE_REPLAY_LIMIT} times in this part</u></b>. These uses are <b>separate from the ${STUDY_RESPONSE_SETTINGS.imageReplayLimit} uses allowed during the main image comparisons</b>. <b>Practice uses do not count toward either limit.</b> The button shows your remaining uses. Viewing again is <b>unavailable during confidence</b>.</p>
-        <p><b>Next, you will review the whole picture set</b>. The images will be displayed in one sequence. <b>No response is needed during that time.</b> During the review, keep in mind the emotional feelings the whole set brings you as the images are displayed (rather than just one or two images). After the review, you will begin the final picture judgments.</p>`
+        <p>You may use it up to <b><u>${FINAL_IMAGE_REPLAY_LIMIT} times in this part</u></b>. These uses are <b>separate from the ${STUDY_RESPONSE_SETTINGS.imageReplayLimit} uses allowed during the main image comparisons</b>. <b>Practice uses do not count toward either limit.</b> The button shows your remaining uses. Viewing again is <b>unavailable during confidence</b>.</p>`
+    },
+    {
+      title: "<u>Reviewing the whole picture set</u>",
+      body: `<p><b>First, you will review the whole picture set</b>. The images will be displayed in one sequence. <b>No response is needed during that time.</b> During the review, keep in mind the emotional feelings the whole set brings you as the images are displayed (rather than just one or two images). After the review, you will begin the final one by one picture judgments.</p>`
     }
-  ], [20000, 20000, 15000], "meta_instructions", jsPsych, {
+  ], [20000, 20000, 15000, 20000], "meta_instructions", jsPsych, {
     pageClass: "emotion-final-instructions",
     lastButtonLabel: "BEGIN PICTURE REVIEW >",
     lastReadyMessage: "You may now begin the picture review."
@@ -457,8 +460,7 @@ function metaTrial(state, jsPsych, pic, chunk, schedule, check = null) {
   const responseTrial = {
     type: jsPsychHtmlKeyboardResponse,
     stimulus: `<section class="emotion-response-screen">
-      <p>Compared to the <b>median</b> of the whole picture set,<br>
-      did this picture induce <b>higher</b> or <b>lower</b> positive emotion?</p>
+      <p>Does this picture bring you a positive feeling that is <b>higher</b> or <b>lower</b> than the <b>median</b> for the whole picture set?</p>
       <div class="emotion-response-options">${button('1', 'Higher')}${button('2', 'Lower')}</div>
       <p>Click your answer.</p>
     </section>`,
