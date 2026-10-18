@@ -1,5 +1,14 @@
 # Judgment Controls and Image Replays
 
+## Plain-language middle level in final judgments (October 18, 2026)
+
+The repeated final question now reads: "Compared with the middle level for the
+whole picture set, does this picture bring you a higher or lower level of
+positive emotion?" Middle level, higher, and lower remain bold. This replaces
+the repeated statistical term with plain language; instructions continue to
+introduce the middle (median). The same shared prompt appears for all final
+judgments and replays. Image response format: `emotion-mouse-replay-v18-middle-level`.
+
 ## Restore the original Qualtrics return convention (October 18, 2026)
 
 Compared the working Tasks and Metronome index.html files directly. Both return

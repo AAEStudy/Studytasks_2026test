@@ -134,7 +134,7 @@ function instructionScreen(title, body, tag, action = "begin") {
   };
 }
 
-const META_RESPONSE_FORMAT_VERSION = "emotion-mouse-replay-v17-immediate-final-checks";
+const META_RESPONSE_FORMAT_VERSION = "emotion-mouse-replay-v18-middle-level";
 const FINAL_IMAGE_REPLAY_LIMIT = STUDY_RESPONSE_SETTINGS.finalImageReplayLimit ?? 3;
 const META_CONFIDENCE_GATES = Object.freeze({ minMs: 600, minMovePx: 100 });
 const META_CHECK_GATES = Object.freeze({ minMs: 0, minMovePx: 0, trackMovement: true });
@@ -460,7 +460,7 @@ function metaTrial(state, jsPsych, pic, chunk, schedule, check = null) {
   const responseTrial = {
     type: jsPsychHtmlKeyboardResponse,
     stimulus: `<section class="emotion-response-screen">
-      <p>Compared with the <b>median</b> for the whole picture set, does this picture bring you a <b>higher</b> or <b>lower</b> level of positive emotion?</p>
+      <p>Compared with the <b>middle level</b> for the whole picture set, does this picture bring you a <b>higher</b> or <b>lower</b> level of positive emotion?</p>
       <div class="emotion-response-options">${button('1', 'Higher')}${button('2', 'Lower')}</div>
       <p>Click your answer.</p>
     </section>`,
