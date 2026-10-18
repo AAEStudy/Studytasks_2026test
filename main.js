@@ -30,6 +30,8 @@ const SHUFFLE_REVIEW_AND_META_JUDGMENTS = true;
 const DOWNLOAD_RESULTS_AT_END = true;
 const SAVE_TO_DATA_PIPE = true;
 const DATA_PIPE_EXPERIMENT_ID = "9XShb2sstH1d";
+// Brief spacing after each response; DataPipe handles queued uploads itself.
+const FILE_SAVE_INTERVAL_MS = 2000;
 const REDIRECT_TO_QUALTRICS = true;
 const DEFAULT_QUALTRICS_RETURN_URL = "https://usf.az1.qualtrics.com/jfe/form/SV_8wijLZLkAmgskVE";
 const QUALTRICS_RETURN_PARAM = "return";
@@ -81,7 +83,7 @@ function safeFilenamePart(value){
 }
 
 const EXPORT_SCHEMA_VERSION = "fae-export-v3";
-const STUDY_VERSION = "FAE-2026-10-18-compact-exports";
+const STUDY_VERSION = "FAE-2026-10-18-folder-uploads";
 const SESSION_STARTED_AT_UTC = new Date().toISOString();
 const SESSION_STAMP = sessionStamp(new Date(SESSION_STARTED_AT_UTC));
 const SESSION_RANDOM_ID = globalThis.crypto?.randomUUID?.()
@@ -98,6 +100,15 @@ const RESULT_FILENAMES = {
   metaJudgment: `Meta_emotion_metaJ_${RUN_MODE}_${SAFE_SUBJECT_ID}_${SESSION_ID}.csv`,
   diagnostics: `Diagnostics_${RUN_MODE}_${SAFE_SUBJECT_ID}_${SESSION_ID}.json`
 };
+// DataPipe maps these path prefixes to Dataverse directoryLabel values.
+// Keep local backup names and diagnostic file references as bare filenames.
+const RESULT_FOLDERS = Object.freeze({
+  mrt: "MRT",
+  metaPractice: "Image_practice",
+  metaCalibration: "Calibration",
+  metaJudgment: "Final_judgments",
+  diagnostics: "Diagnostics"
+});
 
 function getSessionMetadata(jsPsych){
   const state = window.__metaState;
@@ -237,15 +248,26 @@ function buildPipeSaveTrials(jsPsych){
     { key: "diagnostics", filename: RESULT_FILENAMES.diagnostics, getText: () => getResultExports(jsPsych).diagnosticsJsonText }
   ];
 
-  return fileDefs.map(file => ({
-    type: jsPsychPipe,
-    action: "save",
-    experiment_id: DATA_PIPE_EXPERIMENT_ID,
-    filename: file.filename,
-    data_string: file.getText,
-    data: { task: "system", event: "pipe_save", file: file.key },
-    on_finish: data => recordPipeSave(file, data)
-  }));
+  return fileDefs.map((file, index) => {
+    const uploadFile = { ...file, filename: `${RESULT_FOLDERS[file.key]}/${file.filename}` };
+    const gap = index < fileDefs.length - 1 ? FILE_SAVE_INTERVAL_MS : 0;
+    return {
+      type: jsPsychPipe,
+      action: "save",
+      experiment_id: DATA_PIPE_EXPERIMENT_ID,
+      filename: uploadFile.filename,
+      data_string: file.getText,
+      // jsPsych starts this gap only after the upload returns and on_finish runs.
+      post_trial_gap: gap,
+      data: { task: "system", event: "pipe_save", file: file.key },
+      on_finish: data => {
+        recordPipeSave(uploadFile, data);
+        if (gap > 0) {
+          jsPsych.getDisplayElement().innerHTML = '<div class="center" style="font-size:24px; line-height:1.35;"><p>Saving your responses.</p><p>Please keep this page open.</p></div>';
+        }
+      }
+    };
+  });
 }
 
 // Prepare audio for MRT (uses same filenames as your MRT task; adjust if your repo differs)

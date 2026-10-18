@@ -64,12 +64,64 @@ test("building five save trials neither claims unsent files succeeded nor starts
   const run = runtime();
   const trials = run.qa.buildPipeSaveTrials(run.psych);
   assert.deepEqual(Array.from(trials, trial => trial.data.file), ["mrt", "metaPractice", "metaCalibration", "metaJudgment", "diagnostics"]);
+  assert.deepEqual(Array.from(trials, trial => trial.post_trial_gap), [2000, 2000, 2000, 2000, 0],
+    "five sequential requests have exactly four two-second gaps");
+  assert.deepEqual(Array.from(trials, trial => trial.filename.split('/')[0]),
+    ["MRT", "Image_practice", "Calibration", "Final_judgments", "Diagnostics"]);
   assert.equal(run.qa.hasUnconfirmedSaves(), false, "future save trials are not recorded failures");
   assert.equal(run.qa.shouldDownloadResults(), false);
   assert.equal(run.qa.sharedState.uploadStatuses.length, 0);
   assert.equal(run.context.window.__FAEUploadStatus, undefined);
   assert.equal(run.storage.size, 0);
   assert.equal(run.downloads.length + run.navigations.length + run.timers.length, 0);
+});
+
+test("the pinned jsPsych engine records each result before four timed gaps, including queued and failed saves", () => {
+  const source = read("js/external/jspsych.js");
+  const start = source.indexOf("        finishTrial(data = {}) {");
+  const end = source.indexOf("        endExperiment(", start);
+  assert.ok(start >= 0 && end > start, "exercise the study's actual jsPsych completion method");
+  for (const result of [
+    { http_status: 201, save_state: "stored", error: null },
+    { http_status: 202, save_state: "queued", error: null },
+    { http_status: 403, save_state: "rejected", error: "Forbidden" }
+  ]) {
+    const run = runtime(), trials = run.qa.buildPipeSaveTrials(run.psych);
+    let now = 0, nextCount = 0, pending;
+    const finishTrial = vm.runInNewContext(`({${source.slice(start, end)}}).finishTrial`, {
+      setTimeout(callback, delay) { assert.equal(pending, undefined); pending = { callback, due: now + delay }; }
+    });
+    for (let index = 0; index < trials.length; index++) {
+      const trial = trials[index];
+      const trialData = { ...trial.data, result };
+      const engine = {
+        current_trial_finished: false, current_trial: trial, global_trial_index: index,
+        data: { write() {}, get: () => ({ filter: () => ({ values: () => [trialData] }) }) },
+        internal: {}, opts: { on_trial_finish() {}, on_data_update() {}, default_iti: 0 },
+        nextTrial: () => { nextCount++; }
+      };
+      finishTrial.call(engine, trialData);
+      assert.equal(run.context.window.__FAEUploadStatus.files.length, index + 1,
+        "the upload result is retained before waiting for the next attempt");
+      if (index < 4) {
+        assert.equal(nextCount, index, "no subsequent attempt starts immediately");
+        assert.equal(pending.due - now, 2000);
+        assert.match(run.display.innerHTML, /Saving your responses/);
+        now += 1999;
+        assert.ok(now < pending.due);
+        assert.equal(nextCount, index);
+        now++;
+        const timer = pending; pending = undefined; timer.callback();
+      } else {
+        assert.equal(pending, undefined, "no extra wait follows the final diagnostic upload");
+      }
+      assert.equal(nextCount, index + 1);
+    }
+    assert.equal(now, 8000);
+    assert.equal(run.navigations.length + run.downloads.length, 0,
+      "upload completion and pacing cannot start downloads or redirect early");
+    assert.equal(run.qa.hasUnconfirmedSaves(), result.save_state === "rejected");
+  }
 });
 
 test("an MRT failure survives successful image and diagnostics saves and forces a visible backup warning", async () => {
@@ -122,7 +174,7 @@ test("a diagnostics-only failure preserves all four analysis successes and offer
   assert.equal(run.navigations.length, 0);
   assert.equal(run.timers.length, 0, "a failed upload does not add retry or early-redirect timers");
   run.timeline().at(-1).on_finish({ response: " " });
-  assert.deepEqual(run.downloads, Array.from(trials, trial => trial.filename));
+  assert.deepEqual(run.downloads, Array.from(trials, trial => trial.filename.split('/').at(-1)));
   assert.equal(run.navigations.length, 0, "backups begin before the Qualtrics return");
   assert.equal(run.timeline().filter(trial => trial.data?.event === "pipe_save").length, 5, "diagnostic failure adds no duplicate analysis uploads");
   run.finish();

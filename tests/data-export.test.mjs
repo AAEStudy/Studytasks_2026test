@@ -129,8 +129,10 @@ test("short and full runs report separate completion flags and identical upload/
     assert.equal(pipes.length, 5);
     assert.deepEqual(Array.from(pipes, pipe => pipe.data.file),
       ["mrt", "metaPractice", "metaCalibration", "metaJudgment", "diagnostics"]);
+    const folders = ["MRT", "Image_practice", "Calibration", "Final_judgments", "Diagnostics"];
     files.forEach((file, i) => {
-      assert.equal(pipes[i].filename, file.filename);
+      assert.equal(pipes[i].filename, `${folders[i]}/${file.filename}`);
+      assert.doesNotMatch(file.filename, /[/\\]/, "local backups keep usable bare filenames");
       assert.equal(pipes[i].data_string(), file.text);
       assert.ok(file.filename.includes(`_${metadata.run_mode}_CHECK_${metadata.session_id}`));
     });
