@@ -6,6 +6,11 @@
 import { initMetaEmotion, buildMetaEmotionPractice, buildMetaEmotionCalibrationChunk, buildMetaEmotionReview, buildMetaEmotionMetaJ, exportMetaEmotion } from "./metaemotion.js?v=20261018-middle-level";
 
 // ===================== QUICK TEST CONTROLS =====================
+// Redirect-only check: uncomment REDIRECT_TEST_ONLY = true below to skip tasks/saves.
+// Comment it out again to restore the task flow. You can also append
+// &redirectTest=1 to the GitHub URL after arriving from Qualtrics.
+let REDIRECT_TEST_ONLY = false;
+// REDIRECT_TEST_ONLY = true;
 // Full study: const META_CALIBRATION_COMPARISONS = "ALL";
 const META_CALIBRATION_COMPARISONS = 6;
 
@@ -75,7 +80,7 @@ function safeFilenamePart(value){
 }
 
 const EXPORT_SCHEMA_VERSION = "fae-export-v2";
-const STUDY_VERSION = "FAE-2026-10-18-middle-level";
+const STUDY_VERSION = "FAE-2026-10-18-redirect-test";
 const SESSION_STARTED_AT_UTC = new Date().toISOString();
 const SESSION_STAMP = sessionStamp(new Date(SESSION_STARTED_AT_UTC));
 const SESSION_RANDOM_ID = globalThis.crypto?.randomUUID?.()
@@ -453,6 +458,25 @@ jsPsych.data.addProperties({ subject: subjectID });
 window.__jsPsychInstance = jsPsych;
 
 async function start(){
+  if (REDIRECT_TEST_ONLY || getParam("redirectTest") === "1") {
+    const destination = getQualtricsReturnUrl();
+    const escapedDestination = destination.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    // Exercise the real completion callback without running tasks or saving result files.
+    jsPsych.run([{
+      type: jsPsychHtmlKeyboardResponse,
+      stimulus: `<div class="center" style="font-size:24px; line-height:1.35;">
+        <p><b>Redirect test mode</b></p>
+        <p>Tasks, uploads, and file downloads are skipped.</p>
+        <p>Return destination:</p>
+        <p style="overflow-wrap:anywhere;">${escapedDestination}</p>
+        <p>Press <b>SPACE</b> to return to Qualtrics.</p>
+      </div>`,
+      choices: [" "],
+      data: {task:"system", event:"redirect_test"}
+    }]);
+    return;
+  }
+
   // Init Meta-Emotion lists
   const metaState = await initMetaEmotion({
     subject: subjectID, calibrationLimit: META_CALIBRATION_COMPARISONS, jsPsych,

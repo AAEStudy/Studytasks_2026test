@@ -13,9 +13,11 @@ function collection(rows = []) {
     filter: criteria => collection(rows.filter(row => Object.entries(criteria).every(([key, value]) => row[key] === value))) };
 }
 
-function runtime(parameters = { subjectID: "ID0007" }) {
+function runtime(parameters = { subjectID: "ID0007" }, { redirectTestOnly = false } = {}) {
   let now = 0, timerId = 0, initOptions, timeline;
   const timers = new Map(), listeners = new Map(), navigations = [], downloads = [], events = [], warnings = [];
+  const fetches = [], builderCalls = [], audioPlays = [];
+  let dataReads = 0;
   const setTimeout = (callback, delay) => {
     const id = ++timerId;
     timers.set(id, { callback, at: now + delay });
@@ -67,29 +69,41 @@ function runtime(parameters = { subjectID: "ID0007" }) {
     },
     removeEventListener(type, callback) { listeners.get(type)?.delete(callback); }
   };
-  const psych = { data: { addProperties() {}, get: () => collection() },
+  const psych = { data: { addProperties() {}, get: () => { dataReads++; return collection(); } },
     getDisplayElement: () => display, run: built => { timeline = built; } };
   const context = vm.createContext({ ...schedule, document, window, URL: BrowserURL, URLSearchParams,
     Blob, TextEncoder, crypto: webcrypto, performance: { now: () => now },
     setTimeout, clearTimeout: id => timers.delete(id),
     console: { warn: message => warnings.push(message) },
     fetch: async path => {
+      fetches.push(path);
       assert.match(path, /^lists\/[\w_]+\.csv$/, "the test harness permits only local CSV reads");
       return { ok: true, text: async () => read(path) };
     },
-    Audio: class { play() { return Promise.resolve(); } pause() {} },
+    Audio: class { play() { audioPlays.push(now); return Promise.resolve(); } pause() {} },
     initJsPsych: options => { initOptions = options; return psych; },
     jsPsychHtmlKeyboardResponse: {}, jsPsychImageKeyboardResponse: {},
     jsPsychInstructions: {}, jsPsychPipe: {}, jsPsychPreload: {} });
   const meta = read("metaemotion.js").replace(/^import .*\n/m, "").replace(/^export /gm, "");
   vm.runInContext(read("js/response-controls.js") + "\n" + read("mrt.js") + "\n" + meta, context);
-  const main = read("main.js").replace(/^import .*\n/m, "").replace(/start\(\);\s*$/, `
+  for (const name of ["initMetaEmotion", "buildMRTPractice", "buildMRTChunk", "buildMetaEmotionPractice",
+    "buildMetaEmotionCalibrationChunk", "buildMetaEmotionReview", "buildMetaEmotionMetaJ", "exportMetaEmotion"]) {
+    const original = context[name];
+    assert.equal(typeof original, "function", `the harness must track ${name}`);
+    context[name] = (...args) => { builderCalls.push(name); return original(...args); };
+  }
+  let main = read("main.js").replace(/^import .*\n/m, "").replace(/start\(\);\s*$/, `
     globalThis.qa = { buildQualtricsReturnUrl, getQualtricsReturnUrl, finishStudy,
       sharedState, start, buildPipeSaveTrials, getResultFiles, REDIRECT_TO_QUALTRICS,
       DEFAULT_QUALTRICS_RETURN_URL };
   `);
+  if (redirectTestOnly) {
+    assert.match(main, /^let REDIRECT_TEST_ONLY = false;/m, "the local override must exercise the real mode switch");
+    main = main.replace(/^let REDIRECT_TEST_ONLY = false;/m, "let REDIRECT_TEST_ONLY = true;");
+  }
   vm.runInContext(main, context);
   return { context, qa: context.qa, psych, display, navigations, downloads, events, warnings, advance,
+    fetches, builderCalls, audioPlays, dataReads: () => dataReads,
     onFinish: () => initOptions.on_finish(), timeline: () => timeline,
     guardCount: () => listeners.get("beforeunload")?.size || 0,
     beforeUnload() {
@@ -283,4 +297,74 @@ test("original Tasks and Metronome routing is retained for SID, UID and ID launc
   }
   const supplied = runtime({ subjectID: "SID12345", id: "00042" });
   assert.equal(supplied.qa.getQualtricsReturnUrl(), `${defaultReturn}?id=00042`);
+});
+
+test("redirect-only URL mode skips every task and export and uses the unchanged participant return path", async () => {
+  for (const [parameters, expected] of [
+    [{ subjectID: "SID6092410435", redirectTest: "1" }, defaultReturn],
+    [{ subjectID: "SID6092410435", id: "", redirectTest: "1" }, defaultReturn],
+    [{ subjectID: "SID6092410435", id: "00042", redirectTest: "1" }, `${defaultReturn}?id=00042`],
+    [{ subjectID: "ID0007", redirectTest: "1" }, `${defaultReturn}?id=0007`]
+  ]) {
+    const run = runtime(parameters);
+    await run.qa.start();
+    const timeline = run.timeline();
+    assert.equal(timeline.length, 1, "a routing check must contain just its SPACE confirmation");
+    const only = timeline[0];
+    assert.equal(only.type, run.context.jsPsychHtmlKeyboardResponse);
+    assert.equal(only.data.event, "redirect_test");
+    assert.deepEqual(Array.from(only.choices), [" "]);
+    assert.equal(only.on_finish, undefined, "the confirmation must not invoke save or download callbacks");
+    assert.equal(run.qa.sharedState.studyCompleted, false);
+    assert.equal(run.navigations.length, 0);
+    run.advance(10000);
+    assert.equal(run.navigations.length, 0, "the test must wait for the participant's SPACE confirmation");
+    assert.equal(run.guardCount(), 0, "no MRT unload guard should be installed");
+    await run.onFinish();
+    assert.equal(run.qa.sharedState.studyCompleted, true);
+    run.advance(499);
+    assert.equal(run.navigations.length, 0);
+    run.advance(1);
+    assert.equal(run.navigations.length, 1);
+    assert.equal(run.navigations[0].url, expected);
+    assert.equal(run.navigations[0].at, 10500);
+    assert.deepEqual(run.fetches, [], "no stimulus lists or remote upload endpoints may be fetched");
+    assert.deepEqual(run.builderCalls, [], "no task initialization, task building, or image exports may run");
+    assert.deepEqual(run.downloads, [], "routing tests must not create task-data downloads");
+    assert.deepEqual(run.audioPlays, [], "routing tests must not play task audio");
+    assert.equal(run.dataReads(), 0, "routing tests must never read responses to fabricate exports");
+    assert.equal(run.qa.sharedState.resultExports, undefined);
+    assert.equal(run.context.window.__metaState, undefined);
+    assert.deepEqual(Array.from(run.qa.sharedState.uploadStatuses), []);
+  }
+});
+
+test("the local redirect-only switch bypasses tasks without requiring a URL parameter", async () => {
+  const run = runtime({ subjectID: "SID12345", id: "return-id" }, { redirectTestOnly: true });
+  await run.qa.start();
+  assert.equal(run.timeline().length, 1);
+  assert.equal(run.timeline()[0].data.event, "redirect_test");
+  assert.deepEqual(run.fetches, []);
+  assert.deepEqual(run.builderCalls, []);
+  await run.onFinish();
+  run.advance(500);
+  assert.equal(run.navigations[0].url, `${defaultReturn}?id=return-id`);
+  assert.deepEqual(run.downloads, []);
+  assert.equal(run.dataReads(), 0);
+  assert.equal(run.qa.sharedState.resultExports, undefined);
+});
+
+test("redirect-only mode stays off by default and requires the explicit URL value 1", async () => {
+  for (const redirectTest of [undefined, "0", "true"]) {
+    const parameters = { subjectID: "SID12345" };
+    if (redirectTest !== undefined) parameters.redirectTest = redirectTest;
+    const run = runtime(parameters);
+    await run.qa.start();
+    assert.ok(run.timeline().length > 1);
+    assert.equal(run.timeline().at(-1).data.event, "end_download");
+    assert.ok(run.fetches.length > 0, "ordinary runs still initialize their stimulus lists");
+    assert.ok(run.builderCalls.includes("initMetaEmotion"));
+    assert.ok(run.builderCalls.includes("buildMRTPractice"));
+    assert.equal(run.navigations.length, 0);
+  }
 });

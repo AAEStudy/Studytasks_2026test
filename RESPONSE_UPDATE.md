@@ -1,5 +1,17 @@
 # Judgment Controls and Image Replays
 
+## Redirect-only quick check (October 18, 2026)
+
+A commented `REDIRECT_TEST_ONLY = true` assignment near the top of main.js can
+be enabled to skip all study tasks and save trials. Alternatively, append
+`&redirectTest=1` to a GitHub launch URL without editing Qualtrics or deploying a
+configuration change. The single test screen displays the resolved destination;
+SPACE completes its timeline through the same finishStudy callback, fallback
+link, and 500-ms location.replace used in the study. The early return precedes
+CSV fetching, image initialization/preloading, task builders, uploads, and
+backup downloads. It never reports test completion to the storage provider.
+Normal launches retain the task flow because the override is commented out.
+
 ## Plain-language middle level in final judgments (October 18, 2026)
 
 The repeated final question now reads: "Compared with the middle level for the
