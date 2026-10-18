@@ -1,5 +1,23 @@
 # Judgment Controls and Image Replays
 
+## Qualtrics response-bound return handoff (October 18, 2026)
+
+The paired question script in `qualtrics/launch-task.js` replaces the shared
+`alreadyRedirected` browser flag. It supplies the actual Qualtrics entry URL as
+the task's nested `return` parameter, with response/subject completion markers
+in its fragment, and requests `returnMode=resume`. In that explicit mode the
+task validates the HTTPS Qualtrics destination but preserves its original query
+instead of appending subjectID/id. Existing launches without this mode keep the
+previous identifier-appending behavior. The Qualtrics script advances its own
+page only when the returned response ID and subject ID match. It must be pasted
+into Qualtrics and published there; adding the file here does not install it.
+
+This is an integration correction, not a replacement for Qualtrics session
+resumption. Allow respondents to finish later must be enabled, a preceding page
+must have been submitted, and the response must remain open in the same browser.
+Automated routing checks cover URL handling and the script logic; a live pilot
+must still establish that the same Qualtrics response record continues.
+
 ## Immediate final-judgment response checks (October 18, 2026)
 
 Final instructed-response checks now allow a fresh primary mouse click as soon

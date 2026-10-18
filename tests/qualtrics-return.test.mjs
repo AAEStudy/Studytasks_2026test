@@ -144,6 +144,48 @@ test("return URL construction preserves query/hash and safely round-trips full e
   assert.equal(result.hash, "#section-2");
 });
 
+test("exact resume returns preserve original query bytes, duplicate fields and fragment without appending launch IDs", () => {
+  const run = runtime();
+  const base = `${defaultReturn}?Q_CHL=qr&space=a%20b&plus=a+b&encoded=%2b%2F&same=first&same=second&subjectID=original&id=original%2Bid#faeTaskComplete=1&faeResponseID=R_example&subjectID=SID77`;
+  const exact = run.qa.buildQualtricsReturnUrl(base, "SID_new", "new-id", true);
+  assert.equal(exact, base, "exact resume mode must not reserialize, reorder or replace query fields");
+  const result = new URL(exact);
+  assert.deepEqual(result.searchParams.getAll("same"), ["first", "second"]);
+  assert.equal(result.searchParams.get("subjectID"), "original");
+  assert.equal(result.searchParams.get("id"), "original+id");
+  assert.equal(run.navigations.length, 0);
+  for (const invalid of ["not a URL", "http://usf.az1.qualtrics.com/form", "https://evil.example/form",
+    "https://usf.az1.qualtrics.com.evil.example/form", "https://user:password@usf.az1.qualtrics.com/form"]) {
+    assert.throws(() => run.qa.buildQualtricsReturnUrl(invalid, "SID77", "7", true), undefined, invalid);
+  }
+});
+
+test("resume query preservation requires the exact mode and an explicit valid return URL", () => {
+  const base = `${defaultReturn}?space=a%20b&same=1&same=2&subjectID=original&id=retained#faeTaskComplete=1&faeResponseID=R_example`;
+  const resumed = runtime({ subjectID: "SID77", id: "launch-id", returnMode: "resume", return: base });
+  assert.equal(resumed.qa.getQualtricsReturnUrl(), base);
+  for (const mode of [undefined, "Resume", "other"]) {
+    const parameters = { subjectID: "SID77", id: "launch-id", return: base };
+    if (mode !== undefined) parameters.returnMode = mode;
+    const run = runtime(parameters);
+    const result = new URL(run.qa.getQualtricsReturnUrl());
+    assert.equal(result.searchParams.get("subjectID"), "SID77", "ordinary return mode still adds the task's subject ID");
+    assert.equal(result.searchParams.get("id"), "launch-id");
+    assert.deepEqual(result.searchParams.getAll("same"), ["1", "2"]);
+    assert.equal(result.hash, new URL(base).hash);
+  }
+  for (const requestedReturn of [undefined, "", "not a URL", "https://evil.example/survey"]) {
+    const parameters = { subjectID: "SID77", id: "launch-id", returnMode: "resume" };
+    if (requestedReturn !== undefined) parameters.return = requestedReturn;
+    const run = runtime(parameters);
+    const result = new URL(run.qa.getQualtricsReturnUrl());
+    assert.equal(result.origin + result.pathname, defaultReturn);
+    assert.equal(result.searchParams.get("subjectID"), "SID77", "fallbacks retain ordinary participant matching");
+    assert.equal(result.searchParams.get("id"), "launch-id");
+    assert.equal(run.navigations.length, 0);
+  }
+});
+
 test("invalid return destinations throw and invalid custom launches fall back to the configured survey", () => {
   const run = runtime();
   for (const url of ["not a URL", "http://usf.az1.qualtrics.com/form", "javascript:alert(1)",

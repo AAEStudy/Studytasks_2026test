@@ -41,12 +41,15 @@ if (!subjectID) {
 }
 
 // Keep participant matching separate from any survey-specific resume parameters.
-function buildQualtricsReturnUrl(baseUrl, fullSubjectID, suppliedId){
+function buildQualtricsReturnUrl(baseUrl, fullSubjectID, suppliedId, preserveQuery = false){
   const destination = new URL(baseUrl);
   if (destination.protocol !== "https:" || !destination.hostname.endsWith(".qualtrics.com")
       || destination.username || destination.password) {
     throw new TypeError("The return destination must be an HTTPS Qualtrics URL.");
   }
+  // Cookie-based resumption can depend on the original query. The paired
+  // Qualtrics handoff script puts its response-bound marker in the fragment.
+  if (preserveQuery) return destination.toString();
   if (fullSubjectID) destination.searchParams.set("subjectID", fullSubjectID);
   const legacyId = /^ID(\d+)$/.exec(String(fullSubjectID || ""))?.[1];
   const returnId = destination.searchParams.get("id")?.trim();
@@ -57,9 +60,11 @@ function buildQualtricsReturnUrl(baseUrl, fullSubjectID, suppliedId){
 }
 
 function getQualtricsReturnUrl(){
-  const requestedReturn = getParam(QUALTRICS_RETURN_PARAM) || DEFAULT_QUALTRICS_RETURN_URL;
+  const suppliedReturn = getParam(QUALTRICS_RETURN_PARAM);
+  const requestedReturn = suppliedReturn || DEFAULT_QUALTRICS_RETURN_URL;
   try {
-    return buildQualtricsReturnUrl(requestedReturn, subjectID, numericID);
+    return buildQualtricsReturnUrl(requestedReturn, subjectID, numericID,
+      Boolean(suppliedReturn) && getParam("returnMode") === "resume");
   } catch (error) {
     console.warn("Invalid Qualtrics return URL; using the configured survey destination.");
     return buildQualtricsReturnUrl(DEFAULT_QUALTRICS_RETURN_URL, subjectID, numericID);
@@ -74,7 +79,7 @@ function safeFilenamePart(value){
 }
 
 const EXPORT_SCHEMA_VERSION = "fae-export-v2";
-const STUDY_VERSION = "FAE-2026-10-18-immediate-final-checks";
+const STUDY_VERSION = "FAE-2026-10-18-qualtrics-resume-handoff";
 const SESSION_STARTED_AT_UTC = new Date().toISOString();
 const SESSION_STAMP = sessionStamp(new Date(SESSION_STARTED_AT_UTC));
 const SESSION_RANDOM_ID = globalThis.crypto?.randomUUID?.()
