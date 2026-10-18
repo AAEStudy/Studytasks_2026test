@@ -41,16 +41,14 @@ if (!subjectID) {
 }
 
 // Keep participant matching separate from any survey-specific resume parameters.
-function buildQualtricsReturnUrl(baseUrl, fullSubjectID, suppliedId, preserveQuery = false){
+function buildQualtricsReturnUrl(baseUrl, fullSubjectID, suppliedId){
   const destination = new URL(baseUrl);
   if (destination.protocol !== "https:" || !destination.hostname.endsWith(".qualtrics.com")
       || destination.username || destination.password) {
     throw new TypeError("The return destination must be an HTTPS Qualtrics URL.");
   }
-  // Cookie-based resumption can depend on the original query. The paired
-  // Qualtrics handoff script puts its response-bound marker in the fragment.
-  if (preserveQuery) return destination.toString();
-  if (fullSubjectID) destination.searchParams.set("subjectID", fullSubjectID);
+  // Match the original Tasks/Metronome return: do not add subjectID to the survey URL.
+  // Qualtrics already holds it as Embedded Data; task exports retain the full ID.
   const legacyId = /^ID(\d+)$/.exec(String(fullSubjectID || ""))?.[1];
   const returnId = destination.searchParams.get("id")?.trim();
   const participantId = String(suppliedId ?? "").trim() || returnId || legacyId;
@@ -60,11 +58,9 @@ function buildQualtricsReturnUrl(baseUrl, fullSubjectID, suppliedId, preserveQue
 }
 
 function getQualtricsReturnUrl(){
-  const suppliedReturn = getParam(QUALTRICS_RETURN_PARAM);
-  const requestedReturn = suppliedReturn || DEFAULT_QUALTRICS_RETURN_URL;
+  const requestedReturn = getParam(QUALTRICS_RETURN_PARAM) || DEFAULT_QUALTRICS_RETURN_URL;
   try {
-    return buildQualtricsReturnUrl(requestedReturn, subjectID, numericID,
-      Boolean(suppliedReturn) && getParam("returnMode") === "resume");
+    return buildQualtricsReturnUrl(requestedReturn, subjectID, numericID);
   } catch (error) {
     console.warn("Invalid Qualtrics return URL; using the configured survey destination.");
     return buildQualtricsReturnUrl(DEFAULT_QUALTRICS_RETURN_URL, subjectID, numericID);
@@ -79,7 +75,7 @@ function safeFilenamePart(value){
 }
 
 const EXPORT_SCHEMA_VERSION = "fae-export-v2";
-const STUDY_VERSION = "FAE-2026-10-18-qualtrics-resume-handoff";
+const STUDY_VERSION = "FAE-2026-10-18-original-qualtrics-return";
 const SESSION_STARTED_AT_UTC = new Date().toISOString();
 const SESSION_STAMP = sessionStamp(new Date(SESSION_STARTED_AT_UTC));
 const SESSION_RANDOM_ID = globalThis.crypto?.randomUUID?.()

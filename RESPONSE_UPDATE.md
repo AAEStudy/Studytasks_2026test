@@ -1,22 +1,21 @@
 # Judgment Controls and Image Replays
 
-## Qualtrics response-bound return handoff (October 18, 2026)
+## Restore the original Qualtrics return convention (October 18, 2026)
 
-The paired question script in `qualtrics/launch-task.js` replaces the shared
-`alreadyRedirected` browser flag. It supplies the actual Qualtrics entry URL as
-the task's nested `return` parameter, with response/subject completion markers
-in its fragment, and requests `returnMode=resume`. In that explicit mode the
-task validates the HTTPS Qualtrics destination but preserves its original query
-instead of appending subjectID/id. Existing launches without this mode keep the
-previous identifier-appending behavior. The Qualtrics script advances its own
-page only when the returned response ID and subject ID match. It must be pasted
-into Qualtrics and published there; adding the file here does not install it.
+Compared the working Tasks and Metronome index.html files directly. Both return
+to the plain survey URL for SID/UID/random IDs, adding only `id` for the legacy
+ID-prefixed numeric identifier. The October 17 integration had added `subjectID`
+to every return URL. That addition is removed; the configured destination stays
+the new survey, SV_8wijLZLkAmgskVE. Explicit nonempty launch `id` values and custom
+return URLs remain supported. Full subject IDs remain in every task export.
 
-This is an integration correction, not a replacement for Qualtrics session
-resumption. Allow respondents to finish later must be enabled, a preceding page
-must have been submitted, and the response must remain open in the same browser.
-Automated routing checks cover URL handling and the script logic; a live pilot
-must still establish that the same Qualtrics response record continues.
+The replacement question script and special resume mode proposed October 18
+are withdrawn. Keep the existing Qualtrics question-page script and its normal
+Next-button behavior. No Qualtrics script replacement is required for this fix.
+The added query parameter is a confirmed deviation from the working code;
+live same-response continuation still needs verification before claiming that
+it fully explains the reported restart. Automated checks verify exact return
+URLs, save ordering, backups, and the delayed navigation.
 
 ## Immediate final-judgment response checks (October 18, 2026)
 
@@ -112,7 +111,8 @@ the launch URL to include a `return` parameter. A supplied HTTPS Qualtrics retur
 URL still takes precedence, preserving its existing query and fragment values;
 invalid destinations fall back to the configured survey.
 
-The return URL includes the full `subjectID` used in task data. A nonempty launch
+The October 17 version added the full `subjectID` to the return URL; that
+addition was removed October 18 to match the original repositories. A nonempty launch
 `id` takes precedence over an ID already in the return URL. If neither is present,
 an exact legacy `ID` followed by digits supplies its numeric suffix, following
 the working [Metronome](https://github.com/AAEStudy/Metronome/blob/main/index.html)

@@ -95,7 +95,8 @@ test("an MRT failure survives three successful image saves and forces a visible 
   assert.equal(run.context.window.__FAEUploadStatus.files[0].save_state, "failed");
   assert.ok(run.storage.has("FAE:last-upload-status"), "the manifest exists before the return navigation");
   redirect.callback();
-  assert.equal(new URL(run.navigations[0]).searchParams.get("subjectID"), "SID4187372347");
+  assert.equal(run.navigations[0], "https://usf.az1.qualtrics.com/jfe/form/SV_8wijLZLkAmgskVE");
+  assert.equal(run.context.window.__FAEUploadStatus.subjectID, "SID4187372347");
 });
 
 test("the persisted four-file manifest preserves full SID and diagnostic status without task or provider payloads", () => {
