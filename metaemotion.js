@@ -134,7 +134,7 @@ function instructionScreen(title, body, tag, action = "begin") {
   };
 }
 
-const META_RESPONSE_FORMAT_VERSION = "emotion-mouse-replay-v14-comparison-check-hint";
+const META_RESPONSE_FORMAT_VERSION = "emotion-mouse-replay-v15-image-readability";
 const FINAL_IMAGE_REPLAY_LIMIT = STUDY_RESPONSE_SETTINGS.finalImageReplayLimit ?? 3;
 const META_CONFIDENCE_GATES = Object.freeze({ minMs: 600, minMovePx: 100 });
 const META_CHECK_GATES = Object.freeze({ minMs: 600, minMovePx: 0 });
@@ -277,7 +277,7 @@ function finalJudgmentInstructions(jsPsych) {
       title: "<u>Confidence in your judgment</u>",
       body: `<p>After each judgment, you will be asked: <b>How confident are you in the decision you just made?</b></p>
         <p>Click one answer: <b>1 = Very unconfident</b>, <b>2 = Unconfident</b>, <b>3 = Confident</b>, or <b>4 = Very confident</b>.</p>
-        <p>Remember, you can use the <b>full range of answer options</b> to indicate your level of confidence. <b>Move the mouse a noticeable distance, then click your answer.</b> Each confidence response requires a new mouse movement, and the choices become available after a brief pause.</p>
+        <p>Remember to use the <b>full range of answer options</b> to indicate your level of confidence. <b>Move the mouse a noticeable distance, then click your answer.</b> Each confidence response requires a new mouse movement, and the choices become available after a brief pause.</p>
         <p>Occasionally, a <b>third question</b> will ask you to select a particular response. Follow the instruction shown.</p>`
     },
     {
@@ -289,7 +289,7 @@ function finalJudgmentInstructions(jsPsych) {
       title: "<u>Reviewing the whole picture set</u>",
       body: `<p><b>First, you will review the whole picture set</b>. The images will be displayed in one sequence. <b>No response is needed during that time.</b> During the review, keep in mind the emotional feelings the whole set brings you as the images are displayed (rather than just one or two images). After the review, you will begin the final one by one picture judgments.</p>`
     }
-  ], [20000, 20000, 15000, 20000], "meta_instructions", jsPsych, {
+  ], [20000, 20000, 15000, 15000], "meta_instructions", jsPsych, {
     pageClass: "emotion-final-instructions",
     lastButtonLabel: "BEGIN PICTURE REVIEW >",
     lastReadyMessage: "You may now begin the picture review."

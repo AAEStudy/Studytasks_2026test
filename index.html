@@ -40,6 +40,11 @@
       line-height: 1.45;
       letter-spacing: 0;
     }
+    /* Enlarge picture-task text independently of MRT, with room for its wording. */
+    .emotion-response-screen {
+      width: min(1360px, calc(100vw - 48px));
+      font-size: clamp(24px, 2.2vw, 32px);
+    }
     .mrt-probe-screen { min-height: 360px; text-align: left; }
     .mrt-probe-question { margin: 0 0 50px; font: inherit; font-weight: 400; text-align: left; }
     /* Keep the original scale's inherited text metrics separate from the question. */
@@ -75,7 +80,7 @@
     .mrt-certainty-hint, .mrt-basis-hint { font-size: 18px; text-align: center; }
     .emotion-confidence-screen { min-height: 360px; text-align: left; }
     .emotion-confidence-screen > p:first-child { margin: 0 0 50px; font: inherit; font-weight: 400; text-align: left; }
-    .emotion-confidence-screen > p:last-child { font-size: 18px; text-align: center; }
+    .emotion-confidence-screen > p:last-child { font-size: clamp(18px, 1.6vw, 22px); text-align: center; }
     .confidence-option-number, .confidence-option-label { display: block; }
     .confidence-option-number { margin-bottom: 4px; }
     .mrt-basis-options {
@@ -110,7 +115,7 @@
       width: 100%;
       min-height: 104px;
       padding: 8px;
-      font-size: 22px;
+      font-size: clamp(22px, 1.9vw, 28px);
       line-height: 1.3;
       letter-spacing: 0;
     }
@@ -151,7 +156,7 @@
       min-height: 40px;
       max-width: calc(100vw - 32px);
       padding: 8px 12px;
-      font-size: 14px;
+      font-size: 16px;
       line-height: 1.4;
       color: #aaa;
       border: 1px solid #555;
@@ -260,5 +265,5 @@
 <script src="mrt.js?v=20261017-qualtrics-return"></script>
 
 <!-- Main orchestration (ES module) -->
-<script type="module" src="main.js?v=20261018-comparison-check-hint"></script>
+<script type="module" src="main.js?v=20261018-image-readability"></script>
 </html>

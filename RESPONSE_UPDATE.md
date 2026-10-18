@@ -1,5 +1,26 @@
 # Judgment Controls and Image Replays
 
+## Larger image-task type and confidence reminder (October 18, 2026)
+
+Image response screens now use a wider, responsive layout with 24–32-pixel
+question/key text (about 30 pixels at a 1363-pixel desktop viewport). The extra
+width accommodates larger text without adding desktop line breaks to the
+comparison question or its key mapping. Ordinary comparisons and instructed
+checks retain their identical key hint and shared question/key positions.
+Final picture judgments use the same larger image-task text; confidence buttons
+scale to 22–28 pixels, mouse instructions to 18–22 pixels, and View again to
+16 pixels. Existing narrow-screen fallbacks remain. MRT selectors and sizes are
+unchanged.
+
+The final confidence instructions now say: "Remember to use the full range of
+answer options to indicate your level of confidence." Image response format:
+`emotion-mouse-replay-v15-image-readability`. Task counts, response requirements,
+scoring, save handling, and export columns are unchanged.
+
+The four final-judgment instruction pages now require 20, 20, 15, and 15 seconds
+on first viewing. The separate replay and whole-set review pages each require
+15 seconds; the first two pages retain their 20-second reading gates.
+
 ## Shared comparison/check key hint (October 18, 2026)
 
 Calibration instructed-response questions now say "please select option 1" (or

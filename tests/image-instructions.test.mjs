@@ -282,10 +282,10 @@ function exerciseGates(run, trial, durations, lastButtonLabel) {
   assert.equal(run.display.listenerCount("click"), 0);
 }
 
-test("final 20/20/15/20-second gates resist rapid clicks, preserve back-navigation time and clean up", () => {
+test("final 20/20/15/15-second gates resist rapid clicks, preserve back-navigation time and clean up", () => {
   const run = runtime();
   const trial = run.context.buildMetaEmotionReview(run.state, 20)[0];
-  exerciseGates(run, trial, [20000, 20000, 15000, 20000], "BEGIN PICTURE REVIEW >");
+  exerciseGates(run, trial, [20000, 20000, 15000, 15000], "BEGIN PICTURE REVIEW >");
   run.instruction(trial);
   assert.equal(run.forward(), false, "a new instructions run starts a new reading period");
   run.clock.advance(1000);
@@ -295,12 +295,12 @@ test("final 20/20/15/20-second gates resist rapid clicks, preserve back-navigati
   assert.equal(run.display.listenerCount("click"), 0);
 });
 
-test("final replay and whole-set review instructions occupy separate pages with the approved confidence reminder", () => {
+test("final replay and whole-set review instructions occupy separate pages with the full-range confidence reminder", () => {
   const run = runtime();
   const trial = run.context.buildMetaEmotionReview(run.state, 20)[0];
   const plain = html => html.replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim();
   const pages = Array.from(trial.pages, plain);
-  assert.match(pages[1], /Remember, you can use the full range of answer options to indicate your level of confidence\./);
+  assert.match(pages[1], /Remember to use the full range of answer options to indicate your level of confidence\./);
   assert.match(pages[2], /View again/);
   assert.doesNotMatch(pages[2], /\breview\b|one sequence|No response is needed/i);
   assert.doesNotMatch(pages[3], /View again|replay|remaining uses/i);
