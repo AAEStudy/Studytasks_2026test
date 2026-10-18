@@ -1,5 +1,14 @@
 # Judgment Controls and Image Replays
 
+## Final judgment: comparison-first wording (October 18, 2026)
+
+The repeated final question now reads: "Compared with the median for the whole
+picture set, does this picture bring you a higher or lower level of positive
+emotion?" Median, higher, and lower remain bold. The same question appears after
+replaying the current picture. Higher/Lower controls, scoring, instruction timers,
+and confidence questions are unchanged. Image response format:
+`emotion-mouse-replay-v16-median-level-wording`.
+
 ## Larger image-task type and confidence reminder (October 18, 2026)
 
 Image response screens now use a wider, responsive layout with 24–32-pixel

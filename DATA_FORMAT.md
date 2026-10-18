@@ -1,6 +1,6 @@
 # FAE data exports and Lee archive audit
 
-Current schema: `fae-export-v2`. Study version: `FAE-2026-10-18-image-readability`.
+Current schema: `fae-export-v2`. Study version: `FAE-2026-10-18-final-judgment-wording`.
 
 The experiment still saves four files per completed browser session: MRT TSV,
 image-practice CSV, calibration CSV, and final-judgment CSV. All have one header
@@ -102,9 +102,11 @@ four final instruction pages precede the passive whole-set review. From
 20, 20, 15, and 15 seconds. Replay directions occupy page three;
 whole-set review directions occupy page four. The confidence reminder makes the
 full range of options available without asking participants to use every rating.
-The median instruction refers to positive feelings from each picture, and the
-repeated question uses "Does this picture bring you a positive feeling" in place
-of "did this picture induce". Answer options and numeric coding are unchanged.
+The median instruction refers to positive feelings from each picture. From
+`emotion-mouse-replay-v16-median-level-wording`, the repeated question is:
+"Compared with the median for the whole picture set, does this picture bring you
+a higher or lower level of positive emotion?" Answer options and numeric coding
+are unchanged.
 
 From `emotion-mouse-replay-v9-review-transition`, a separate SPACE-to-begin
 screen follows the last review picture and precedes the first final-judgment
@@ -212,7 +214,7 @@ fractions to their configured lengths.
 | Header | Meaning |
 | --- | --- |
 | export_schema_version | fae-export-v2 |
-| study_version | FAE-2026-10-18-image-readability |
+| study_version | FAE-2026-10-18-final-judgment-wording |
 | session_id | Shared unique ID for this browser run |
 | session_started_at_utc | ISO UTC start time |
 | run_mode | full for 380 calibration comparisons and 35 MRT blocks; otherwise test |
