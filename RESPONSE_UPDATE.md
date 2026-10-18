@@ -1,5 +1,16 @@
 # Judgment Controls and Image Replays
 
+## Immediate final-judgment response checks (October 18, 2026)
+
+Final instructed-response checks now allow a fresh primary mouse click as soon
+as the item appears. They have no response delay and require no mouse movement.
+The check still rejects carried-over clicks, keyboard clicks, and the second
+click of a double-click. Cursor displacement remains recorded without affecting
+response eligibility. Regular confidence ratings retain their 600-ms delay and
+100-pixel movement requirement. Check frequency, scoring, and export columns
+are unchanged; check minimum time and minimum movement now both record zero.
+Image response format: `emotion-mouse-replay-v17-immediate-final-checks`.
+
 ## Final judgment: comparison-first wording (October 18, 2026)
 
 The repeated final question now reads: "Compared with the median for the whole

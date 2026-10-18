@@ -134,10 +134,10 @@ function instructionScreen(title, body, tag, action = "begin") {
   };
 }
 
-const META_RESPONSE_FORMAT_VERSION = "emotion-mouse-replay-v16-median-level-wording";
+const META_RESPONSE_FORMAT_VERSION = "emotion-mouse-replay-v17-immediate-final-checks";
 const FINAL_IMAGE_REPLAY_LIMIT = STUDY_RESPONSE_SETTINGS.finalImageReplayLimit ?? 3;
 const META_CONFIDENCE_GATES = Object.freeze({ minMs: 600, minMovePx: 100 });
-const META_CHECK_GATES = Object.freeze({ minMs: 600, minMovePx: 0 });
+const META_CHECK_GATES = Object.freeze({ minMs: 0, minMovePx: 0, trackMovement: true });
 const FINAL_JUDGMENT_REMINDER_OPTIONS = Object.freeze({ reminderGroup: "final_judgment" });
 const COMPARISON_OPTIONS_HTML = `<p class="emotion-comparison-options">Press <b>1</b> for the FIRST picture, <b>2</b> for the SECOND picture.</p>`;
 const EMOTION_GUIDANCE = `<p>Focus on <b>your own emotional feeling</b>, not on whether the picture itself seems positive or negative. There is no correct answer; respond intuitively.</p>`;

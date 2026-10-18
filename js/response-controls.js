@@ -88,7 +88,7 @@ const StudyResponses = (() => {
     jsPsych.finishTrial(data);
   }
 
-  function mouseTrial(jsPsych, trial, { minMs = 0, minMovePx = 0 } = {}) {
+  function mouseTrial(jsPsych, trial, { minMs = 0, minMovePx = 0, trackMovement = false } = {}) {
     let cleanup = () => {};
     let finished = false;
     return {
@@ -101,6 +101,7 @@ const StudyResponses = (() => {
         finished = false;
         const root = jsPsych.getDisplayElement();
         const gated = minMs > 0 || minMovePx > 0;
+        const trackPointer = gated || trackMovement;
         let origin = cursorPosition ? { ...cursorPosition } : null;
         let maxDistance = 0;
         let timer = null;
@@ -125,8 +126,8 @@ const StudyResponses = (() => {
           if (remaining > 0) timer = window.setTimeout(activateWhenDue, Math.ceil(remaining));
           else refresh();
         };
+        if (trackPointer) document.addEventListener('pointermove', move, true);
         if (gated) {
-          document.addEventListener('pointermove', move, true);
           activateWhenDue();
           refresh();
         }
@@ -136,7 +137,7 @@ const StudyResponses = (() => {
           cleanup();
           finishMouseTrial(jsPsych, {
             response, rt: performance.now() - onset,
-            ...(gated ? {
+            ...(trackPointer ? {
               certainty_min_ms: minMs,
               certainty_min_move_px: minMovePx,
               certainty_max_move_px: maxDistance
@@ -146,7 +147,7 @@ const StudyResponses = (() => {
         cleanup = () => {
           finished = true;
           if (timer !== null) window.clearTimeout(timer);
-          if (gated) document.removeEventListener('pointermove', move, true);
+          if (trackPointer) document.removeEventListener('pointermove', move, true);
           removeClicks();
         };
       },

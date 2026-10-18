@@ -1,6 +1,6 @@
 # FAE data exports and Lee archive audit
 
-Current schema: `fae-export-v2`. Study version: `FAE-2026-10-18-final-judgment-wording`.
+Current schema: `fae-export-v2`. Study version: `FAE-2026-10-18-immediate-final-checks`.
 
 The experiment still saves four files per completed browser session: MRT TSV,
 image-practice CSV, calibration CSV, and final-judgment CSV. All have one header
@@ -159,7 +159,7 @@ column positions remain intact:
 | final_check_expected / final_check_response | Requested and selected confidence-format response, coded 1–4 |
 | final_check_correct | Whether the instructed response was followed |
 | final_check_rt_ms | Response-check RT in milliseconds |
-| final_check_min_ms / final_check_min_move_px | Check's response requirements: 600 ms and 0 CSS px; no movement required |
+| final_check_min_ms / final_check_min_move_px | Check's response requirements: 0 ms and 0 CSS px; no delay or movement required |
 | final_check_max_move_px | Observed cursor displacement on the check screen |
 | cal_check_id | One-based calibration instructed-response check ID |
 | cal_check_after_trial | Completed main comparison preceding the check, counting across chunks |
@@ -168,14 +168,16 @@ column positions remain intact:
 | cal_check_rt_ms | Calibration response-check RT in milliseconds |
 | speed_reminder_group | Appended last: final_judgment for final decisions/confidence; general for scored comparisons |
 
-From `emotion-mouse-replay-v10-final-check-clicks`, final instructed-response
-checks retain the 600-ms minimum and a fresh primary mouse click but require
-no cursor displacement. Their footer says "Click your answer." The existing
+From `emotion-mouse-replay-v17-immediate-final-checks`, final instructed-response
+checks accept a fresh primary mouse click immediately, with no response delay or
+required cursor displacement. Their footer says "Click your answer." The existing
 `final_check_min_move_px` field records zero; `final_check_max_move_px` still
 records observed movement, including zero for a stationary response. Ordinary
-confidence ratings retain their 100-pixel movement requirement. Check frequency,
+confidence ratings retain their 600-ms delay and 100-pixel movement requirement. Check frequency,
 response options, coding, and all CSV column positions are unchanged. Earlier
-final checks required 100 pixels of movement.
+final checks required 100 pixels of movement before v10; v10 through v16 retained
+a 600-ms delay while allowing stationary clicks. Cursor displacement is still
+recorded on checks independently of response eligibility.
 
 From `emotion-mouse-replay-v7-final-controls`, final judgments have an independent
 allowance of five speed reminders. Earlier MRT and comparison reminders share
@@ -214,7 +216,7 @@ fractions to their configured lengths.
 | Header | Meaning |
 | --- | --- |
 | export_schema_version | fae-export-v2 |
-| study_version | FAE-2026-10-18-final-judgment-wording |
+| study_version | FAE-2026-10-18-immediate-final-checks |
 | session_id | Shared unique ID for this browser run |
 | session_started_at_utc | ISO UTC start time |
 | run_mode | full for 380 calibration comparisons and 35 MRT blocks; otherwise test |
