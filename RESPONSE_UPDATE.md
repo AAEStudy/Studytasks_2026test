@@ -1,5 +1,15 @@
 # Judgment Controls and Image Replays
 
+## Shared comparison/check key hint (October 18, 2026)
+
+Calibration instructed-response questions now say "please select option 1" (or
+option 2). Their lower key hint is exactly the same shared HTML as an ordinary
+comparison: "Press 1 for the FIRST picture, 2 for the SECOND picture." Reusing the
+same markup retains its emphasis, typography, and placement, so the key hint does
+not announce the change of question. The check's requested number, response keys,
+frequency, scoring, and export columns are unchanged. Image response format:
+`emotion-mouse-replay-v14-comparison-check-hint`.
+
 ## Per-file upload status and backup recovery (October 17, 2026)
 
 The pinned DataPipe 0.3.0 plugin is now followed by a local save adapter. It keeps

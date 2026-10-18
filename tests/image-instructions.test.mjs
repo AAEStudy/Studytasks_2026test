@@ -714,10 +714,12 @@ test("calibration checks use the same 1/2 keys at phase quarters across chunks",
         "the check immediately follows its quarter checkpoint as the second question");
     }
   }
-  let comparisons = 0, checks = 0;
+  let comparisons = 0, checks = 0, previousComparisonOptions;
   for (const trial of steps) {
     const live = run.response(trial);
     if (trial.data.event === "2ifc") {
+      previousComparisonOptions = live.stimulus.match(/<p class="emotion-comparison-options">[\s\S]*?<\/p>/)?.[0];
+      assert.ok(previousComparisonOptions, "ordinary comparisons expose their keyboard mapping");
       run.clock.advance(1);
       run.key("1");
       comparisons++;
@@ -732,11 +734,13 @@ test("calibration checks use the same 1/2 keys at phase quarters across chunks",
       assert.equal(String(live.data.expected_response), expected);
       const paragraphs = [...live.stimulus.matchAll(/<p\b[^>]*>([\s\S]*?)<\/p>/g)]
         .map(([, html]) => html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim());
-      assert.match(paragraphs[0], /please select/i);
+      assert.match(paragraphs[0], /please select option\s+[12]/i);
       assert.deepEqual(paragraphs[0].match(/\b[12]\b/g), [expected], "the check requests the expected numeric key directly");
-      assert.match(paragraphs[1], /Press\s+1\s+or\s+2\s+to indicate your response\./i);
-      assert.doesNotMatch(paragraphs.join(" "), /\b(?:FIRST|SECOND|picture|image)\b/i,
-        "the check and its hint must not ask participants to choose a picture");
+      assert.doesNotMatch(paragraphs[0], /\b(?:FIRST|SECOND|picture|image)\b/i,
+        "the check question requests a numeric response directly");
+      const checkOptions = live.stimulus.match(/<p class="emotion-comparison-options">[\s\S]*?<\/p>/)?.[0];
+      assert.equal(checkOptions, previousComparisonOptions,
+        "the check retains the exact lower keyboard-mapping markup from the preceding ordinary comparison");
       run.clock.advance(1);
       run.key(checks === 2 ? "1" : expected);
     }

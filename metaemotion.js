@@ -134,7 +134,7 @@ function instructionScreen(title, body, tag, action = "begin") {
   };
 }
 
-const META_RESPONSE_FORMAT_VERSION = "emotion-mouse-replay-v13-final-check-numbers";
+const META_RESPONSE_FORMAT_VERSION = "emotion-mouse-replay-v14-comparison-check-hint";
 const FINAL_IMAGE_REPLAY_LIMIT = STUDY_RESPONSE_SETTINGS.finalImageReplayLimit ?? 3;
 const META_CONFIDENCE_GATES = Object.freeze({ minMs: 600, minMovePx: 100 });
 const META_CHECK_GATES = Object.freeze({ minMs: 600, minMovePx: 0 });
@@ -420,8 +420,8 @@ function twoIFC(state, jsPsych, pic1, pic2, cat, phase, chunk, schedule = {}, ch
       type: jsPsychHtmlKeyboardResponse,
       css_classes: ["emotion-replay-trial", "emotion-comparison-trial"],
       stimulus: `<section class="emotion-response-screen emotion-comparison-screen">
-        <p class="emotion-comparison-question">To ensure quality responses are being given, please select <b>${expected}</b>.</p>
-        <p class="emotion-comparison-options">Press <b>1</b> or <b>2</b> to indicate your response.</p>
+        <p class="emotion-comparison-question">To ensure quality responses are being given, please select option <b>${expected}</b>.</p>
+        ${COMPARISON_OPTIONS_HTML}
       </section>`,
       choices: META_KEYS.choice12,
       data: {
