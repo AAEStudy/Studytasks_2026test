@@ -1,6 +1,6 @@
 # FAE data exports and Lee archive audit
 
-Current schema: `fae-export-v2`. Study version: `FAE-2026-10-18-redirect-test`.
+Current schema: `fae-export-v2`. Study version: `FAE-2026-10-18-mrt-readable-probes`.
 
 The experiment still saves four files per completed browser session: MRT TSV,
 image-practice CSV, calibration CSV, and final-judgment CSV. All have one header
@@ -220,7 +220,7 @@ fractions to their configured lengths.
 | Header | Meaning |
 | --- | --- |
 | export_schema_version | fae-export-v2 |
-| study_version | FAE-2026-10-18-redirect-test |
+| study_version | FAE-2026-10-18-mrt-readable-probes |
 | session_id | Shared unique ID for this browser run |
 | session_started_at_utc | ISO UTC start time |
 | run_mode | full for 380 calibration comparisons and 35 MRT blocks; otherwise test |
@@ -392,3 +392,8 @@ Verification: `node --test tests/data-export.test.mjs` checks exact Lee headers,
 core codes and RT values, quoted/multiline round-trips, empty tables, unique row
 and session IDs, short/full completion flags, and byte-identical upload/download
 payloads. Tests do not submit fabricated participant data to the live dataset.
+
+From `mrt-probes-v14-readable-questions`, all MRT probe questions and matching
+instructed-response prompts use 32-pixel desktop text (24 pixels below 600-pixel
+viewport width). This is a display change; response options, scoring and export
+column definitions are unchanged.

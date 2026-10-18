@@ -80,7 +80,7 @@ function safeFilenamePart(value){
 }
 
 const EXPORT_SCHEMA_VERSION = "fae-export-v2";
-const STUDY_VERSION = "FAE-2026-10-18-redirect-test";
+const STUDY_VERSION = "FAE-2026-10-18-mrt-readable-probes";
 const SESSION_STARTED_AT_UTC = new Date().toISOString();
 const SESSION_STAMP = sessionStamp(new Date(SESSION_STARTED_AT_UTC));
 const SESSION_RANDOM_ID = globalThis.crypto?.randomUUID?.()

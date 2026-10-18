@@ -46,7 +46,7 @@
       font-size: clamp(24px, 2.2vw, 32px);
     }
     .mrt-probe-screen { min-height: 360px; text-align: left; }
-    .mrt-probe-question { margin: 0 0 50px; font: inherit; font-weight: 400; text-align: left; }
+    .mrt-probe-question { margin: 0 0 50px; font: inherit; font-size: 32px; font-weight: 400; text-align: left; }
     /* Keep the original scale's inherited text metrics separate from the question. */
     .mrt-focus-screen > div { font-size: 18px; line-height: 28.8px; }
     .mrt-certainty-options {
@@ -204,6 +204,7 @@
         width: calc(100vw - 24px);
         font-size: 18px;
       }
+      .mrt-probe-question { font-size: 24px; }
       .mrt-certainty-options, .emotion-response-options.four { gap: 4px; }
       .mrt-certainty-option, .emotion-response-options.four .study-response-button { font-size: 14px; padding: 2px; }
       .emotion-instructions, .mrt-instructions, .mrt-sound-check-screen { width: calc(100vw - 32px); font-size: 18px; }
@@ -262,8 +263,8 @@
 
 <!-- MRT builder (adapted from your original runMetronomeTask) -->
 <script src="js/response-controls.js?v=20261018-immediate-final-checks"></script>
-<script src="mrt.js?v=20261017-qualtrics-return"></script>
+<script src="mrt.js?v=20261018-mrt-readable-probes"></script>
 
 <!-- Main orchestration (ES module) -->
-<script type="module" src="main.js?v=20261018-redirect-test"></script>
+<script type="module" src="main.js?v=20261018-mrt-readable-probes"></script>
 </html>

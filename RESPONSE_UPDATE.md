@@ -1,5 +1,14 @@
 # Judgment Controls and Image Replays
 
+## Larger MRT question text (October 18, 2026)
+
+All three MRT question prompts now use 32-pixel desktop text, increased from
+24 pixels, with 24-pixel prompts below 600-pixel viewport width. Shared prompt
+styles also apply to MRT instructed-response checks. Focus scale geometry,
+1–6 values, horizontal basis choices, confidence labels/buttons, and question
+wording retain their existing formats. MRT response version:
+`mrt-probes-v14-readable-questions`.
+
 ## Redirect-only quick check (October 18, 2026)
 
 A commented `REDIRECT_TEST_ONLY = true` assignment near the top of main.js can

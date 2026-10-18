@@ -1,6 +1,6 @@
 const MRT_CERTAINTY_MIN_MS = 600;
 const MRT_CERTAINTY_MIN_MOVE_PX = 100;
-const MRT_RESPONSE_FORMAT_VERSION = "mrt-probes-v13-basis-horizontal";
+const MRT_RESPONSE_FORMAT_VERSION = "mrt-probes-v14-readable-questions";
 const MRT_PROBE_ORDER = "focus,basis,confidence";
 const MRT_CERTAINTY_LABELS = ["Very unconfident", "Unconfident", "Confident", "Very confident"];
 const MRT_FOCUS_RESPONSE_HTML = `
