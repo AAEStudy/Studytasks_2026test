@@ -6,6 +6,10 @@ See [DATA_FORMAT.md](DATA_FORMAT.md) for the current named export schemas,
 headers from Lee's analysis scripts, session linkage, Dataverse organization,
 and the audit of the supplied Lee and saved-data archives.
 
+Schema v3 saves four compact analysis files plus one diagnostics JSON file.
+Image instructed-response results immediately follow the original outcome
+columns. Technical fields and repeated session settings are stored in diagnostics.
+
 The current quick-test configuration has six calibration comparisons and one
 MRT block. Exported filenames and rows identify it as `test`.
 
@@ -29,3 +33,16 @@ near the top of `main.js`, commit/push it, and wait for Pages to deploy:
 
 Comment that assignment out again and publish to restore the task flow.
 The assignment is commented out by default; ordinary launches run the tasks.
+
+## Convert an existing wide session
+
+Sources are preserved. Supply one session's four files and a separate, new
+output directory:
+
+```sh
+node scripts/split-session-exports.mjs MRT.tsv practice.csv cali.csv metaJ.csv compact-session
+```
+
+The converter verifies exact reconstruction before writing the four compact
+analysis files and one diagnostics JSON. It refuses to overwrite source files
+or existing outputs. Keep the diagnostics file with its four analysis files.

@@ -1,399 +1,140 @@
-# FAE data exports and Lee archive audit
+# FAE analysis files and diagnostics
 
-Current schema: `fae-export-v2`. Study version: `FAE-2026-10-18-mrt-readable-probes`.
+Current export schema: `fae-export-v3`.
+Study version: `FAE-2026-10-18-compact-exports`.
 
-The experiment still saves four files per completed browser session: MRT TSV,
-image-practice CSV, calibration CSV, and final-judgment CSV. All have one header
-row. Task responses, numerical coding, reaction-time units, and the original
-core column positions are preserved. Extra fields follow the core columns.
-Use a CSV/TSV reader and select columns by name; do not split lines on commas.
-Quoted replay JSON can contain commas and quotation marks.
+Each completed session saves four compact analysis files and one diagnostics
+JSON file. All five share the generated subject ID and session ID in their
+filenames. The analysis files contain the original task outcomes, response
+checks, essential quality flags and identifiers. Detailed technical fields and
+session settings are kept in diagnostics rather than repeated across every row.
 
-From `FAE-2026-10-17-save-status`, each raw `pipe_save` event records
-`pipe_http_status` and `pipe_save_state`. A 202 response means accepted/queued,
-not confirmed delivery to Dataverse. A status-only manifest is retained in
-`window.__FAEUploadStatus` and, when permitted, browser storage under
-`FAE:last-upload-status`; it contains no trial responses. These diagnostics add
-no columns to the four exported task files. Unconfirmed saves trigger a backup
-download instruction, while the exported bytes and existing ID coding stay the
-same. The last browser manifest applies only to the most recent save session.
+## Image comparisons
 
-## Headers taken from Lee's analysis code
+Practice and calibration retain Lee's original eight columns, in this order:
 
-Both `pretest_calculation/pretest_calculation/metaEmotion.R` and its posttest
-counterpart assign the following exact names. Practice uses the same eight
-columns as calibration.
+`subject, systemtime, pic1, pic2, category, rawchoice, picchoice, RT`
 
-| Position | Practice/calibration header | Meaning in this export |
-| --- | --- | --- |
-| 1 | subject | Participant identifier, retained as text |
-| 2 | systemtime | Accepted comparison response timestamp in seconds; see timing note below |
-| 3 | pic1 | First picture's numeric ID |
-| 4 | pic2 | Second picture's numeric ID |
-| 5 | category | Legacy source pair code, if provided; currently missing |
-| 6 | rawchoice | 1 = first picture; 2 = second picture |
-| 7 | picchoice | Numeric ID of the chosen picture |
-| 8 | RT | Accepted comparison response RT, in seconds |
+`rawchoice` is 1 for the first picture and 2 for the second. `picchoice` is the
+chosen image ID. `RT` is in seconds. `category` remains blank when the supplied
+pair list has no pair code.
 
-| Position | Final-judgment header | Meaning in this export |
-| --- | --- | --- |
-| 1 | subject | Participant identifier |
-| 2 | systemtime | Accepted Higher/Lower response timestamp in seconds |
-| 3 | pic | Picture's numeric ID |
-| 4 | higherlower | 1 = higher; 2 = lower than the participant's emotional median |
-| 5 | firstRT | Higher/Lower response RT, in seconds |
-| 6 | confidence | 1 = Very unconfident; 2 = Unconfident; 3 = Confident; 4 = Very confident |
-| 7 | secondRT | Confidence response RT, in seconds |
+In calibration, the next six columns (9–14) are:
 
-The `category` name is retained to match Lee's R code. MATLAB extracts its value
-from spreadsheet notes such as `A1` through `A190`; it identifies an unordered
-comparison pair, rather than a semantic IAPS category. Lee's supplied R scripts
-do not use this field. The current two-column source lists do not supply it, so
-the export writes an empty cell instead of `NaN`. The added `pair_key` identifies
-the unordered pair from its image IDs, for example `2019_8205`; it does not
-pretend to recover Lee's original numbered code.
-
-**Timing note:** Lee's MATLAB `systemtime` was recorded at image onset. This
-jsPsych implementation records it when the first judgment is accepted. Its
-clock is relative to the first accepted picture response, with the existing
-8000-second offset; it is not a Unix or UTC timestamp. The added
-`response_time_s` is an explicit alias for this actual response-time convention.
-`session_started_at_utc` provides the session's absolute start time.
-`time_elapsed_ms` is jsPsych's elapsed time for the exported response record.
-No claim of exact stimulus-onset timing equivalence is made.
-
-Comparison images remain 750 ms each. Final single-image presentations and
-passive review remain 500 ms; fixation and intertrial intervals remain 500 ms.
-For trials with replays, original RT columns measure the final response-screen
-presentation. `total_response_rt_s` additionally includes earlier response
-screen visits and intervening replay time. Confidence RT is separate.
-
-## Additional image fields
-
-The existing response-control fields remain in their previous order:
-
-```text
-response_format_version, image_trial_id, replay_count, replays_remaining,
-total_response_rt_s, final_response_rt_s, replay_requests,
-fast_response, fast_streak, type1_fast, type1_fast_streak,
-speed_reminder_shown, speed_reminder_kinds,
-fast_threshold_ms, fast_streak_length, speed_reminder_limit, replay_limit
-```
-
-On final rows, `fast_response` and `fast_streak` concern confidence;
-`type1_fast` and `type1_fast_streak` concern Higher/Lower. Comparison rows leave
-the type1-specific fields blank. Fast responses are flagged, not removed.
-Replay requests are saved as properly quoted JSON. Practice has its own five
-requests, main image comparisons have five, and final judgments have three.
-These allowances are independent and do not reset between chunks or on repeated
-builder calls. `replays_remaining` and each request's `remaining` refer to that
-phase's allowance. Each request identifies its `budget` as `practice`,
-`comparison`, or `final`. `replay_limit` is five on practice/calibration rows and
-three on final rows. Final requests do not decrement the main-comparison pool,
-and exhausting main-comparison replays does not limit final replays. The final
-button shows the remaining final-phase allowance.
-
-These independent pools and phase-specific limit/remaining meanings apply from
-`emotion-mouse-replay-v8-independent-final-replays`. Earlier versions used
-`budget = main` for a shared main comparison/final pool. Existing CSV headers
-and positions are unchanged. From `emotion-mouse-replay-v12-final-review-page`,
-four final instruction pages precede the passive whole-set review. From
-`emotion-mouse-replay-v15-image-readability`, their minimum first-view times are
-20, 20, 15, and 15 seconds. Replay directions occupy page three;
-whole-set review directions occupy page four. The confidence reminder makes the
-full range of options available without asking participants to use every rating.
-The median instruction refers to positive feelings from each picture. From
-`emotion-mouse-replay-v16-median-level-wording`, the repeated question is:
-"Compared with the median for the whole picture set, does this picture bring you
-a higher or lower level of positive emotion?" From
-`emotion-mouse-replay-v18-middle-level`, the repeated question replaces "median"
-with "middle level": "Compared with the middle level for the whole picture set,
-does this picture bring you a higher or lower level of positive emotion?"
-Instructions still introduce the middle (median). Answer options and numeric
-coding are unchanged.
-
-From `emotion-mouse-replay-v9-review-transition`, a separate SPACE-to-begin
-screen follows the last review picture and precedes the first final-judgment
-picture. It reminds participants to keep the feeling from the whole picture set
-in mind. It is self-paced, adds no scored response, and changes no CSV headers
-or response coding. The near-end message, approximate 5–7-minute duration, and
-request for full attention and effort appear at the start of the final-judgment
-instructions, before the review.
-
-The existing order-provenance fields follow:
-
-```text
-schedule_version, schedule_seed, schedule_stage, schedule_position,
-schedule_source_row, schedule_block, schedule_pair_occurrence,
-schedule_min_pair_intervening, schedule_min_image_intervening,
-schedule_source_sha256, schedule_followup_shuffle, schedule_review_order
-```
-
-Positions, source rows, and blocks are one-based. The actual completed review
-order is stored on the first final-judgment confidence row. Source hashes cover
-the normalized source CSV text. These fields support reconstruction of the
-randomized schedule and identification of authorized procedural adaptations.
-
-New image fields then follow:
-
-| Header | Meaning |
+| Column | Meaning |
 | --- | --- |
-| row_index | One-based row within this exported file, excluding the header |
-| phase | practice, calibration, or meta |
-| chunk | Interleaved task chunk, where applicable |
-| trial_index | jsPsych global response-record index |
-| time_elapsed_ms | jsPsych elapsed time at that response record |
-| pair_key | Stable unordered image-pair key; empty for single-image judgments |
-| confidence_label | Final confidence's verbal label; empty for comparison rows |
-| response_time_s | Explicit alias of the legacy systemtime value |
+| cal_check_id | Response-check number |
+| cal_check_after_trial | Main comparison immediately preceding the check |
+| cal_check_expected | Requested response: 1 or 2 |
+| cal_check_response | Selected response: 1 or 2 |
+| cal_check_correct | Whether the requested response was selected |
+| cal_check_rt_ms | Check response time in milliseconds |
 
-The following fields are appended after the existing session columns. Original
-column positions remain intact:
+The check stays attached to the preceding image-comparison row; it does not
+replace the real image choice or add a scored trial. A blank check ID means no
+check followed that trial. Practice has no checks and omits these six columns.
 
-| Header | Meaning |
-| --- | --- |
-| final_replay_limit | Independent final-phase allowance: 3 |
-| final_replays_remaining | Remaining final-phase allowance, independent of comparison replays |
-| certainty_min_ms | Minimum confidence-screen time: 600 ms |
-| certainty_min_move_px | Required fresh cursor displacement: 100 CSS px |
-| certainty_max_move_px | Observed maximum displacement from the cursor's position at confidence-screen onset |
-| final_check_id | One-based final-phase instructed-response check ID |
-| final_check_after_trial | Completed final trial preceding the check: 20, 40, or 60 |
-| final_check_presentation | confidence_options; the third question uses the confidence response format |
-| final_check_expected / final_check_response | Requested and selected confidence-format response, coded 1–4 |
-| final_check_correct | Whether the instructed response was followed |
-| final_check_rt_ms | Response-check RT in milliseconds |
-| final_check_min_ms / final_check_min_move_px | Check's response requirements: 0 ms and 0 CSS px; no delay or movement required |
-| final_check_max_move_px | Observed cursor displacement on the check screen |
-| cal_check_id | One-based calibration instructed-response check ID |
-| cal_check_after_trial | Completed main comparison preceding the check, counting across chunks |
-| cal_check_expected / cal_check_response | Requested and selected 1/2 key response |
-| cal_check_correct | Whether the calibration response instruction was followed |
-| cal_check_rt_ms | Calibration response-check RT in milliseconds |
-| speed_reminder_group | Appended last: final_judgment for final decisions/confidence; general for scored comparisons |
+Next come `replay_count`, `fast_response` and `speed_reminder_shown`, followed
+by row/phase identifiers and the shared fields below.
 
-From `emotion-mouse-replay-v17-immediate-final-checks`, final instructed-response
-checks accept a fresh primary mouse click immediately, with no response delay or
-required cursor displacement. Their footer says "Click your answer." The existing
-`final_check_min_move_px` field records zero; `final_check_max_move_px` still
-records observed movement, including zero for a stationary response. Ordinary
-confidence ratings retain their 600-ms delay and 100-pixel movement requirement. Check frequency,
-response options, coding, and all CSV column positions are unchanged. Earlier
-final checks required 100 pixels of movement before v10; v10 through v16 retained
-a 600-ms delay while allowing stationary clicks. Cursor displacement is still
-recorded on checks independently of response eligibility.
+## Final image judgments
 
-From `emotion-mouse-replay-v7-final-controls`, final judgments have an independent
-allowance of five speed reminders. Earlier MRT and comparison reminders share
-a general allowance of five. The final group has its own streaks, pending
-requests, and displayed-warning count. Three consecutive Higher/Lower responses
-strictly below 250 ms request a reminder after the completed decision, confidence,
-and any instructed check. A normal response resets that question type's streak.
-Confidence remains subject to its 600-ms and 100-pixel gate, so its responses
-cannot fall below the 250-ms fast threshold. RTs are timing flags, not exclusions;
-they start at the response screen after picture presentation. No five-second
-warning delay is added in this update. Raw warning events record their group
-and within-group `reminder_number`; the appended CSV field preserves every
-existing column position.
+Lee's original seven columns remain first:
 
-The `final_check_*` fields are populated only on the scored final row immediately
-preceding the check. The original emotion/confidence responses remain intact.
-Final checks have their own raw event, `meta_instructed_response`, and are not
-additional scored image judgments. The final CSV therefore retains 60 actual
-judgments.
-Confidence movement fields concern the actual confidence answer; check movement
-has separate fields. Comparison rows leave final-confidence/check fields blank.
+`subject, systemtime, pic, higherlower, firstRT, confidence, secondRT`
 
-Image-phase checkpoints are spaced by phase length: one per quarter of
-calibration and one per third of final judgments. Positions round upward and
-continue across chunks. Calibration checks are second questions after main
-comparisons and have their own raw event,
-`calibration_instructed_response`. The six `cal_check_*` fields are populated on
-the actual comparison row immediately preceding each check. Practice has no
-checks. A full run has 4 calibration checks (after comparisons 95, 190, 285,
-380) and 3 final checks (after judgments 20, 40, 60), while retaining 380 actual
-calibration rows and 60 actual final rows. Shortened test phases scale the same
-fractions to their configured lengths.
+`higherlower` is 1 for higher and 2 for lower relative to the participant's
+emotional middle level. `confidence` is coded 1–4; both RT fields are in seconds.
 
-## Session fields shared by all four files
+The next six columns (8–13) are:
 
-| Header | Meaning |
-| --- | --- |
-| export_schema_version | fae-export-v2 |
-| study_version | FAE-2026-10-18-mrt-readable-probes |
-| session_id | Shared unique ID for this browser run |
-| session_started_at_utc | ISO UTC start time |
-| run_mode | full for 380 calibration comparisons and 35 MRT blocks; otherwise test |
-| practice_trials_planned / practice_trials_completed | Configured and observed image-practice comparisons |
-| calibration_trials_planned / calibration_trials_completed | Configured and observed calibration comparisons |
-| calibration_trials_full | Full source pool: 380 |
-| meta_trials_planned / meta_trials_completed | Configured and observed completed judgment-plus-confidence pairs |
-| review_images_planned / review_images_completed | Configured and observed review presentations |
-| mrt_blocks_planned / mrt_blocks_completed | Configured blocks and completed main three-question probes |
-| configured_tasks_complete | All configured task counts were completed |
-| full_protocol_complete | Full mode and all configured task counts completed |
+`final_check_id, final_check_after_trial, final_check_expected, final_check_response, final_check_correct, final_check_rt_ms`
 
-These completion flags report counts, not response quality or exclusion
-decisions. Practice MRT probes do not count as main MRT blocks. The present
-GitHub configuration remains a **test**: 6 calibration comparisons and 1 MRT
-block, with 12 picture-practice comparisons, 20 review pictures, and 60 final
-judgments. A completed short test therefore has `configured_tasks_complete`
-true and `full_protocol_complete` false. It cannot provide Lee-style full
-calibration ground truth.
+These have the same meanings as the calibration check fields, with requested
+confidence-option numbers 1–4. Checks remain attached to the preceding final
+judgment, preserving the 60 scored rows. Next come `confidence_label`,
+`replay_count`, `type1_fast`, `fast_response` and `speed_reminder_shown`, followed
+by row/phase identifiers and the shared fields below.
 
-MRT's existing column names and task values remain unchanged. Its exporter adds
-`row_index` followed by the shared session fields, then `probe_order`,
-`basis_display_order`, and `basis_layout`. Missing/sparse array cells
-are empty; tabs, line breaks, and quotes are escaped. Use `row_index` with
-`session_id` for unique records, because repeating tapping practice can repeat
-legacy trial numbers. Exclude `practice trial` and `practice_probe` rows from
-main behavioral analyses, while retaining them for practice auditing.
+## Metronome Task
 
-MRT `RT_from_metronome` remains a signed timing difference in milliseconds;
-`probe1_rt`, `probe2_rt`, `probe3_rt`, and `pause_time` are in seconds. Main probe
-`performance_rating` is 1–6 and `confidence_rating` is 1–4. `main_basis` uses
-`remembered_thoughts`, `general_feeling`, or `other`. Instruction-check RT
-`instructed_response_rt_ms` is explicitly in milliseconds.
+The established first 19 MRT columns retain their order:
 
-From `mrt-probes-v11-tap-feedback`, practice omissions no longer display a false
-`+` confirmation or add an extra 650-ms feedback interval. Both practice and main
-confirmations require a valid recorded SPACE press. Omission rows still have an
-empty `RT_from_metronome` and `omission = TRUE`; successful taps retain the
-signed millisecond score. The confidence prompt uses the requested full wording
-about whether the indicated level of focus to the task was accurate.
+`subject, trial, task, trial_num, RT_from_metronome, omission, performance_rating, probe1_rt, probe2_rt, confidence_rating, pause_time, break_time, instructed_response, instructed_response_expected, instructed_response_correct, instructed_response_rt_ms, confidence_label, main_basis, probe3_rt`
 
-From `mrt-probes-v12-recap-pause`, P also pauses during the + feedback in both
-practice and main tapping, cancelling pending audio. A valid tap before the
-pause remains one scored tap; a partial cycle paused before a tap adds no
-omission. Each pause still produces a `task = pause` row with its duration in
-`pause_time` seconds. The restored warning about long pauses or more than three
-pauses does not add automatic termination or data exclusion; no duration cutoff
-has been set. Column names and units are unchanged.
+This keeps instructed-response results beside the principal outcomes. The
+following analysis fields retain probe order, basis-position counterbalancing
+and useful quality indicators:
 
-From `mrt-probes-v13-basis-horizontal`, the basis options appear in three equal
-horizontal columns, with their keyboard letters below the descriptions.
-At the first MRT builder call, each session is randomly assigned with equal
-probability to memory-first or feeling-first; other remains last. The assignment
-is stored in shared state and retained through practice repeats and every main
-chunk. This provides approximate balance across sessions without enforcing
-equal recruitment counts. C always means remembered thoughts, F means a feeling,
-and O means another source. Wording, scoring, and question order are unchanged.
+`probe_order, basis_display_order, basis_layout, probe1_fast, probe3_fast, speed_reminder_shown`
 
-Two fields are appended after the complete previous MRT TSV schema, preserving
-all prior column positions. `basis_display_order` is
-`remembered_thoughts,general_feeling,other` or
-`general_feeling,remembered_thoughts,other`; `basis_layout` is `horizontal`.
-Both are included on every saved MRT row and the raw three-question probes and
-response checks. These fields let analyses account for assigned visual order.
-Image CSV schemas are unchanged.
+`task` distinguishes practice tapping, main tapping, practice probes, main
+thought probes, pauses and instructed responses. Filter rows for the intended
+analysis. Tapping offsets and probe RTs retain their existing units and coding;
+`instructed_response_rt_ms` is in milliseconds. The complete prior coding and Lee
+archive audit are retained in [the schema-v2 reference](docs/EXPORT_SCHEMA_V2.md).
 
-Practice and main probes now appear in the order focus, basis, confidence.
-`probe_order` records `focus,basis,confidence`. The legacy RT field names retain
-their content meanings: `probe1_rt` is focus, `probe2_rt` is confidence, and
-`probe3_rt` is basis; the numbers no longer describe display position. Raw
-jsPsych records use `probe_question` for the actual displayed position and
-`probe_kind` to identify the question. One aggregate probe row is saved only
-after all three responses are available.
+## Shared fields and joining files
 
-Every tenth main probe is followed by a separate instructed-response check
-with the same four mouse options as confidence. Its response and expected
-response use codes 1–4 corresponding to the confidence labels above; correctness
-and `instructed_response_rt_ms` are saved separately. This check does not replace
-or alter `confidence_rating`. Practice does not advance the main check counter.
+At the right of each analysis file are `row_index`, image `phase`, `chunk` and
+`trial_index` when present, then:
 
-## File organization and Dataverse behavior
+`session_id, run_mode, configured_tasks_complete, full_protocol_complete, export_schema_version`
 
-Filenames use the task prefix, test/full mode, participant ID, UTC timestamp
-including seconds/milliseconds, and a random session identifier. For example:
+Use `subject` and `session_id` to join tasks. Use dataset name plus `row_index`
+and `session_id` to join an analysis row to its diagnostics. `row_index` is
+one-based within that file. Never join by subject ID alone when repeat test
+sessions are possible.
 
-```text
-Meta_emotion_cali_test_PARTICIPANT_SESSION.csv
-Meta_emotion_metaJ_test_PARTICIPANT_SESSION.csv
-Meta_emotion_practice_test_PARTICIPANT_SESSION.csv
-MRT_test_PARTICIPANT_SESSION.tsv
-```
+`run_mode` distinguishes the shortened test from the full protocol.
+`configured_tasks_complete` indicates completion of the configured task counts;
+`full_protocol_complete` also requires the full protocol configuration. These
+remain visible in the analysis files so a completed shortened test cannot be
+mistaken for full study data.
 
-All four files share the same session suffix. The local download and DataPipe
-uploads use the same frozen completed-task snapshot, so their data bytes agree.
-Participant identifiers and session identifiers are distinct: one person can
-have multiple browser runs without filename collisions.
+## Diagnostics
 
-Recommended organization is one study-level `FAEData` dataset for linked
-attention and emotion components. Use task prefixes and, after collection,
-Dataverse file tags/paths to group components. A separate pilot/test dataset is
-useful when setting up main collection. Separate consent/identity lookup files
-from deidentified behavioral data according to their access requirements.
-Separate task-specific datasets are not needed merely to organize one linked
-cross-domain study. This update does not change the DataPipe experiment ID or
-create/move datasets or existing files.
+`Diagnostics_<mode>_<subject>_<session>.json` contains the detailed fields
+removed from the primary files: replay-request logs, remaining-budget details,
+mouse-movement measurements, timing gate settings, image randomization and
+source provenance, planned/completed counts, response-format versions, and
+technical warning details. Session settings are stored once. Constant fields
+within a dataset are stored once rather than repeated in every row.
 
-Dataverse can ingest CSV/TSV into a tabular representation and provides both
-original and converted downloads. Its ingestion treats the first row as
-variable names. The uploaded October 1 ZIP contains original, headerless image
-CSVs with all their rows intact. Every additional column in those copies maps
-to the task's existing response metadata; no unexplained Dataverse-added column
-was found. Headers improve review and ingestion without inserting a fake
-placeholder column. Original uploads remain the reference when checking a
-converted download. Missing numeric cells are blank, not literal `null`, which
-Dataverse can interpret as zero.
+No study outcome is discarded. `js/analysis-exports.mjs` provides
+`restoreWideExports(analysisOutputs, diagnosticsJsonText)` to reconstruct the
+previous wide tables, including original header order and all cell values.
+This is also the export round-trip verification used in tests.
 
-DataPipe requires unique filenames. Its dashboard counts accepted submissions;
-with four file submissions per participant, do not treat that count as the
-number of complete participants. Use unique session IDs and completion fields.
-The upload path has not been exercised against the live dataset in this audit;
-one end-to-end pilot should confirm the installation's validation settings and
-four resulting files. No analysis scripts or existing participant files were
-rewritten.
+Diagnostics are generated from the same frozen completed-task snapshot as the
+four analysis files. They do not contain the later upload HTTP results; those
+remain in the existing status-only browser manifest, `FAE:last-upload-status`.
+The external credit/return `id` is not added to any export.
 
-## Audit of supplied files and original analysis assumptions
+## Saving and compatibility
 
-| Supplied October 1 file | Observations verified |
-| --- | --- |
-| Image practice | 12 rows; all raw choices match chosen image IDs |
-| Calibration | 6 rows; choices match chosen IDs; only a shortened test prefix |
-| Final judgments | 60 rows; 20 images each shown three times; valid 1/2 judgments and 1–4 confidence |
-| MRT | 30 practice taps, 31 main taps, and one main thought probe |
+The four analysis uploads run first; diagnostics upload last. Each upload is
+tracked separately. Any rejected or unconfirmed file triggers the existing
+backup instruction and downloads all five files before the Qualtrics return.
+The same frozen bytes are used for uploads and local backups. Redirect-only
+quick mode skips every export and upload, including diagnostics.
 
-The original archive contains 33 pretest and 33 posttest calibration files,
-each with all 380 directed pairs over 20 images. Its 66 final files each contain
-60 judgments. The original calibration scripts require that complete pair
-matrix; six comparisons cannot replace it. Final confidence rows in the current
-export retain the preceding first judgment and both RTs, as required.
+The leading Lee outcome columns and their numerical coding are unchanged.
+Scripts should read the header row and select named columns. Scripts that
+expect the complete old column count or old technical column positions need
+updating, or can use the reconstructed wide files. Existing saved sessions are
+not silently altered; any converted copy must be kept separate from its source.
 
-When updating analysis later:
+## Verified conversion example
 
-1. Read the new image CSVs with headers and explicitly select the original core
-   names. Lee's headerless imports followed by assigning only eight/seven names
-   are incompatible with these expanded files unchanged.
-2. Join each final picture to its own participant/session's calibration-derived
-   emotional distance. Do not rely on image-row positions or normative IAPS
-   valence. Treat alphanumeric participant IDs as strings.
-3. Review an existing Lee-script pitfall: `psych2` is created within the
-   calibration loop and then reused in a separate final-judgment loop without
-   reloading each participant's ground truth. The supplied pretest script's
-   relevant statements are at lines 87 and 117; posttest at 87 and 119. A new
-   participant-plus-image join avoids carrying the last participant's values
-   forward. Define an explicit policy for exact median ties, which the original
-   greater-than/less-than branches leave unclassified.
-4. Correct any prior description of Lee's runtime calibration as fixed-focal
-   blocked presentation. `meta_emotion_cali.m` already uses `randperm` at line
-   80; practice/review are randomized too. Fixed-focal grouping occurs in the
-   source spreadsheet, not the runtime order. The present adaptation adds
-   constrained spacing, balanced coverage blocks, and MRT interleaving.
+The supplied SID5657893781 test session retains all 63 MRT rows, 12 image-practice
+rows, 6 calibration rows and 60 final-judgment rows, including the one incorrect
+calibration response check. The primary widths change from 51/85/85/84 columns
+to 31/20/26/27 respectively. Its four primary files total 33,801 bytes rather
+than 74,831 bytes; including the 25,945-byte diagnostics file, the total is
+59,746 bytes. Reconstructing the four original files reproduces their bytes
+exactly. These measurements concern this test session, not a full-length run.
 
-Official format references:
-
-- https://guides.dataverse.org/en/latest/user/tabulardataingest/csv-tsv.html
-- https://guides.dataverse.org/en/latest/user/dataset-management.html
-- https://pipe.jspsych.org/docs/experiments/sending-data
-- https://pipe.jspsych.org/docs/experiments/validation
-
-Verification: `node --test tests/data-export.test.mjs` checks exact Lee headers,
-core codes and RT values, quoted/multiline round-trips, empty tables, unique row
-and session IDs, short/full completion flags, and byte-identical upload/download
-payloads. Tests do not submit fabricated participant data to the live dataset.
-
-From `mrt-probes-v14-readable-questions`, all MRT probe questions and matching
-instructed-response prompts use 32-pixel desktop text (24 pixels below 600-pixel
-viewport width). This is a display change; response options, scoring and export
-column definitions are unchanged.
+Use `scripts/split-session-exports.mjs` for a separate, verified conversion of
+existing files; see the README command. No existing Dataverse files are edited
+or resubmitted by this change.

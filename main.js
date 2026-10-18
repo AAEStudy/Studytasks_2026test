@@ -4,6 +4,7 @@
 // Data saving uses DataPipe and local downloads; Qualtrics redirect is optional.
 
 import { initMetaEmotion, buildMetaEmotionPractice, buildMetaEmotionCalibrationChunk, buildMetaEmotionReview, buildMetaEmotionMetaJ, exportMetaEmotion } from "./metaemotion.js?v=20261018-middle-level";
+import { splitStudyExports } from "./js/analysis-exports.mjs?v=20261018-compact-exports";
 
 // ===================== QUICK TEST CONTROLS =====================
 // Redirect-only check: uncomment REDIRECT_TEST_ONLY = true below to skip tasks/saves.
@@ -79,8 +80,8 @@ function safeFilenamePart(value){
   return String(value || "NA").replace(/[^A-Za-z0-9._-]+/g, "_");
 }
 
-const EXPORT_SCHEMA_VERSION = "fae-export-v2";
-const STUDY_VERSION = "FAE-2026-10-18-mrt-readable-probes";
+const EXPORT_SCHEMA_VERSION = "fae-export-v3";
+const STUDY_VERSION = "FAE-2026-10-18-compact-exports";
 const SESSION_STARTED_AT_UTC = new Date().toISOString();
 const SESSION_STAMP = sessionStamp(new Date(SESSION_STARTED_AT_UTC));
 const SESSION_RANDOM_ID = globalThis.crypto?.randomUUID?.()
@@ -94,7 +95,8 @@ const RESULT_FILENAMES = {
   mrt: `MRT_${RUN_MODE}_${SAFE_SUBJECT_ID}_${SESSION_ID}.tsv`,
   metaPractice: `Meta_emotion_practice_${RUN_MODE}_${SAFE_SUBJECT_ID}_${SESSION_ID}.csv`,
   metaCalibration: `Meta_emotion_cali_${RUN_MODE}_${SAFE_SUBJECT_ID}_${SESSION_ID}.csv`,
-  metaJudgment: `Meta_emotion_metaJ_${RUN_MODE}_${SAFE_SUBJECT_ID}_${SESSION_ID}.csv`
+  metaJudgment: `Meta_emotion_metaJ_${RUN_MODE}_${SAFE_SUBJECT_ID}_${SESSION_ID}.csv`,
+  diagnostics: `Diagnostics_${RUN_MODE}_${SAFE_SUBJECT_ID}_${SESSION_ID}.json`
 };
 
 function getSessionMetadata(jsPsych){
@@ -140,12 +142,12 @@ function getResultExports(jsPsych){
     ? sharedState.convertToCSV(sharedState.customData, metadata)
     : "";
 
-  sharedState.resultExports = {
+  sharedState.resultExports = Object.freeze(splitStudyExports({
     mrtTsv,
     pracCsvText: metaOut.pracCsvText,
     caliCsvText: metaOut.caliCsvText,
     metaJCsvText: metaOut.metaJCsvText
-  };
+  }, metadata, RESULT_FILENAMES));
   return sharedState.resultExports;
 }
 
@@ -155,7 +157,8 @@ function getResultFiles(jsPsych){
     { filename: RESULT_FILENAMES.mrt, text: out.mrtTsv, mime: "text/tab-separated-values" },
     { filename: RESULT_FILENAMES.metaPractice, text: out.pracCsvText, mime: "text/csv" },
     { filename: RESULT_FILENAMES.metaCalibration, text: out.caliCsvText, mime: "text/csv" },
-    { filename: RESULT_FILENAMES.metaJudgment, text: out.metaJCsvText, mime: "text/csv" }
+    { filename: RESULT_FILENAMES.metaJudgment, text: out.metaJCsvText, mime: "text/csv" },
+    { filename: RESULT_FILENAMES.diagnostics, text: out.diagnosticsJsonText, mime: "application/json" }
   ].filter(file => String(file.text || "").length > 0);
 }
 
@@ -229,7 +232,9 @@ function buildPipeSaveTrials(jsPsych){
     { key: "mrt", filename: RESULT_FILENAMES.mrt, getText: () => getResultExports(jsPsych).mrtTsv },
     { key: "metaPractice", filename: RESULT_FILENAMES.metaPractice, getText: () => getResultExports(jsPsych).pracCsvText },
     { key: "metaCalibration", filename: RESULT_FILENAMES.metaCalibration, getText: () => getResultExports(jsPsych).caliCsvText },
-    { key: "metaJudgment", filename: RESULT_FILENAMES.metaJudgment, getText: () => getResultExports(jsPsych).metaJCsvText }
+    { key: "metaJudgment", filename: RESULT_FILENAMES.metaJudgment, getText: () => getResultExports(jsPsych).metaJCsvText },
+    // Keep technical diagnostics last so the four analysis uploads are attempted first.
+    { key: "diagnostics", filename: RESULT_FILENAMES.diagnostics, getText: () => getResultExports(jsPsych).diagnosticsJsonText }
   ];
 
   return fileDefs.map(file => ({

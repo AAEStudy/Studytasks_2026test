@@ -1,5 +1,23 @@
 # Judgment Controls and Image Replays
 
+## Compact analysis files and separate diagnostics (October 18, 2026)
+
+Schema `fae-export-v3` keeps Lee's first eight comparison columns and first
+seven final-judgment columns, then puts each phase's six response-check fields
+immediately after those outcomes. Practice omits inapplicable check columns.
+The first 19 MRT fields retain their existing outcome/check order. Analysis
+files retain replay counts, useful speed flags, counterbalancing and session/
+completion identifiers. Detailed technical fields move to one diagnostics JSON
+file, which stores session settings and constant values once. The split is
+lossless: the four primary files plus diagnostics reconstruct the previous
+wide tables and every original cell.
+
+All five files use one frozen snapshot. The four analysis uploads precede the
+diagnostics upload; individual status tracking and backup recovery cover the
+fifth file too. No task response, schedule, replay allowance, UI instruction,
+or Qualtrics return behavior changes. Current layout: DATA_FORMAT.md; prior
+wide layout and original archive audit: docs/EXPORT_SCHEMA_V2.md.
+
 ## Larger MRT question text (October 18, 2026)
 
 All three MRT question prompts now use 32-pixel desktop text, increased from

@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import { webcrypto } from "node:crypto";
 import * as schedule from "../js/image-schedule.mjs";
+import { splitStudyExports } from "../js/analysis-exports.mjs";
 
 const read = path => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 const defaultReturn = "https://usf.az1.qualtrics.com/jfe/form/SV_8wijLZLkAmgskVE";
@@ -71,7 +72,7 @@ function runtime(parameters = { subjectID: "ID0007" }, { redirectTestOnly = fals
   };
   const psych = { data: { addProperties() {}, get: () => { dataReads++; return collection(); } },
     getDisplayElement: () => display, run: built => { timeline = built; } };
-  const context = vm.createContext({ ...schedule, document, window, URL: BrowserURL, URLSearchParams,
+  const context = vm.createContext({ ...schedule, splitStudyExports, document, window, URL: BrowserURL, URLSearchParams,
     Blob, TextEncoder, crypto: webcrypto, performance: { now: () => now },
     setTimeout, clearTimeout: id => timers.delete(id),
     console: { warn: message => warnings.push(message) },
@@ -84,7 +85,7 @@ function runtime(parameters = { subjectID: "ID0007" }, { redirectTestOnly = fals
     initJsPsych: options => { initOptions = options; return psych; },
     jsPsychHtmlKeyboardResponse: {}, jsPsychImageKeyboardResponse: {},
     jsPsychInstructions: {}, jsPsychPipe: {}, jsPsychPreload: {} });
-  const meta = read("metaemotion.js").replace(/^import .*\n/m, "").replace(/^export /gm, "");
+  const meta = read("metaemotion.js").replace(/^import .*\n/gm, "").replace(/^export /gm, "");
   vm.runInContext(read("js/response-controls.js") + "\n" + read("mrt.js") + "\n" + meta, context);
   for (const name of ["initMetaEmotion", "buildMRTPractice", "buildMRTChunk", "buildMetaEmotionPractice",
     "buildMetaEmotionCalibrationChunk", "buildMetaEmotionReview", "buildMetaEmotionMetaJ", "exportMetaEmotion"]) {
@@ -92,7 +93,7 @@ function runtime(parameters = { subjectID: "ID0007" }, { redirectTestOnly = fals
     assert.equal(typeof original, "function", `the harness must track ${name}`);
     context[name] = (...args) => { builderCalls.push(name); return original(...args); };
   }
-  let main = read("main.js").replace(/^import .*\n/m, "").replace(/start\(\);\s*$/, `
+  let main = read("main.js").replace(/^import .*\n/gm, "").replace(/start\(\);\s*$/, `
     globalThis.qa = { buildQualtricsReturnUrl, getQualtricsReturnUrl, finishStudy,
       sharedState, start, buildPipeSaveTrials, getResultFiles, REDIRECT_TO_QUALTRICS,
       DEFAULT_QUALTRICS_RETURN_URL };
@@ -199,11 +200,13 @@ test("building the study and save payloads cannot navigate or mark study complet
   await run.qa.start();
   const timeline = run.timeline();
   assert.ok(timeline.length > 0);
-  assert.deepEqual(Array.from(timeline.slice(-5), trial => trial.data.event),
-    ["pipe_save", "pipe_save", "pipe_save", "pipe_save", "end_download"],
-    "the completion gesture must follow all four configured save trials");
+  assert.deepEqual(Array.from(timeline.slice(-6), trial => trial.data.event),
+    ["pipe_save", "pipe_save", "pipe_save", "pipe_save", "pipe_save", "end_download"],
+    "the completion gesture must follow all five configured save trials");
   const saves = run.qa.buildPipeSaveTrials(run.psych);
-  assert.equal(saves.length, 4);
+  assert.equal(saves.length, 5);
+  assert.deepEqual(Array.from(saves, trial => trial.data.file),
+    ["mrt", "metaPractice", "metaCalibration", "metaJudgment", "diagnostics"]);
   assert.ok(saves.every(trial => trial.data_string().length > 0));
   assert.equal(run.navigations.length, 0);
   assert.equal(run.downloads.length, 0);
@@ -259,13 +262,13 @@ test("all MRT unload guards remain active before completion and yield for the co
   assert.equal(run.navigations.length, 1);
 });
 
-test("the final SPACE gesture starts the existing four backups before completion redirects", async () => {
+test("the final SPACE gesture starts all five backups before completion redirects", async () => {
   const run = runtime();
   await run.qa.start();
   const end = run.timeline().at(-1);
   end.on_finish({ response: " " });
-  assert.equal(run.downloads.length, 4);
-  assert.equal(new Set(run.downloads.map(file => file.filename)).size, 4);
+  assert.equal(run.downloads.length, 5);
+  assert.equal(new Set(run.downloads.map(file => file.filename)).size, 5);
   assert.equal(run.qa.sharedState.studyCompleted, false);
   assert.equal(run.navigations.length, 0);
   await run.onFinish();

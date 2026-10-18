@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import vm from "node:vm";
 import { webcrypto } from "node:crypto";
+import { splitStudyExports, restoreWideExports } from "../js/analysis-exports.mjs";
 
 globalThis.STUDY_RESPONSE_SETTINGS = { imageReplayLimit: 5 };
 const { exportMetaEmotion, parseCSV } = await import("../metaemotion.js");
@@ -83,10 +84,10 @@ function runtime(records = [], full = false) {
   const context = vm.createContext({ console, performance, URLSearchParams, crypto: webcrypto,
     document: { addEventListener() {}, removeEventListener() {} },
     window: { location: { search: "?subjectID=CHECK" }, __metaState: state, addEventListener() {}, removeEventListener() {} },
-    Audio: class {}, initJsPsych: () => psych, exportMetaEmotion,
+    Audio: class {}, initJsPsych: () => psych, exportMetaEmotion, splitStudyExports,
     jsPsychHtmlKeyboardResponse: {}, jsPsychInstructions: {}, jsPsychPipe: {}, jsPsychPreload: {} });
   vm.runInContext(read("js/response-controls.js") + "\n" + read("mrt.js"), context);
-  let main = read("main.js").replace(/^import .*\n/m, "").replace(/start\(\);\s*$/, "globalThis.qa = { sharedState, getResultFiles, getResultExports, buildPipeSaveTrials, getSessionMetadata, RESULT_FILENAMES };");
+  let main = read("main.js").replace(/^import .*\n/gm, "").replace(/start\(\);\s*$/, "globalThis.qa = { sharedState, getResultFiles, getResultExports, buildPipeSaveTrials, getSessionMetadata, RESULT_FILENAMES };");
   if (full) main = main.replace("const META_CALIBRATION_COMPARISONS = 6;", 'const META_CALIBRATION_COMPARISONS = "ALL";').replace("const MRT_TOTAL_BLOCKS = 1;", "const MRT_TOTAL_BLOCKS = 35;");
   vm.runInContext(main, context);
   const built = context.buildMRTPractice({ subjectID: "CHECK", jsPsych: psych, metronomeAudio: {}, _state: context.qa.sharedState, numBlocks: full ? 35 : 1 });
@@ -124,17 +125,65 @@ test("short and full runs report separate completion flags and identical upload/
     assert.equal(metadata.mrt_blocks_completed, full ? 35 : 1);
     const psych = { data: { get: () => collection(records) } };
     const files = qa.getResultFiles(psych), pipes = qa.buildPipeSaveTrials(psych);
-    assert.equal(files.length, 4);
-    assert.equal(pipes.length, 4);
+    assert.equal(files.length, 5);
+    assert.equal(pipes.length, 5);
+    assert.deepEqual(Array.from(pipes, pipe => pipe.data.file),
+      ["mrt", "metaPractice", "metaCalibration", "metaJudgment", "diagnostics"]);
     files.forEach((file, i) => {
       assert.equal(pipes[i].filename, file.filename);
       assert.equal(pipes[i].data_string(), file.text);
       assert.ok(file.filename.includes(`_${metadata.run_mode}_CHECK_${metadata.session_id}`));
     });
     const first = qa.getResultExports(psych);
+    assert.equal(metadata.export_schema_version, "fae-export-v3");
+    assert.ok(Object.isFrozen(first), "all five exports must share a frozen completed-task snapshot");
+    assert.equal(files.at(-1).mime, "application/json");
+    assert.deepEqual(JSON.parse(files.at(-1).text), JSON.parse(first.diagnosticsJsonText));
     records.push(pair("calibration"));
     assert.equal(qa.getResultExports(psych), first, "completed-task snapshot is frozen across subsequent save events");
   }
+});
+
+test("the study's image exports put response checks beside Lee outcomes and separate diagnostic controls", () => {
+  const records = [
+    pair("calibration", { cal_check_id: 1, cal_check_after_trial: 1, cal_check_expected: "1",
+      cal_check_response: "2", cal_check_correct: false, cal_check_rt_ms: 0,
+      replay_requests: [{ pictures: ['a,"b".jpg', "c.jpg"], elapsed_ms: 10 }],
+      response_format_version: "qa-controls", certainty_min_ms: 600 }),
+    judgment({ final_check_id: 1, final_check_after_trial: 1, final_check_expected: 2,
+      final_check_response: 2, final_check_correct: true, final_check_rt_ms: 75,
+      certainty_max_move_px: 110, final_check_max_move_px: 0 })
+  ];
+  const { qa, psych, state, built } = runtime(records);
+  const metadata = qa.getSessionMetadata(psych);
+  const legacy = exportMetaEmotion(state, psych, metadata);
+  const wide = { mrtTsv: built.convertToCSV(qa.sharedState.customData, metadata),
+    pracCsvText: legacy.pracCsvText, caliCsvText: legacy.caliCsvText, metaJCsvText: legacy.metaJCsvText };
+  const out = qa.getResultExports(psych);
+  const calibration = parseCSV(out.caliCsvText), meta = parseCSV(out.metaJCsvText);
+  assert.deepEqual(calibration[0].slice(0, 8), comparisonHeaders);
+  assert.deepEqual(meta[0].slice(0, 7), judgmentHeaders);
+  for (const [table, prefix, expected] of [
+    [calibration, "cal", { expected: "1", response: "2", correct: "false", rt_ms: "0" }],
+    [meta, "final", { expected: "2", response: "2", correct: "true", rt_ms: "75" }]
+  ]) {
+    for (const [field, value] of Object.entries(expected)) {
+      const index = table[0].indexOf(`${prefix}_check_${field}`);
+      assert.ok(index >= 0 && index < 20, `${prefix} check ${field} must be plainly visible near the study outcomes`);
+      assert.equal(table[1][index], value);
+    }
+    for (const diagnostic of ["replay_requests", "response_format_version", "certainty_min_ms", "certainty_max_move_px"])
+      assert.ok(!table[0].includes(diagnostic), `${diagnostic} belongs in the diagnostics file`);
+  }
+  const diagnostics = JSON.parse(out.diagnosticsJsonText);
+  assert.equal(diagnostics.export_schema_version, "fae-export-v3");
+  assert.equal(diagnostics.session.session_id, qa.getSessionMetadata(psych).session_id);
+  assert.equal(diagnostics.datasets.metaCalibration.filename, qa.RESULT_FILENAMES.metaCalibration);
+  assert.equal(diagnostics.datasets.metaJudgment.filename, qa.RESULT_FILENAMES.metaJudgment);
+  assert.ok(diagnostics.datasets.metaCalibration.original_columns.includes("replay_requests"));
+  assert.ok(diagnostics.datasets.metaJudgment.original_columns.includes("certainty_max_move_px"));
+  assert.deepEqual(restoreWideExports(out, out.diagnosticsJsonText), wide,
+    "the saved analysis and diagnostic files together retain every source header and cell");
 });
 
 test("partial runs are flagged and separate runs of the same subject get unique filenames", () => {
