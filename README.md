@@ -25,20 +25,29 @@ MRT block. Exported filenames and rows identify it as `test`.
 
 Run data export checks with `node --test tests/data-export.test.mjs`.
 
-## Test saving directly to Qualtrics
+## Save to DataPipe and Qualtrics
 
 The separate receiver has passed live export/recovery tests for 64 KiB and 2 MiB
-synthetic ZIPs. Follow [the receiver setup](qualtrics/README.md) to add the final
-questionnaire return, then append `&saveTo=qualtrics` to the task launch URL while
-preserving its `subjectID`, `id`, and optional `return` parameters. This option
-sends the existing five-file ZIP to the receiver instead of DataPipe. The normal
-launch still uses DataPipe pending the actual-task save-and-return test.
+synthetic ZIPs. Normal task launches now attempt **both** destinations: one ZIP
+to DataPipe, then the identical frozen ZIP to the separate Qualtrics receiver.
+Follow [the receiver setup](qualtrics/README.md) to add the final questionnaire
+return, then test with the existing `subjectID`, `id`, and optional `return`
+parameters. `saveTo=both` explicitly selects the default. `saveTo=datapipe` and
+`saveTo=qualtrics` isolate a destination for troubleshooting.
+
+The DataPipe attempt has a 30-second deadline covering the request and response
+body. Queued, rejected, uncertain and timed-out results all allow the Qualtrics
+handoff to proceed. A timeout does not prove that DataPipe failed to retain the
+upload; its server may still process a received request. No client retries are
+added. A Qualtrics retry does not repeat the DataPipe attempt.
 
 The receiver submits before its End of Survey redirect returns to the task's
 receipt page, which continues to the original questionnaire destination.
 An available IndexedDB backup is committed before leaving the task. Recovery
 uses the same task URL and browser with `&saveTo=qualtrics&resumeSave=1`; it offers
 one explicit submission of retained data for that subject, without rerunning tasks.
+Local automatic downloads remain enabled during testing. The new actual-task
+save and questionnaire return still need the live test before recruitment.
 
 ## Check only the Qualtrics return
 

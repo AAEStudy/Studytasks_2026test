@@ -7,7 +7,7 @@ const source = readFileSync(new URL("../js/pipe-save-status.js", import.meta.url
 const endpoint = "https://pipe.jspsych.org/api/data/";
 const plain = value => JSON.parse(JSON.stringify(value));
 
-function runtime(fetchResponse) {
+function runtime(fetchResponse, clock = { setTimeout, clearTimeout }) {
   const requests = [];
   class Pipe {
     static saveData() { throw new Error("The original transport must be replaced."); }
@@ -15,6 +15,7 @@ function runtime(fetchResponse) {
   const context = vm.createContext({
     jsPsychPipe: Pipe,
     console,
+    AbortController, ...clock,
     fetch: async (url, options) => {
       requests.push({ url, ...options });
       return await fetchResponse(url, options);
@@ -36,6 +37,30 @@ test("binary bundle uses base64 endpoint and retains stored, queued and rejected
     assert.equal(run.requests.length, 1);
     assert.equal(run.requests[0].url, "https://pipe.jspsych.org/api/base64/");
     assert.deepEqual(JSON.parse(run.requests[0].body), { experimentID: "experiment12", filename: "session.zip", data: "UEsDBA==" });
+  }
+});
+
+test('a stalled DataPipe request or response body times out once without retrying or claiming server rejection', async () => {
+  for (const stalledBody of [false, true]) {
+    let fire, clears = 0;
+    const never = new Promise(() => {});
+    const run = runtime(async () => stalledBody ? { status: 202, json: () => never } : never, {
+      setTimeout(callback, delay) { assert.equal(delay, 30000); fire = callback; return 1; },
+      clearTimeout(id) { assert.equal(id, 1); clears++; }
+    });
+    const pending = run.saveBinary('experiment12', 'session.zip', 'UEsDBA==');
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(run.requests.length, 1);
+    assert.equal(run.requests[0].signal.aborted, false);
+    fire();
+    const result = await pending;
+    assert.equal(result.http_status, stalledBody ? 202 : null);
+    assert.equal(result.save_state, 'unconfirmed');
+    assert.equal(result.code, 'CLIENT_TIMEOUT');
+    assert.match(result.error, /timed out/);
+    assert.equal(run.requests[0].signal.aborted, true);
+    assert.equal(run.requests.length, 1);
+    assert.equal(clears, 1);
   }
 });
 

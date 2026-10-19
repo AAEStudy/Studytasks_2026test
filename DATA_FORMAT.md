@@ -135,10 +135,17 @@ avoids compression overhead. There is one save trial and one bundle status,
 with no per-file waits or client retries. HTTP 201 is stored; 202 is queued,
 not confirmed as delivered to Dataverse. The change reduces data submissions
 but cannot prevent shared-IP blocking or coordinate other participants.
-Any rejected or unconfirmed bundle triggers the existing
-backup instruction and downloads all five files before the Qualtrics return.
-The same frozen bytes are used for uploads and local backups. Redirect-only
-quick mode skips every export and upload, including diagnostics.
+Normal launches also submit the identical frozen ZIP to the separate Qualtrics
+receiver after the DataPipe attempt. DataPipe has a 30-second request/body
+deadline, so a stalled upload cannot indefinitely block the Qualtrics handoff.
+Queued, rejected and uncertain results all proceed to that second destination.
+Qualtrics retries reuse the staged ZIP and do not resend DataPipe uploads.
+Local downloads remain enabled during testing; a rejected or unconfirmed
+DataPipe result also forces backups if that configuration is later disabled.
+The same frozen bytes are used for both uploads and local backups. Redirect-only
+quick mode skips every export and upload, including diagnostics. See
+[the receiver setup](qualtrics/README.md) for the required Survey Flow return
+and batch recovery of the original files from a Qualtrics response export.
 
 The leading Lee outcome columns and their numerical coding are unchanged.
 Scripts should read the header row and select named columns. Scripts that

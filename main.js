@@ -1,7 +1,7 @@
 // main.js (ES module)
 // Orchestrates interleaving MRT and Meta-Emotion calibration while producing ONE file per task.
 //
-// Data saving supports DataPipe or the separate Qualtrics receiver.
+// Data saving sends one shared ZIP to DataPipe and Qualtrics, with local backups.
 
 import { initMetaEmotion, buildMetaEmotionPractice, buildMetaEmotionCalibrationChunk, buildMetaEmotionReview, buildMetaEmotionMetaJ, exportMetaEmotion } from "./metaemotion.js?v=20261018-middle-level";
 import { splitStudyExports } from "./js/analysis-exports.mjs?v=20261018-compact-exports";
@@ -36,15 +36,20 @@ const DATA_PIPE_EXPERIMENT_ID = "9XShb2sstH1d";
 const REDIRECT_TO_QUALTRICS = true;
 const DEFAULT_QUALTRICS_RETURN_URL = "https://usf.az1.qualtrics.com/jfe/form/SV_8wijLZLkAmgskVE";
 const QUALTRICS_RETURN_PARAM = "return";
-// Enable only for an integration test until saving and questionnaire routing pass.
-const DEFAULT_DATA_SAVE_TARGET = "datapipe";
+// Both copies are enabled by default. saveTo=datapipe or saveTo=qualtrics
+// isolates one destination when testing; unknown values retain both copies.
+const DEFAULT_DATA_SAVE_TARGET = "both";
 const QUALTRICS_RECEIVER_URL = "https://usf.az1.qualtrics.com/jfe/form/SV_b7rI1T6DVd3u0dw";
 
 // Qualtrics-provided participant identifiers.
 const urlParams = new URLSearchParams(window.location.search);
 
 function getParam(name){ return urlParams.get(name); }
-const SAVE_TO_QUALTRICS = DEFAULT_DATA_SAVE_TARGET === "qualtrics" || getParam("saveTo") === "qualtrics";
+const requestedSaveTarget = getParam("saveTo");
+const DATA_SAVE_TARGET = ["both", "datapipe", "qualtrics"].includes(requestedSaveTarget)
+  ? requestedSaveTarget : DEFAULT_DATA_SAVE_TARGET;
+const ACTIVE_SAVE_TO_DATA_PIPE = SAVE_TO_DATA_PIPE && ["both", "datapipe"].includes(DATA_SAVE_TARGET);
+const SAVE_TO_QUALTRICS = ["both", "qualtrics"].includes(DATA_SAVE_TARGET);
 
 let subjectID = urlParams.get("subjectID");
 let numericID = urlParams.get("id");
@@ -233,7 +238,7 @@ function showQualtricsRetry(pending){
   sharedState.studyCompleted = false;
   sharedState.qualtricsTransferInProgress = false;
   const display = jsPsych.getDisplayElement();
-  display.innerHTML = '<div class="center"><p>Your task data could not be confirmed as saved.</p><p>Please keep this window open.</p><button id="retry-qualtrics-save" type="button">Try saving again</button></div>';
+  display.innerHTML = '<div class="center"><p>Your final task data submission could not be confirmed.</p><p>Please keep this window open.</p><button id="retry-qualtrics-save" type="button">Try saving again</button></div>';
   display.querySelector('#retry-qualtrics-save').addEventListener('click', () => {
     void sendResultsToQualtrics(pending);
   }, { once: true });
@@ -668,7 +673,9 @@ async function start(){
   timeline.push(...buildMetaEmotionReview(metaState, 20));
   timeline.push(...buildMetaEmotionMetaJ(metaState, 60));
 
-  if (SAVE_TO_DATA_PIPE && !SAVE_TO_QUALTRICS) {
+  // Complete the DataPipe attempt before the final gesture starts the separate
+  // Qualtrics handoff. A queued or failed attempt never disables that copy.
+  if (ACTIVE_SAVE_TO_DATA_PIPE) {
     timeline.push(...buildPipeSaveTrials(jsPsych));
   }
 

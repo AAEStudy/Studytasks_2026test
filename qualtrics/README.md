@@ -6,14 +6,15 @@ and a 2 MiB synthetic payload. The 2 MiB ZIP contained **2,098,041 bytes across
 all five original files recovered exactly. This verifies the `__js_fae_…` field
 names and the current USF receiver's storage/export behavior for those tests.
 
-Actual-task integration is now available as a test opt-in. The default still
-uses DataPipe. The task remains in its shortened configuration: **6 calibration
+Actual-task integration now attempts **both DataPipe and Qualtrics by default**.
+The task remains in its shortened configuration: **6 calibration
 comparisons and 1 MRT block**. Completing the questionnaire return and an actual
 task-data export is the next acceptance check; full-protocol collection is not
 yet enabled.
 
-The task sends the same five-file ZIP as a normal HTTPS form POST, without
-DataPipe or an API token. Qualtrics stores it as encoded text in a survey
+After the DataPipe save attempt, the task independently sends the identical
+five-file ZIP to Qualtrics as a normal HTTPS form POST, without an API token.
+Qualtrics stores it as encoded text in a survey
 response. Participants do not select or upload files. Exporting one response
 table restores everyone's original ZIPs and analysis files in one operation.
 
@@ -65,23 +66,31 @@ block, then follow the JavaScript and branch steps above. TXT import does not
 install JavaScript. The initial QSF import failed with a generic upload error;
 the QSF remains a development artifact, so use TXT import.
 
-## Test the actual task before changing the default
+## Test the actual task with both saves
 
 Use the normal task launch with its existing participant identifiers and custom
-`return` parameter, adding `saveTo=qualtrics`. For example:
+`return` parameter. Both destinations are enabled when no override is supplied;
+`saveTo=both` explicitly selects the same behavior. For example:
 
 ```text
-https://aaestudy.github.io/Studytasks_2026test/?subjectID=ID0007&id=0007&saveTo=qualtrics
+https://aaestudy.github.io/Studytasks_2026test/?subjectID=ID0007&id=0007&saveTo=both
 ```
 
-This sends the completed task ZIP to the receiver instead of DataPipe. The
-current test configuration remains short. The existing `redirectTest=1` mode
+This sends one ZIP to DataPipe and then the same ZIP to the receiver, regardless
+of DataPipe reporting stored, queued, rejected, uncertain or timed out. A
+30-second deadline covers the DataPipe request and body read; there are no
+automatic client retries. Timeout means its storage result is unknown, since
+the server may already have received it. For isolated troubleshooting only,
+`saveTo=datapipe` or `saveTo=qualtrics` selects just that destination.
+The current test configuration remains short. The existing `redirectTest=1` mode
 still skips tasks, exports and saves; it is not a storage test.
 
 Check this complete route:
 
 1. Complete the shortened task and press SPACE on its final screen.
-2. The receiver should verify and submit automatically.
+2. Confirm DataPipe attempted one ZIP save; a queued result is not proof of
+   delivery to Harvard. The Qualtrics receiver should then verify and submit
+   automatically.
 3. Qualtrics should redirect to the task's `qualtrics/saved.html` receipt page,
    which then returns to the intended questionnaires.
 4. Confirm the participant/credit ID is correct. If the normal launch has a
@@ -90,8 +99,8 @@ Check this complete route:
    the five actual files and task metadata, rather than only a completion screen.
 
 Before recruitment, repeat with the intended full protocol and measure the ZIP
-size against the application limit. Changing the save default is separate from
-enabling full-protocol trial counts.
+size against the application limit. Both saves are enabled now, but full-protocol
+trial counts remain separate from this storage change.
 
 ## Export and recover all sessions
 
@@ -159,7 +168,7 @@ The completion redirect and checksum-verified export remain the relevant checks.
   sessions, receipt nonces, storage fallback and task routing. The real 64 KiB
   and 2 MiB tests additionally establish save/export integrity for this receiver.
 - The new actual-task route and final return must still pass the live acceptance
-  check above before default activation.
+  check above before recruitment.
 
 Rebuild generated receiver files and the self-contained synthetic test page
 after changing the codec or receiver template:

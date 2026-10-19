@@ -21,7 +21,8 @@ function runtime({ download = false, blockedStorage = false } = {}) {
     static revokeObjectURL() {}
   }
   const window = {
-    location: { search: "?subjectID=SID4187372347&id=", replace: url => navigations.push(url) },
+    // These status checks exercise the isolated DataPipe completion route.
+    location: { search: "?subjectID=SID4187372347&id=&saveTo=datapipe", replace: url => navigations.push(url) },
     setTimeout, clearTimeout() {}, addEventListener() {}, removeEventListener() {},
     localStorage: { setItem(key, value) {
       if (blockedStorage) throw new Error("storage blocked");
