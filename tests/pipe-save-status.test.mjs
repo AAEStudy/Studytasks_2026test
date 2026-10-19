@@ -21,12 +21,23 @@ function runtime(fetchResponse) {
     }
   });
   vm.runInContext(source, context);
-  return { requests, save: (...args) => Pipe.saveData(...args) };
+  return { requests, save: (...args) => Pipe.saveData(...args), saveBinary: (...args) => Pipe.saveBase64Data(...args) };
 }
 
 function response(status, body) {
   return { status, ok: status >= 200 && status < 300, json: async () => body };
 }
+
+test("binary bundle uses base64 endpoint and retains stored, queued and rejected states without retries", async () => {
+  for (const [status, body, state] of [[201, { error: null }, "stored"], [202, { error: null }, "queued"], [400, { error: "BASE64DATA_COLLECTION_NOT_ACTIVE" }, "rejected"]]) {
+    const run = runtime(async () => response(status, body));
+    const result = await run.saveBinary("experiment12", "session.zip", "UEsDBA==");
+    assert.equal(result.save_state, state);
+    assert.equal(run.requests.length, 1);
+    assert.equal(run.requests[0].url, "https://pipe.jspsych.org/api/base64/");
+    assert.deepEqual(JSON.parse(run.requests[0].body), { experimentID: "experiment12", filename: "session.zip", data: "UEsDBA==" });
+  }
+});
 
 test("201 stored, 202 queued and other2xx accepted preserve response fields and the exact upload payload", async () => {
   const text = 'subject\tnote\nSID4187372347\t"a\tb\nquoted"\n';

@@ -21,7 +21,7 @@
     return fallback;
   };
 
-  jsPsychPipe.saveData = async function(expID, filename, data) {
+  const save = async function(endpoint, expID, filename, data) {
     let httpStatus = null;
     let readingResponse = false;
     try {
@@ -33,7 +33,7 @@
 
       // Preserve the plugin's endpoint and payload. Do not automatically retry:
       // an interrupted response can leave server-side storage already accepted.
-      const response = await fetch("https://pipe.jspsych.org/api/data/", {
+      const response = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "*/*" },
         body: JSON.stringify({ experimentID: expID, filename, data })
@@ -74,4 +74,6 @@
       };
     }
   };
+  jsPsychPipe.saveData = (expID, filename, data) => save("https://pipe.jspsych.org/api/data/", expID, filename, data);
+  jsPsychPipe.saveBase64Data = (expID, filename, data) => save("https://pipe.jspsych.org/api/base64/", expID, filename, data);
 })();

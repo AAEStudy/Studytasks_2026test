@@ -5,6 +5,7 @@ import vm from "node:vm";
 import { webcrypto } from "node:crypto";
 import * as schedule from "../js/image-schedule.mjs";
 import { splitStudyExports } from "../js/analysis-exports.mjs";
+import { createSessionZip, zipToBase64 } from "../js/session-bundle.mjs";
 
 const read = path => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 const defaultReturn = "https://usf.az1.qualtrics.com/jfe/form/SV_8wijLZLkAmgskVE";
@@ -72,7 +73,7 @@ function runtime(parameters = { subjectID: "ID0007" }, { redirectTestOnly = fals
   };
   const psych = { data: { addProperties() {}, get: () => { dataReads++; return collection(); } },
     getDisplayElement: () => display, run: built => { timeline = built; } };
-  const context = vm.createContext({ ...schedule, splitStudyExports, document, window, URL: BrowserURL, URLSearchParams,
+  const context = vm.createContext({ ...schedule, splitStudyExports, createSessionZip, zipToBase64, document, window, URL: BrowserURL, URLSearchParams,
     Blob, TextEncoder, crypto: webcrypto, performance: { now: () => now },
     setTimeout, clearTimeout: id => timers.delete(id),
     console: { warn: message => warnings.push(message) },
@@ -200,13 +201,13 @@ test("building the study and save payloads cannot navigate or mark study complet
   await run.qa.start();
   const timeline = run.timeline();
   assert.ok(timeline.length > 0);
-  assert.deepEqual(Array.from(timeline.slice(-6), trial => trial.data.event),
-    ["pipe_save", "pipe_save", "pipe_save", "pipe_save", "pipe_save", "end_download"],
-    "the completion gesture must follow all five configured save trials");
+  assert.deepEqual(Array.from(timeline.slice(-2), trial => trial.data.event),
+    ["pipe_save", "end_download"],
+    "the completion gesture must follow the bundled save");
   const saves = run.qa.buildPipeSaveTrials(run.psych);
-  assert.equal(saves.length, 5);
+  assert.equal(saves.length, 1);
   assert.deepEqual(Array.from(saves, trial => trial.data.file),
-    ["mrt", "metaPractice", "metaCalibration", "metaJudgment", "diagnostics"]);
+    ["bundle"]);
   assert.ok(saves.every(trial => trial.data_string().length > 0));
   assert.equal(run.navigations.length, 0);
   assert.equal(run.downloads.length, 0);

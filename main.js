@@ -5,6 +5,7 @@
 
 import { initMetaEmotion, buildMetaEmotionPractice, buildMetaEmotionCalibrationChunk, buildMetaEmotionReview, buildMetaEmotionMetaJ, exportMetaEmotion } from "./metaemotion.js?v=20261018-middle-level";
 import { splitStudyExports } from "./js/analysis-exports.mjs?v=20261018-compact-exports";
+import { createSessionZip, zipToBase64 } from "./js/session-bundle.mjs?v=20261019-bundle";
 
 // ===================== QUICK TEST CONTROLS =====================
 // Redirect-only check: uncomment REDIRECT_TEST_ONLY = true below to skip tasks/saves.
@@ -30,8 +31,6 @@ const SHUFFLE_REVIEW_AND_META_JUDGMENTS = true;
 const DOWNLOAD_RESULTS_AT_END = true;
 const SAVE_TO_DATA_PIPE = true;
 const DATA_PIPE_EXPERIMENT_ID = "9XShb2sstH1d";
-// Brief spacing after each response; DataPipe handles queued uploads itself.
-const FILE_SAVE_INTERVAL_MS = 2000;
 const REDIRECT_TO_QUALTRICS = true;
 const DEFAULT_QUALTRICS_RETURN_URL = "https://usf.az1.qualtrics.com/jfe/form/SV_8wijLZLkAmgskVE";
 const QUALTRICS_RETURN_PARAM = "return";
@@ -83,7 +82,7 @@ function safeFilenamePart(value){
 }
 
 const EXPORT_SCHEMA_VERSION = "fae-export-v3";
-const STUDY_VERSION = "FAE-2026-10-18-folder-uploads";
+const STUDY_VERSION = "FAE-2026-10-19-bundle";
 const SESSION_STARTED_AT_UTC = new Date().toISOString();
 const SESSION_STAMP = sessionStamp(new Date(SESSION_STARTED_AT_UTC));
 const SESSION_RANDOM_ID = globalThis.crypto?.randomUUID?.()
@@ -100,7 +99,7 @@ const RESULT_FILENAMES = {
   metaJudgment: `Meta_emotion_metaJ_${RUN_MODE}_${SAFE_SUBJECT_ID}_${SESSION_ID}.csv`,
   diagnostics: `Diagnostics_${RUN_MODE}_${SAFE_SUBJECT_ID}_${SESSION_ID}.json`
 };
-// DataPipe maps these path prefixes to Dataverse directoryLabel values.
+// Paths inside the single participant ZIP.
 // Keep local backup names and diagnostic file references as bare filenames.
 const RESULT_FOLDERS = Object.freeze({
   mrt: "MRT",
@@ -239,35 +238,26 @@ function completionPromptHtml(){
 }
 
 function buildPipeSaveTrials(jsPsych){
-  const fileDefs = [
-    { key: "mrt", filename: RESULT_FILENAMES.mrt, getText: () => getResultExports(jsPsych).mrtTsv },
-    { key: "metaPractice", filename: RESULT_FILENAMES.metaPractice, getText: () => getResultExports(jsPsych).pracCsvText },
-    { key: "metaCalibration", filename: RESULT_FILENAMES.metaCalibration, getText: () => getResultExports(jsPsych).caliCsvText },
-    { key: "metaJudgment", filename: RESULT_FILENAMES.metaJudgment, getText: () => getResultExports(jsPsych).metaJCsvText },
-    // Keep technical diagnostics last so the four analysis uploads are attempted first.
-    { key: "diagnostics", filename: RESULT_FILENAMES.diagnostics, getText: () => getResultExports(jsPsych).diagnosticsJsonText }
-  ];
-
-  return fileDefs.map((file, index) => {
-    const uploadFile = { ...file, filename: `${RESULT_FOLDERS[file.key]}/${file.filename}` };
-    const gap = index < fileDefs.length - 1 ? FILE_SAVE_INTERVAL_MS : 0;
-    return {
+  const bundle = { key: "bundle", filename: `FAE_${RUN_MODE}_${SAFE_SUBJECT_ID}_${SESSION_ID}.zip` };
+  return [{
       type: jsPsychPipe,
-      action: "save",
+      action: "saveBase64",
       experiment_id: DATA_PIPE_EXPERIMENT_ID,
-      filename: uploadFile.filename,
-      data_string: file.getText,
-      // jsPsych starts this gap only after the upload returns and on_finish runs.
-      post_trial_gap: gap,
-      data: { task: "system", event: "pipe_save", file: file.key },
-      on_finish: data => {
-        recordPipeSave(uploadFile, data);
-        if (gap > 0) {
-          jsPsych.getDisplayElement().innerHTML = '<div class="center" style="font-size:24px; line-height:1.35;"><p>Saving your responses.</p><p>Please keep this page open.</p></div>';
+      filename: bundle.filename,
+      data_string: () => {
+        if (!sharedState.bundleBase64) {
+          const files = getResultFiles(jsPsych).map(file => {
+            const key = Object.keys(RESULT_FILENAMES).find(key => RESULT_FILENAMES[key] === file.filename);
+            return { ...file, filename: `${RESULT_FOLDERS[key]}/${file.filename}` };
+          });
+          sharedState.bundleBase64 = zipToBase64(createSessionZip(files));
         }
-      }
-    };
-  });
+        return sharedState.bundleBase64;
+      },
+      post_trial_gap: 0,
+      data: { task: "system", event: "pipe_save", file: "bundle" },
+      on_finish: data => recordPipeSave(bundle, data)
+  }];
 }
 
 // Prepare audio for MRT (uses same filenames as your MRT task; adjust if your repo differs)

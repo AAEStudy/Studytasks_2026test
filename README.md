@@ -10,11 +10,14 @@ Schema v3 saves four compact analysis files plus one diagnostics JSON file.
 Image instructed-response results immediately follow the original outcome
 columns. Technical fields and repeated session settings are stored in diagnostics.
 
-DataPipe uploads go to `MRT/`, `Image_practice/`, `Calibration/`,
-`Final_judgments/` and `Diagnostics/` inside the same Dataverse dataset.
-Keep Psych-DS metadata off for this routing. Each save waits for its DataPipe
-response, then pauses two seconds before the next file (eight added seconds
-across five uploads). This is precautionary spacing, not a remedy for HTTP 403.
+DataPipe receives **one ZIP per session** using its binary/base64 endpoint.
+The ZIP contains the five original files under `MRT/`, `Image_practice/`,
+`Calibration/`, `Final_judgments/` and `Diagnostics/`. Enable **binary uploads**
+for experiment `9XShb2sstH1d` in DataPipe; keep Psych-DS metadata off.
+The ZIP uses STORE (no compression), preserving exact UTF-8 bytes with CRC checks.
+This reduces participant-data requests from five to one, without four inter-file waits.
+It does not guarantee immunity to Harvard's shared-IP traffic limits.
+Confirm the provider is connected and run an end-to-end test before recruitment.
 Local backup filenames remain unchanged and contain no folder prefix.
 
 The current quick-test configuration has six calibration comparisons and one

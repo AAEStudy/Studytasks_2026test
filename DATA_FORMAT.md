@@ -1,7 +1,7 @@
 # FAE analysis files and diagnostics
 
 Current export schema: `fae-export-v3`.
-Study version: `FAE-2026-10-18-folder-uploads`.
+Study version: `FAE-2026-10-19-bundle`.
 
 Each completed session saves four compact analysis files and one diagnostics
 JSON file. All five share the generated subject ID and session ID in their
@@ -113,9 +113,9 @@ The external credit/return `id` is not added to any export.
 
 ## Saving and compatibility
 
-DataPipe uploads now carry folder prefixes, mapped to Dataverse's file paths:
+Each participant ZIP contains these folder paths:
 
-| File | Dataverse folder |
+| File | Folder inside ZIP |
 | --- | --- |
 | MRT TSV | `MRT/` |
 | Image-practice CSV | `Image_practice/` |
@@ -123,19 +123,19 @@ DataPipe uploads now carry folder prefixes, mapped to Dataverse's file paths:
 | Final-judgment CSV | `Final_judgments/` |
 | Diagnostics JSON | `Diagnostics/` |
 
-This routing requires Psych-DS metadata to remain off in the DataPipe
-experiment; enabling it flattens submitted folder prefixes into its own layout.
+Keep Psych-DS metadata off in the DataPipe experiment to avoid extra metadata writes.
 Local backup filenames and diagnostics' analysis-file references stay bare,
 so browsers do not turn path separators into altered download names. Match the
 filename within each folder; file contents and schema are unchanged.
 
-The four analysis uploads run first; diagnostics upload last. Each upload is
-sequential. After each of the first four responses, jsPsych waits 2,000 ms
-before starting the next upload (eight seconds total). The gap applies to
-stored, queued and failed responses alike. Status manifests contain the full
-remote path. This spacing may reduce rapid-write contention; it does not fix
-an HTTP 403 refusal or coordinate writes from different participants.
-Each upload is tracked separately. Any rejected or unconfirmed file triggers the existing
+The five files are now submitted in one `FAE_<mode>_<subject>_<session>.zip`
+through `/api/base64/`. Enable binary uploads in DataPipe. Folder paths are
+inside the ZIP; each entry preserves the original UTF-8 file bytes. ZIP STORE
+avoids compression overhead. There is one save trial and one bundle status,
+with no per-file waits or client retries. HTTP 201 is stored; 202 is queued,
+not confirmed as delivered to Dataverse. The change reduces data submissions
+but cannot prevent shared-IP blocking or coordinate other participants.
+Any rejected or unconfirmed bundle triggers the existing
 backup instruction and downloads all five files before the Qualtrics return.
 The same frozen bytes are used for uploads and local backups. Redirect-only
 quick mode skips every export and upload, including diagnostics.
