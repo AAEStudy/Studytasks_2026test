@@ -41,13 +41,17 @@ handoff to proceed. A timeout does not prove that DataPipe failed to retain the
 upload; its server may still process a received request. No client retries are
 added. A Qualtrics retry does not repeat the DataPipe attempt.
 
-The receiver submits before its End of Survey redirect returns to the task's
-receipt page, which continues to the original questionnaire destination.
-An available IndexedDB backup is committed before leaving the task. Recovery
+The final SPACE gesture opens a separate submission tab while keeping the task
+tab in place. After submission, the receiver's End of Survey redirect reaches
+the receipt page in that child tab. A matching completion message closes the
+child where permitted and makes the original task tab continue to the stored
+questionnaire destination. The return field and End of Survey setup are required.
+An available IndexedDB backup is committed before the POST. Recovery
 uses the same task URL and browser with `&saveTo=qualtrics&resumeSave=1`; it offers
 one explicit submission of retained data for that subject, without rerunning tasks.
-Local automatic downloads remain enabled during testing. The new actual-task
-save and questionnaire return still need the live test before recruitment.
+Local automatic downloads remain enabled during testing. Actual-task export
+recovery has passed; the updated tab return still needs the live test before
+recruitment. Back navigation does not imply a save failed or resubmit data.
 
 ## Check only the Qualtrics return
 

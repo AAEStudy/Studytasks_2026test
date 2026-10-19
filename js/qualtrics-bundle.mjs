@@ -124,11 +124,13 @@ export function validateReceiverUrl(value) {
 
 // This starts a survey; it is NOT a server acknowledgement of a completed save.
 // The receiver must verify, advance, and finish; verify persistence by export.
-export async function postQualtricsBundle(fields, receiverUrl, documentObject = document) {
+export async function postQualtricsBundle(fields, receiverUrl, documentObject = document, { target = '' } = {}) {
   const action = validateReceiverUrl(receiverUrl);
+  if (target && !/^fae_save_[A-Za-z0-9_]+$/.test(target)) throw new Error('Invalid submission window');
   await createQualtricsCodec().verify(fields);
   const form = documentObject.createElement('form');
   form.method = 'POST'; form.action = action;
+  if (target) form.target = target;
   form.enctype = 'application/x-www-form-urlencoded';
   form.acceptCharset = 'UTF-8'; form.hidden = true;
   const allowedFields = new Set(createQualtricsCodec().fieldNames);

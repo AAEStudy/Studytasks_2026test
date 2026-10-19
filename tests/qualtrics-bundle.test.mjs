@@ -67,6 +67,12 @@ test('POST uses separate USF survey, hidden body fields, no data in URL', async 
   assert.ok(appended.children.every(child=>child.name.startsWith('__js_fae_')));
   assert.deepEqual(Object.fromEntries(appended.children.map(child=>[child.name.slice(5),child.value])),fields);
   assert.equal(appended.action,'https://usf.az1.qualtrics.com/jfe/form/SV_test');
+  await postQualtricsBundle(fields,'https://usf.az1.qualtrics.com/jfe/form/SV_test',document,{target:'fae_save_test123'});
+  assert.equal(appended.target,'fae_save_test123');
+  assert.equal(submitted,2);
+  for (const target of ['_self','_blank','unsafe target','other-window']) {
+    await assert.rejects(postQualtricsBundle(fields,'https://usf.az1.qualtrics.com/jfe/form/SV_test',document,{target}), /window/);
+  }
 });
 
 test('generated receiver advances only after integrity check; bad data stays blocked', async () => {

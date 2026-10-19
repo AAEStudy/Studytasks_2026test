@@ -10,13 +10,32 @@ import { createQualtricsCodec } from "../js/qualtrics-bundle.mjs";
 
 const read = path => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 const defaultReturn = "https://usf.az1.qualtrics.com/jfe/form/SV_8wijLZLkAmgskVE";
+const testNonce = 'a'.repeat(48);
+
+function stagedPacket(input) {
+  const callback = new URL(input.receiptBase);
+  callback.searchParams.set('session', input.fields.fae_session_id);
+  callback.searchParams.set('nonce', testNonce);
+  callback.searchParams.set('tab', '1');
+  return { fields: { ...input.fields, fae_return_url: callback.href }, returnUrl: input.returnUrl,
+    backupRetained: true, returnMode: 'receipt' };
+}
+
+async function flush() { await new Promise(resolve => setImmediate(resolve)); }
+async function until(predicate) {
+  const deadline = Date.now() + 1000;
+  while (!predicate()) {
+    assert.ok(Date.now() < deadline, 'the handoff did not reach its expected state');
+    await new Promise(resolve => setTimeout(resolve, 2));
+  }
+}
 
 function collection(rows = []) {
   return { values: () => rows,
     filter: criteria => collection(rows.filter(row => Object.entries(criteria).every(([key, value]) => row[key] === value))) };
 }
 
-function runtime(parameters = { subjectID: "ID0007" }, { redirectTestOnly = false, transport = {}, useDefaultSaveTargets = false } = {}) {
+function runtime(parameters = { subjectID: "ID0007" }, { redirectTestOnly = false, transport = {}, useDefaultSaveTargets = false, popupBlockedAttempts = 0 } = {}) {
   // Existing direct-return checks isolate DataPipe. Dual-save checks opt into
   // the actual production defaults, without adding a saveTo URL override.
   parameters = { ...parameters };
@@ -24,6 +43,7 @@ function runtime(parameters = { subjectID: "ID0007" }, { redirectTestOnly = fals
   let now = 0, timerId = 0, initOptions, timeline;
   const timers = new Map(), listeners = new Map(), navigations = [], downloads = [], events = [], warnings = [];
   const fetches = [], builderCalls = [], audioPlays = [];
+  const tabs = [], waiters = [], posts = [], completions = [];
   let dataReads = 0;
   const setTimeout = (callback, delay) => {
     const id = ++timerId;
@@ -47,7 +67,14 @@ function runtime(parameters = { subjectID: "ID0007" }, { redirectTestOnly = fals
     _html: "",
     get innerHTML() { return this._html; },
     set innerHTML(value) { this._html = value; events.push({ type: "display", at: now }); },
-    querySelector(selector) { return { addEventListener(type, callback) { buttons.set(selector, callback); } }; }
+    querySelector(selector) { return { addEventListener(type, callback, options) {
+      let used = false;
+      buttons.set(selector, (...args) => {
+        if (options?.once && used) return;
+        used = true;
+        return callback(...args);
+      });
+    } }; }
   };
   const buttons = new Map();
   class BrowserURL extends URL {
@@ -73,6 +100,7 @@ function runtime(parameters = { subjectID: "ID0007" }, { redirectTestOnly = fals
   Object.defineProperty(location, "href", { get() { return location.origin + '/Studytasks_2026test/' + location.search; }, set() { assert.fail("completion must use location.replace"); } });
   const window = {
     location, setTimeout, clearTimeout: id => timers.delete(id),
+    focus() { events.push({ type: 'parent-focus', at: now }); },
     addEventListener(type, callback) {
       if (!listeners.has(type)) listeners.set(type, new Set());
       listeners.get(type).add(callback);
@@ -81,8 +109,69 @@ function runtime(parameters = { subjectID: "ID0007" }, { redirectTestOnly = fals
   };
   const psych = { data: { addProperties() {}, get: () => { dataReads++; return collection(); } },
     getDisplayElement: () => display, run: built => { timeline = built; } };
-  const context = vm.createContext({ ...schedule, splitStudyExports, createSessionZip, zipToBase64, createQualtricsCodec,
-    ...transport, document, window, URL: BrowserURL, URLSearchParams,
+  const handoff = {
+    openQualtricsSaveTab(suppliedWindow) {
+      assert.equal(suppliedWindow, window);
+      const blocked = tabs.length < popupBlockedAttempts;
+      const tab = { targetName: 'fae_save_test_' + (tabs.length + 1), blocked, closeCount: 0,
+        windowRef: blocked ? null : { focus() { events.push({ type: 'child-focus', at: now }); } },
+        close() { this.closeCount++; events.push({ type: 'child-close', at: now }); } };
+      tabs.push(tab); events.push({ type: 'open', blocked, at: now });
+      return tab;
+    },
+    async stageQualtricsSession(input, environment) {
+      events.push({ type: 'stage', at: now });
+      return transport.stageQualtricsSession ? transport.stageQualtricsSession(input, environment) : stagedPacket(input);
+    },
+    waitForQualtricsTabReceipt({ fields, tab }) {
+      assert.ok(!tab.blocked);
+      const callback = new URL(fields.fae_return_url);
+      assert.equal(callback.origin, location.origin);
+      assert.equal(callback.searchParams.get('session'), fields.fae_session_id);
+      assert.match(callback.searchParams.get('nonce'), /^[a-f0-9]{48}$/);
+      assert.equal(callback.searchParams.get('tab'), '1');
+      let resolveReceipt, rejectReceipt, resolved = false;
+      const waiter = { fields, tab, acknowledged: false, disposed: false,
+        promise: new Promise((resolve, reject) => { resolveReceipt = resolve; rejectReceipt = reject; }),
+        receive(receipt) {
+          if (resolved || this.disposed || receipt.sessionId !== fields.fae_session_id || receipt.nonce !== callback.searchParams.get('nonce')) return;
+          resolved = true;
+          events.push({ type: 'receipt', at: now });
+          resolveReceipt(receipt);
+        },
+        acknowledge() {
+          assert.ok(resolved, 'only an authenticated receipt may be acknowledged');
+          if (this.acknowledged) return false;
+          this.acknowledged = true;
+          events.push({ type: 'ack', at: now }); tab.close(); window.focus();
+          return true;
+        },
+        dispose() { this.disposed = true; if (!resolved) rejectReceipt(new Error('Cancelled')); }
+      };
+      waiters.push(waiter); events.push({ type: 'listen', at: now });
+      return waiter;
+    },
+    async postQualtricsBundle(fields, receiver, documentObject, options) {
+      assert.equal(documentObject, document);
+      assert.equal(options.target, tabs.at(-1).targetName);
+      assert.equal(waiters.at(-1).tab, tabs.at(-1), 'register the child receipt listener before submitting');
+      posts.push({ fields, receiver, options }); events.push({ type: 'post', at: now });
+      if (transport.postQualtricsBundle) return transport.postQualtricsBundle(fields, receiver, documentObject, options);
+    },
+    async completeQualtricsReturn(receipt, environment) {
+      completions.push(receipt); events.push({ type: 'complete-backup', at: now });
+      return transport.completeQualtricsReturn ? transport.completeQualtricsReturn(receipt, environment)
+        : context.qa.sharedState.qualtricsTransfer.returnUrl;
+    },
+    listPendingQualtricsSessions: transport.listPendingQualtricsSessions || (async () => [])
+  };
+  const context = vm.createContext({ ...schedule, splitStudyExports, createSessionZip, zipToBase64,
+    createQualtricsCodec: () => {
+      const codec = createQualtricsCodec(), build = codec.build;
+      codec.build = (...args) => { events.push({ type: 'hash', at: now }); return build(...args); };
+      return codec;
+    },
+    ...handoff, document, window, URL: BrowserURL, URLSearchParams,
     Blob, TextEncoder, crypto: webcrypto, performance: { now: () => now },
     setTimeout, clearTimeout: id => timers.delete(id),
     console: { warn: message => warnings.push(message) },
@@ -115,6 +204,12 @@ function runtime(parameters = { subjectID: "ID0007" }, { redirectTestOnly = fals
   }
   vm.runInContext(main, context);
   return { context, qa: context.qa, psych, display, buttons, navigations, downloads, events, warnings, advance,
+    tabs, waiters, posts, completions,
+    receiveReceipt(overrides = {}, index = waiters.length - 1) {
+      const waiter = waiters[index];
+      const callback = new URL(waiter.fields.fae_return_url);
+      waiter.receive({ sessionId: callback.searchParams.get('session'), nonce: callback.searchParams.get('nonce'), ...overrides });
+    },
     dispatch(type, event) { for (const listener of listeners.get(type) || []) listener(event); },
     fetches, builderCalls, audioPlays, dataReads: () => dataReads,
     onFinish: () => initOptions.on_finish(), timeline: () => timeline,
@@ -192,7 +287,8 @@ test('the default flow attempts DataPipe first then sends the identical frozen Z
       stageQualtricsSession: async input => {
         calls.push('qualtrics-stage');
         assert.equal(input.returnUrl, defaultReturn + '?id=0042');
-        return { fields: { ...input.fields, fae_return_url: input.returnUrl }, backupRetained: false, returnMode: 'direct' };
+        assert.equal(input.returnViaOpener, true);
+        return { ...stagedPacket(input), backupRetained: false };
       },
       postQualtricsBundle: async fields => { calls.push('qualtrics-post'); submitted = fields; }
     } });
@@ -216,6 +312,8 @@ test('the default flow attempts DataPipe first then sends the identical frozen Z
     run.context.exportMetaEmotion = () => assert.fail('The completed exports must be reused');
     timeline.at(-1).on_finish({ response: ' ' });
     assert.equal(run.downloads.length, 5, 'configured local backups remain enabled');
+    assert.equal(run.tabs.length, 1, 'the save tab opens synchronously in the final gesture');
+    assert.equal(run.events.findIndex(event => event.type === 'open') < run.events.findIndex(event => event.type === 'download'), true);
     await run.onFinish();
     assert.deepEqual(calls, ['datapipe-attempt', 'datapipe-finished', 'qualtrics-stage', 'qualtrics-post']);
     assert.equal(submitted.fae_filename, pipe.filename);
@@ -227,7 +325,16 @@ test('the default flow attempts DataPipe first then sends the identical frozen Z
     run.advance(10000);
     assert.equal(calls.filter(call => call === 'datapipe-attempt').length, 1);
     assert.equal(calls.filter(call => call === 'qualtrics-post').length, 1);
-    assert.deepEqual(run.navigations, [], 'only the receiver can finish and route the participant onward');
+    assert.deepEqual(run.navigations, [], 'the original tab waits for the post-submit receipt');
+    assert.equal(run.qa.sharedState.studyCompleted, false);
+    run.receiveReceipt();
+    await until(() => run.qa.sharedState.qualtricsReceiptConfirmed && run.completions.length === 1);
+    await flush();
+    assert.equal(run.tabs[0].closeCount, 1);
+    assert.equal(run.waiters[0].acknowledged, true);
+    run.advance(149); assert.deepEqual(run.navigations, []);
+    run.advance(1);
+    assert.equal(run.navigations[0].url, defaultReturn + '?id=0042');
   }
 });
 
@@ -236,7 +343,7 @@ test('a failed Qualtrics handoff retries its retained fields without replaying t
   const run = runtime({ subjectID: 'ID0007' }, { useDefaultSaveTargets: true, transport: {
     stageQualtricsSession: async input => {
       stages++;
-      return { fields: { ...input.fields, fae_return_url: input.returnUrl }, backupRetained: false };
+      return { ...stagedPacket(input), backupRetained: false };
     },
     postQualtricsBundle: async fields => {
       posts++;
@@ -250,6 +357,7 @@ test('a failed Qualtrics handoff retries its retained fields without replaying t
   pipe.on_finish({ ...pipe.data, result: { http_status: 202, save_state: 'queued', error: null } });
   run.context.buildPipeSaveTrials = () => assert.fail('Qualtrics retries must not construct another DataPipe attempt');
   run.psych.run = () => assert.fail('Qualtrics retries must not replay the study or its DataPipe timeline');
+  run.timeline().at(-1).on_finish({ response: ' ' });
   await run.onFinish();
   assert.equal(posts, 1); assert.equal(stages, 1);
   assert.match(run.display.innerHTML, /final task data submission could not be confirmed/);
@@ -258,6 +366,9 @@ test('a failed Qualtrics handoff retries its retained fields without replaying t
   await new Promise(resolve => setImmediate(resolve));
   assert.equal(posts, 2, 'the in-flight guard prevents overlapping retry submissions');
   assert.equal(stages, 1, 'retry does not rebuild or restage the frozen payload');
+  assert.equal(run.tabs.length, 2, 'the explicit retry opens exactly one fresh save tab');
+  assert.equal(run.posts[0].options.target, run.tabs[0].targetName);
+  assert.equal(run.posts[1].options.target, run.tabs[1].targetName);
   assert.equal(pipeAttempts, 1);
   assert.equal(pipe.data_string(), encoded);
   assert.equal(run.qa.sharedState.uploadStatuses.length, 1);
@@ -286,7 +397,7 @@ test('Qualtrics task handoff stages the exact five-file bundle before POST and n
       assert.equal(input.returnUrl, defaultReturn + '?id=0042');
       assert.equal(input.receiptBase, 'https://aaestudy.github.io/Studytasks_2026test/qualtrics/saved.html');
       await staged;
-      return { fields: { ...input.fields, fae_return_url: input.receiptBase + '?session=test&nonce=test' }, backupRetained: true };
+      return stagedPacket(input);
     },
     postQualtricsBundle: async (fields, receiver) => {
       calls.push('post'); submitted = fields;
@@ -297,6 +408,10 @@ test('Qualtrics task handoff stages the exact five-file bundle before POST and n
   await run.qa.start();
   assert.equal(run.timeline().filter(trial => trial.data?.event === 'pipe_save').length, 0);
   assert.match(run.timeline().at(-1).stimulus(), /save your task data/);
+  run.timeline().at(-1).on_finish({ response: ' ' });
+  assert.equal(run.tabs.length, 1);
+  assert.deepEqual(calls, [], 'opening the tab does not hash, stage or submit data');
+  assert.equal(run.events.findIndex(event => event.type === 'open') < run.events.findIndex(event => event.type === 'download'), true);
   const finish = run.onFinish();
   while (!calls.length) await new Promise(resolve => setImmediate(resolve));
   assert.equal(run.qa.sharedState.studyCompleted, false, 'leave-page guards must remain active until staging completes');
@@ -307,16 +422,34 @@ test('Qualtrics task handoff stages the exact five-file bundle before POST and n
   assert.deepEqual(calls, ['stage','post']);
   assert.equal(submitted.fae_subject_id, 'ID0007');
   assert.equal(submitted.fae_run_mode, 'test');
-  assert.equal(run.qa.sharedState.studyCompleted, true);
-  assert.equal(run.beforeUnload().calls, 0);
+  assert.equal(run.qa.sharedState.studyCompleted, false, 'submission start is not a post-submit receipt');
+  assert.ok(run.beforeUnload().calls > 0);
+  assert.equal(run.posts[0].options.target, run.tabs[0].targetName);
+  assert.ok(run.events.findIndex(event => event.type === 'open') < run.events.findIndex(event => event.type === 'hash'));
+  assert.ok(run.events.findIndex(event => event.type === 'listen') < run.events.findIndex(event => event.type === 'post'));
   run.advance(10000);
   assert.deepEqual(run.navigations, []);
   run.dispatch('pageshow', { persisted: true });
-  assert.match(run.display.innerHTML, /Try saving again/);
+  assert.match(run.display.innerHTML, /Waiting for the submission window/);
+  assert.doesNotMatch(run.display.innerHTML, /could not be confirmed|Try saving again/);
   assert.deepEqual(calls, ['stage','post'], 'Back restoration must not resend automatically');
-  run.buttons.get('#retry-qualtrics-save')();
-  await new Promise(resolve => setImmediate(resolve));
-  assert.deepEqual(calls, ['stage','post','post'], 'explicit retry reuses the same staged session');
+  run.receiveReceipt({ nonce: 'b'.repeat(48) }); await flush();
+  assert.equal(run.qa.sharedState.studyCompleted, false);
+  assert.equal(run.waiters[0].acknowledged, false);
+  run.receiveReceipt();
+  await until(() => run.completions.length === 1);
+  await flush();
+  assert.equal(run.qa.sharedState.studyCompleted, true);
+  assert.equal(run.beforeUnload().calls, 0);
+  assert.equal(run.waiters[0].acknowledged, true);
+  assert.equal(run.tabs[0].closeCount, 1);
+  run.advance(149); assert.deepEqual(run.navigations, []);
+  run.advance(1);
+  assert.equal(run.navigations[0].url, defaultReturn + '?id=0042');
+  run.dispatch('pageshow', { persisted: true });
+  assert.match(run.display.innerHTML, /Your task data was submitted/);
+  assert.doesNotMatch(run.display.innerHTML, /could not be confirmed|Try saving again/);
+  assert.deepEqual(calls, ['stage','post']);
 });
 
 test('blocked storage access still reaches primary Qualtrics transport; construction errors offer one explicit retry', async () => {
@@ -326,7 +459,7 @@ test('blocked storage access still reaches primary Qualtrics transport; construc
       stages++;
       assert.equal(environment.indexedDB, undefined);
       assert.equal(environment.sessionStorage, undefined);
-      return { fields: { ...input.fields, fae_return_url: input.returnUrl }, backupRetained: false };
+      return { ...stagedPacket(input), backupRetained: false };
     },
     postQualtricsBundle: async fields => {
       posts++;
@@ -335,7 +468,7 @@ test('blocked storage access still reaches primary Qualtrics transport; construc
     }
   } });
   for (const key of ['indexedDB','sessionStorage']) Object.defineProperty(run.context.window, key, { get() { throw new Error('SecurityError'); } });
-  await run.qa.start(); await run.onFinish();
+  await run.qa.start(); run.timeline().at(-1).on_finish({ response: ' ' }); await run.onFinish();
   assert.equal(posts, 1); assert.equal(stages, 1);
   assert.equal(run.qa.sharedState.studyCompleted, false);
   assert.match(run.display.innerHTML, /could not be confirmed/);
@@ -344,11 +477,52 @@ test('blocked storage access still reaches primary Qualtrics transport; construc
   assert.equal(posts, 2); assert.equal(stages, 1);
 });
 
+test('popup denial waits for one explicit new-tab gesture and the original tab preserves its full custom return after the receipt', async () => {
+  const custom = 'https://usf.az1.qualtrics.com/jfe/form/SV_custom?Q_CHL=qr&token=a%2Bb%26c#resume';
+  const expected = new URL(custom); expected.searchParams.set('id', 'credit +&=007');
+  const run = runtime({ subjectID: 'ID0007', id: 'credit +&=007', saveTo: 'qualtrics', return: custom }, {
+    popupBlockedAttempts: 1,
+    transport: { completeQualtricsReturn: async () => { throw new Error('Browser storage is unavailable'); } }
+  });
+  await run.qa.start();
+  run.timeline().at(-1).on_finish({ response: ' ' });
+  assert.equal(run.tabs.length, 1);
+  assert.equal(run.tabs[0].blocked, true);
+  assert.equal(run.downloads.length, 5);
+  await run.onFinish();
+  assert.match(run.display.innerHTML, /Open submission window/);
+  assert.equal(run.posts.length, 0);
+  assert.equal(run.events.some(event => event.type === 'hash' || event.type === 'stage'), false,
+    'a blocked window must not start asynchronous preparation or a save in the original tab');
+  run.buttons.get('#open-qualtrics-save')();
+  assert.equal(run.tabs.length, 2, 'the explicit button opens synchronously before asynchronous saving');
+  run.buttons.get('#open-qualtrics-save')();
+  assert.equal(run.tabs.length, 2, 'one gesture cannot open duplicate submission windows');
+  await until(() => run.posts.length === 1);
+  assert.equal(run.posts[0].options.target, run.tabs[1].targetName);
+  assert.equal(run.navigations.length, 0);
+  assert.equal(run.qa.sharedState.studyCompleted, false);
+  run.receiveReceipt({ sessionId: 'wrong-session' }); await flush();
+  assert.equal(run.waiters[0].acknowledged, false);
+  run.receiveReceipt();
+  await until(() => run.completions.length === 1); await flush();
+  assert.equal(run.waiters[0].acknowledged, true);
+  assert.equal(run.tabs[1].closeCount, 1);
+  assert.match(run.display.innerHTML, /Your task data was submitted/);
+  run.advance(149); assert.equal(run.navigations.length, 0);
+  run.advance(1);
+  assert.equal(run.navigations[0].url, expected.href,
+    'an authenticated receipt permits the trusted in-memory return even when cleanup storage is blocked');
+  assert.equal(run.posts.length, 1);
+});
+
 test('explicit recovery submits one retained session without rebuilding tasks or overwriting its stored return', async () => {
-  const fields = { fae_session_id: 'original-session', fae_subject_id: 'ID0007', fae_return_url: 'stored-callback' };
+  const fields = { fae_session_id: 'original-session', fae_subject_id: 'ID0007', fae_zip_0001: 'ORIGINAL-ZIP',
+    fae_return_url: 'https://aaestudy.github.io/Studytasks_2026test/qualtrics/saved.html?session=original-session&nonce=' + testNonce };
+  const returnUrl = defaultReturn + '?id=original-credit#original-resume';
   const sent = [];
   const run = runtime({ subjectID: 'ID0007', saveTo: 'qualtrics', resumeSave: '1' }, { transport: {
-    listPendingQualtricsSessions: async subject => { assert.equal(subject, 'ID0007'); return [{ fields }, { fields: { ...fields, fae_session_id: 'second' } }]; },
+    listPendingQualtricsSessions: async subject => { assert.equal(subject, 'ID0007'); return [{ fields, returnUrl }, { fields: { ...fields, fae_session_id: 'second' }, returnUrl }]; },
     postQualtricsBundle: async value => { sent.push(value); }
   } });
   await run.qa.start();
@@ -356,8 +530,13 @@ test('explicit recovery submits one retained session without rebuilding tasks or
   assert.equal(sent.length, 0);
   run.buttons.get('#resume-qualtrics-save')();
   await new Promise(resolve => setImmediate(resolve));
-  assert.deepEqual(sent, [fields]);
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0].fae_zip_0001, fields.fae_zip_0001);
+  assert.equal(sent[0].fae_session_id, fields.fae_session_id);
+  assert.equal(new URL(sent[0].fae_return_url).searchParams.get('tab'), '1');
   assert.equal(run.qa.sharedState.resultExports, undefined);
+  run.receiveReceipt(); await until(() => run.completions.length === 1); await flush(); run.advance(150);
+  assert.equal(run.navigations[0].url, returnUrl);
   const missing = runtime({ subjectID: 'ID0007', saveTo: 'qualtrics', resumeSave: '1' }, { transport: { listPendingQualtricsSessions: async () => [] } });
   await missing.qa.start();
   assert.match(missing.display.innerHTML, /No completed task data/);

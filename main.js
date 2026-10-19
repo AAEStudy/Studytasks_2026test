@@ -6,8 +6,9 @@
 import { initMetaEmotion, buildMetaEmotionPractice, buildMetaEmotionCalibrationChunk, buildMetaEmotionReview, buildMetaEmotionMetaJ, exportMetaEmotion } from "./metaemotion.js?v=20261018-middle-level";
 import { splitStudyExports } from "./js/analysis-exports.mjs?v=20261018-compact-exports";
 import { createSessionZip, zipToBase64 } from "./js/session-bundle.mjs?v=20261019-bundle";
-import { createQualtricsCodec, postQualtricsBundle } from "./js/qualtrics-bundle.mjs?v=20261019-receiver";
-import { stageQualtricsSession, listPendingQualtricsSessions } from "./js/qualtrics-outbox.mjs?v=20261019-receiver";
+import { createQualtricsCodec, postQualtricsBundle } from "./js/qualtrics-bundle.mjs?v=20261019-save-tab";
+import { stageQualtricsSession, listPendingQualtricsSessions, completeQualtricsReturn } from "./js/qualtrics-outbox.mjs?v=20261019-save-tab";
+import { openQualtricsSaveTab, waitForQualtricsTabReceipt } from "./js/qualtrics-tab-handoff.mjs?v=20261019-save-tab";
 
 // ===================== QUICK TEST CONTROLS =====================
 // Redirect-only check: uncomment REDIRECT_TEST_ONLY = true below to skip tasks/saves.
@@ -205,6 +206,11 @@ function qualtricsStorageEnvironment(){
 
 async function sendResultsToQualtrics(pending){
   if (sharedState.qualtricsTransferInProgress) return;
+  const tab = sharedState.qualtricsSaveTab;
+  if (!tab || tab.blocked) {
+    showQualtricsOpenButton(pending);
+    return;
+  }
   sharedState.qualtricsTransferInProgress = true;
   const display = jsPsych.getDisplayElement();
   display.innerHTML = '<div class="center"><p>Saving your task data. Please keep this window open…</p></div>';
@@ -215,31 +221,100 @@ async function sendResultsToQualtrics(pending){
           filename: `FAE_${RUN_MODE}_${SAFE_SUBJECT_ID}_${SESSION_ID}.zip`,
           sessionId: SESSION_ID, subjectId: subjectID, runMode: RUN_MODE
         });
-        sharedState.qualtricsTransfer = await stageQualtricsSession({ fields,
-          returnUrl: getQualtricsReturnUrl(),
-          receiptBase: new URL('./qualtrics/saved.html', window.location.href).href
+        const returnUrl = getQualtricsReturnUrl();
+        const staged = await stageQualtricsSession({ fields, returnUrl,
+          receiptBase: new URL('./qualtrics/saved.html', window.location.href).href,
+          returnViaOpener: true
         }, qualtricsStorageEnvironment());
+        sharedState.qualtricsTransfer = { ...staged, returnUrl };
       }
       pending = sharedState.qualtricsTransfer;
     }
+    // Retained sessions from the earlier same-tab route use the same nonce and
+    // ZIP, but must ask the receipt page to notify this original tab now.
+    const callback = new URL(pending.fields.fae_return_url);
+    if (callback.searchParams.has('session') && callback.searchParams.has('nonce') && callback.searchParams.get('tab') !== '1') {
+      callback.searchParams.set('tab', '1');
+      pending = { ...pending, fields: { ...pending.fields, fae_return_url: callback.href } };
+    }
     sharedState.qualtricsTransfer = pending;
-    // Keep the task's leave-page guards active until staging has completed.
-    sharedState.studyCompleted = true;
-    // Form navigation starts the receiver. The receiver's End of Survey redirect
-    // will reach our receipt page only after Qualtrics records the response.
-    await postQualtricsBundle(pending.fields, QUALTRICS_RECEIVER_URL, document);
+    const waiter = waitForQualtricsTabReceipt({ fields: pending.fields, tab }, { window });
+    sharedState.qualtricsTabWaiter = waiter;
+    void waiter.promise.then(async receipt => {
+      if (sharedState.qualtricsTabWaiter !== waiter) return;
+      const original = new URL(pending.returnUrl);
+      if (original.protocol !== 'https:' || !original.hostname.endsWith('.qualtrics.com') || original.username || original.password) {
+        throw new Error('The questionnaire return destination is unavailable.');
+      }
+      let destination = original.href;
+      // Acknowledge promptly after validating the post-submit receipt. Storage
+      // cleanup may take longer than the child's message handshake.
+      sharedState.qualtricsReceiptConfirmed = true;
+      sharedState.qualtricsReturnDestination = destination;
+      sharedState.studyCompleted = true;
+      waiter.acknowledge();
+      showQualtricsCompleted(destination);
+      try {
+        destination = await completeQualtricsReturn(receipt, qualtricsStorageEnvironment());
+      } catch (error) {
+        // An authenticated post-submit receipt still permits the original tab
+        // to continue when storage was blocked or a backup was already cleared.
+        console.warn('The completed browser backup could not be cleared:', error);
+      }
+      if (sharedState.qualtricsTabWaiter !== waiter) return;
+      sharedState.qualtricsReturnDestination = destination;
+      showQualtricsCompleted(destination);
+      // Give the receiver time to process its acknowledgement and close itself.
+      window.setTimeout(() => window.location.replace(destination), 150);
+    }).catch(error => {
+      if (sharedState.qualtricsTabWaiter !== waiter) return;
+      console.warn('Submission return could not finish:', error);
+      showQualtricsRetry(pending);
+    });
+    // Keep the original task tab and its leave-page guards in place. Only the
+    // child navigates to Qualtrics; a matching receipt authorizes our return.
+    await postQualtricsBundle(pending.fields, QUALTRICS_RECEIVER_URL, document, { target: tab.targetName });
+    if (!sharedState.qualtricsReceiptConfirmed) showQualtricsWaiting();
   } catch (error) {
     console.warn('Qualtrics transfer could not start:', error);
     showQualtricsRetry(pending);
   }
 }
 
+function showQualtricsOpenButton(pending){
+  sharedState.qualtricsTransferInProgress = false;
+  const display = jsPsych.getDisplayElement();
+  display.innerHTML = '<div class="center"><p>To finish saving, please open the submission window. Keep this task window open.</p><button id="open-qualtrics-save" type="button">Open submission window</button></div>';
+  display.querySelector('#open-qualtrics-save').addEventListener('click', () => {
+    sharedState.qualtricsSaveTab = openQualtricsSaveTab(window);
+    void sendResultsToQualtrics(pending);
+  }, { once: true });
+}
+
+function showQualtricsWaiting(){
+  const display = jsPsych.getDisplayElement();
+  display.innerHTML = '<div class="center"><p>Waiting for the submission window to finish saving. Please keep both windows open.</p><p>You will continue to the questionnaires here when it finishes.</p><button id="view-qualtrics-save" type="button">View submission window</button></div>';
+  display.querySelector('#view-qualtrics-save').addEventListener('click', () => {
+    try { sharedState.qualtricsSaveTab?.windowRef?.focus(); } catch {}
+  });
+}
+
+function showQualtricsCompleted(destination){
+  const href = destination.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  jsPsych.getDisplayElement().innerHTML = `<div class="center"><p>Your task data was submitted.</p><p><a href="${href}">Continue to the questionnaires</a>.</p></div>`;
+}
+
 function showQualtricsRetry(pending){
+  const waiter = sharedState.qualtricsTabWaiter;
+  sharedState.qualtricsTabWaiter = null;
+  if (waiter) waiter.dispose();
+  try { sharedState.qualtricsSaveTab?.close(); } catch {}
   sharedState.studyCompleted = false;
   sharedState.qualtricsTransferInProgress = false;
   const display = jsPsych.getDisplayElement();
   display.innerHTML = '<div class="center"><p>Your final task data submission could not be confirmed.</p><p>Please keep this window open.</p><button id="retry-qualtrics-save" type="button">Try saving again</button></div>';
   display.querySelector('#retry-qualtrics-save').addEventListener('click', () => {
+    sharedState.qualtricsSaveTab = openQualtricsSaveTab(window);
     void sendResultsToQualtrics(pending);
   }, { once: true });
 }
@@ -548,11 +623,12 @@ jsPsych.data.addProperties({ subject: subjectID });
 // Make jsPsych available for MRT builder (it expects params.jsPsych)
 window.__jsPsychInstance = jsPsych;
 
-// Back from a failed navigation can restore the completed page from memory.
-// Offer one explicit retry using the same staged data; never resend on load.
+// Restoring a task page is not evidence that a save failed. Preserve the known
+// completion state and never trigger another upload merely because of Back.
 if (SAVE_TO_QUALTRICS) window.addEventListener('pageshow', event => {
   if (event.persisted && sharedState.qualtricsTransfer) {
-    showQualtricsRetry(sharedState.qualtricsTransfer);
+    if (sharedState.qualtricsReceiptConfirmed) showQualtricsCompleted(sharedState.qualtricsReturnDestination);
+    else showQualtricsWaiting();
   }
 });
 
@@ -587,6 +663,7 @@ async function start(){
     }
     display.innerHTML = '<div class="center"><p>Your completed task data is ready to submit.</p><p>Please keep this window open.</p><button id="resume-qualtrics-save" type="button">Submit completed task data</button></div>';
     display.querySelector('#resume-qualtrics-save').addEventListener('click', () => {
+      sharedState.qualtricsSaveTab = openQualtricsSaveTab(window);
       void sendResultsToQualtrics(pending[0]);
     }, { once: true });
     return;
@@ -685,6 +762,9 @@ async function start(){
     stimulus: completionPromptHtml,
     choices: [" "],
     on_finish: () => {
+      // Open synchronously within the final SPACE gesture, before hashing or
+      // storage work consumes the browser's permission to open a new tab.
+      if (SAVE_TO_QUALTRICS) sharedState.qualtricsSaveTab = openQualtricsSaveTab(window);
       if (shouldDownloadResults()) downloadAllResults(jsPsych);
     },
     data: {task:"system", event:"end_download"}

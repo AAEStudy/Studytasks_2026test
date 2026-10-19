@@ -8,12 +8,16 @@ names and the current USF receiver's storage/export behavior for those tests.
 
 Actual-task integration now attempts **both DataPipe and Qualtrics by default**.
 The task remains in its shortened configuration: **6 calibration
-comparisons and 1 MRT block**. Completing the questionnaire return and an actual
-task-data export is the next acceptance check; full-protocol collection is not
-yet enabled.
+comparisons and 1 MRT block**. The new-tab handoff and questionnaire return are
+the next acceptance check; full-protocol collection is not yet
+enabled. An actual shortened task ZIP has now also recovered intact (61,757
+bytes, all five files, all configured tasks complete). That export contained two
+identical submissions and **no return-URL field**, which explains the missing
+routing information in the recorded responses. Check the field and ending below.
 
 After the DataPipe save attempt, the task independently sends the identical
-five-file ZIP to Qualtrics as a normal HTTPS form POST, without an API token.
+five-file ZIP to Qualtrics in a separate script-opened tab using a normal HTTPS
+form POST, without an API token. The original task tab stays open.
 Qualtrics stores it as encoded text in a survey
 response. Participants do not select or upload files. Exporting one response
 table restores everyone's original ZIPs and analysis files in one operation.
@@ -87,12 +91,18 @@ still skips tasks, exports and saves; it is not a storage test.
 
 Check this complete route:
 
-1. Complete the shortened task and press SPACE on its final screen.
+1. Complete the shortened task and press SPACE on its final screen. This opens
+   the submission tab synchronously, before hashing or backup downloads. If the
+   browser blocks it, use the task's **Open submission window** button.
 2. Confirm DataPipe attempted one ZIP save; a queued result is not proof of
    delivery to Harvard. The Qualtrics receiver should then verify and submit
    automatically.
-3. Qualtrics should redirect to the task's `qualtrics/saved.html` receipt page,
-   which then returns to the intended questionnaires.
+3. Qualtrics should redirect the submission tab to `qualtrics/saved.html` only
+   after recording the response. That receipt notifies the original task tab,
+   which acknowledges it, closes the child where permitted, and redirects itself
+   to the intended questionnaires. If automatic closing is blocked, the child
+   displays a close button. The End of Survey return configuration is required;
+   opening a new tab alone cannot signal that Qualtrics finished.
 4. Confirm the participant/credit ID is correct. If the normal launch has a
    custom return URL, confirm its query parameters and resume destination too.
 5. Export the receiver response and recover it with the command below. Confirm
@@ -131,13 +141,16 @@ that never arrived.
 
 Before POST, the task attempts to commit the completed payload to IndexedDB on
 the task's origin. Each record keeps the original questionnaire return URL and
-a random receipt nonce. A matching post-submission receipt removes only that
-session's retained payload, then continues to the original questionnaires.
+a random receipt nonce. A matching post-submission receipt notifies the original
+task tab using BroadcastChannel or a checked same-origin message. The task tab
+acknowledges completion, clears only that session's backup, and continues to the
+original questionnaires. Browser opener isolation does not count as a failure.
 
 If IndexedDB cannot retain the payload, the task tries a sessionStorage receipt
-containing only return metadata. If both stores fail, it sends the payload with
-a direct questionnaire return. These fallbacks allow the primary submission;
-they do **not** claim that a payload backup exists.
+containing only return metadata. If both stores fail, the original task tab
+retains the nonce and return destination in memory for the completion message.
+These fallbacks allow submission and return without claiming a payload backup.
+The original task tab must remain open until the receipt arrives.
 
 To recover a retained completed session, use the same browser and exact original
 `subjectID`, adding both `saveTo=qualtrics` and `resumeSave=1` to the task URL:
@@ -148,14 +161,17 @@ https://aaestudy.github.io/Studytasks_2026test/?subjectID=ID0007&saveTo=qualtric
 
 The recovery page requires an explicit button press and sends only the oldest
 pending session for that participant. It does not restart the tasks or replay
-uploads automatically. If browser Back restores an interrupted saving page,
-the task also offers an explicit retry. A server may have saved a response even
+uploads automatically. Browser Back preserves the known pending or completed
+state; it does not display a failure merely because the page was restored, or
+start another upload. A server may have saved a response even
 if its receipt was interrupted, so a retry can create duplicate receiver rows;
 the recovery script handles identical session data idempotently.
 
 Browser storage can be unavailable or cleared. A form POST begins navigation;
 it does not provide the original task page with a server save acknowledgement.
-The completion redirect and checksum-verified export remain the relevant checks.
+The post-submit completion receipt and checksum-verified export remain the
+relevant checks. A missing message, a closed tab or a timeout does not establish
+that recorded data was lost.
 
 ## Capacity and development checks
 
@@ -169,6 +185,18 @@ The completion redirect and checksum-verified export remain the relevant checks.
   and 2 MiB tests additionally establish save/export integrity for this receiver.
 - The new actual-task route and final return must still pass the live acceptance
   check above before recruitment.
+
+Run `node --test tests/*.test.mjs` for the automated checks. The local-only
+Chromium smoke test additionally covers a normal tab return, severed opener,
+missing receipt, wrong nonce and missing acknowledgement:
+
+```sh
+CHROME_EXECUTABLE_PATH=/path/to/chrome-headless-shell node scripts/test-qualtrics-tabs.mjs
+```
+
+It uses localhost mock endpoints and the actual receipt code; it does not submit
+to a real survey. Playwright must be available via the runtime dependencies or
+`PLAYWRIGHT_MODULE_PATH`.
 
 Rebuild generated receiver files and the self-contained synthetic test page
 after changing the codec or receiver template:

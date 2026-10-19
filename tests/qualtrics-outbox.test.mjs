@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { webcrypto } from 'node:crypto';
 import { readFileSync } from 'node:fs';
+import vm from 'node:vm';
 import { stageQualtricsSession, listPendingQualtricsSessions, completeQualtricsReturn } from '../js/qualtrics-outbox.mjs';
 
 // This transactional fixture commits writes only at transaction completion. It
@@ -134,9 +135,42 @@ test('untrusted destinations and malformed receipts fail without staging or dele
   await assert.rejects(completeQualtricsReturn({ sessionId: 'session-a', nonce: 'bad' }, env(storage)), /invalid/);
 });
 
-test('the receipt page performs no network save and only navigates after the matching receipt is completed', () => {
+test('separate-tab mode retains a receipt when storage is blocked and keeps the original return in task memory', async () => {
+  const unavailable = { indexedDB: undefined, sessionStorage: undefined, crypto: webcrypto, location: { origin: 'https://aaestudy.github.io' } };
+  const staged = await stageQualtricsSession({ fields: fields(), returnUrl, receiptBase, returnViaOpener: true }, unavailable);
+  assert.equal(staged.returnMode, 'receipt');
+  assert.equal(staged.backupRetained, false);
+  assert.equal(staged.returnUrl, returnUrl);
+  assert.equal(new URL(staged.fields.fae_return_url).searchParams.get('tab'), '1');
+  assert.equal(receipt(staged).sessionId, 'session-a');
+  await assert.rejects(stageQualtricsSession({ fields: fields(), returnUrl, receiptBase, returnViaOpener: true }, { ...unavailable, crypto: undefined }), /secure/);
+});
+
+test('the child receipt notifies the original window without clearing backups or navigating itself; legacy receipts still return directly', async () => {
   const page = readFileSync(new URL('../qualtrics/saved.html', import.meta.url), 'utf8');
-  assert.match(page, /completeQualtricsReturn\(\{ sessionId: parameters\.get\('session'\), nonce: parameters\.get\('nonce'\) \}\)\.then/);
-  assert.match(page, /window\.location\.replace\(destination\)/);
   assert.doesNotMatch(page, /fetch\(|\.submit\(|setEmbeddedData|setJSEmbeddedData/);
+  const source = page.match(/<script type="module">([\s\S]*?)<\/script>/)[1].replace(/^  import .*\n/gm, '');
+  for (const tab of ['1', '']) {
+    let clears = 0, notifications = 0;
+    const navigations = [], elements = new Map();
+    const element = id => { if (!elements.has(id)) elements.set(id, {}); return elements.get(id); };
+    const parameters = new URLSearchParams({ session: 'session-a', nonce: 'a'.repeat(48) });
+    if (tab) parameters.set('tab', tab);
+    vm.runInNewContext(source, { URLSearchParams,
+      document: { getElementById: element },
+      window: { location: { search: '?' + parameters, replace: url => navigations.push(url) }, close() {} },
+      completeQualtricsReturn: async value => { clears++; assert.equal(value.sessionId, 'session-a'); return returnUrl; },
+      notifyQualtricsOpener: async value => { notifications++; assert.equal(value.nonce, 'a'.repeat(48)); return false; }
+    });
+    await new Promise(resolve => setImmediate(resolve));
+    if (tab) {
+      assert.equal(clears, 0); assert.deepEqual(navigations, []); assert.equal(notifications, 1);
+      assert.match(element('status').textContent, /Task data submitted/);
+      assert.doesNotMatch(element('status').textContent, /failed|could not be confirmed/);
+      await element('notify').onclick();
+      assert.equal(notifications, 2); assert.equal(clears, 0);
+    } else {
+      assert.equal(clears, 1); assert.equal(notifications, 0); assert.deepEqual(navigations, [returnUrl]);
+    }
+  }
 });

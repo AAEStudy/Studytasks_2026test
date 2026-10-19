@@ -104,14 +104,18 @@ function storeReceiptMetadata(record, env) {
 }
 
 /** Commit the payload before leaving the task. Storage failure never claims a backup. */
-export async function stageQualtricsSession({ fields, returnUrl, receiptBase }, env = {}) {
+export async function stageQualtricsSession({ fields, returnUrl, receiptBase, returnViaOpener = false }, env = {}) {
   const original = copyFields(fields);
   const destination = validateReturnUrl(returnUrl);
   const receipt = validateReceiptBase(receiptBase, env);
   const nonce = nonceFor(env);
-  if (!nonce) return { fields: { ...original, fae_return_url: destination }, backupRetained: false, returnMode: "direct" };
+  if (!nonce) {
+    if (returnViaOpener) throw new Error("A secure submission-window receipt is unavailable.");
+    return { fields: { ...original, fae_return_url: destination }, returnUrl: destination, backupRetained: false, returnMode: "direct" };
+  }
   receipt.searchParams.set("session", original.fae_session_id);
   receipt.searchParams.set("nonce", nonce);
+  if (returnViaOpener) receipt.searchParams.set("tab", "1");
   const stagedFields = Object.freeze({ ...original, fae_return_url: receipt.href });
   const now = environmentValue(env, "now");
   const record = {
@@ -126,12 +130,14 @@ export async function stageQualtricsSession({ fields, returnUrl, receiptBase }, 
   try {
     // Resolve only on transaction completion, not the earlier put-success event.
     await transaction(env, "readwrite", store => { store.put(record); });
-    return { fields: stagedFields, backupRetained: true, returnMode: "receipt" };
+    return { fields: stagedFields, returnUrl: destination, backupRetained: true, returnMode: "receipt" };
   } catch {
-    if (storeReceiptMetadata(record, env)) {
-      return { fields: stagedFields, backupRetained: false, returnMode: "receipt" };
+    if (storeReceiptMetadata(record, env) || returnViaOpener) {
+      // The task tab keeps the matching receipt and destination in memory even
+      // when browser storage is blocked. The child must notify that original tab.
+      return { fields: stagedFields, returnUrl: destination, backupRetained: false, returnMode: "receipt" };
     }
-    return { fields: { ...original, fae_return_url: destination }, backupRetained: false, returnMode: "direct" };
+    return { fields: { ...original, fae_return_url: destination }, returnUrl: destination, backupRetained: false, returnMode: "direct" };
   }
 }
 

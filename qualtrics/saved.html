@@ -3,17 +3,39 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="referrer" content="no-referrer">
-<title>Continuing to the questionnaires</title>
+<title>Task data submitted</title>
 <style>body{max-width:700px;margin:15vh auto;padding:24px;font:20px/1.5 system-ui,sans-serif;color:#222}a{color:inherit}</style>
 <main>
   <p id="status" role="status">Finishing the task data handoff. Please keep this window open.</p>
   <p id="fallback" hidden><a id="continue">Continue to the questionnaires</a></p>
+  <p id="tab-actions" hidden><button id="notify" type="button">Return to the original task window</button> <button id="close" type="button">Close this tab</button></p>
 </main>
 <script type="module">
-  import { completeQualtricsReturn } from '../js/qualtrics-outbox.mjs';
+  import { completeQualtricsReturn } from '../js/qualtrics-outbox.mjs?v=20261019-save-tab';
+  import { notifyQualtricsOpener } from '../js/qualtrics-tab-handoff.mjs?v=20261019-save-tab';
   const parameters = new URLSearchParams(window.location.search);
   const status = document.getElementById('status');
-  completeQualtricsReturn({ sessionId: parameters.get('session'), nonce: parameters.get('nonce') }).then(destination => {
+  const receipt = { sessionId: parameters.get('session'), nonce: parameters.get('nonce') };
+  if (parameters.get('tab') === '1') {
+    document.getElementById('tab-actions').hidden = false;
+    document.getElementById('close').onclick = () => window.close();
+    async function notifyOriginalWindow() {
+      const button = document.getElementById('notify');
+      button.disabled = true;
+      status.textContent = 'Task data submitted. Returning to the original task window…';
+      try {
+        const acknowledged = await notifyQualtricsOpener(receipt);
+        status.textContent = acknowledged
+          ? 'Task data submitted. Continue in the original window; you can close this tab.'
+          : 'Task data submitted. Please return to the original task window. You can try the return button again if it is still waiting.';
+      } catch (error) {
+        status.textContent = 'This return receipt could not be matched. Keep the original task window open and contact the researcher.';
+      }
+      button.disabled = false;
+    }
+    document.getElementById('notify').onclick = notifyOriginalWindow;
+    void notifyOriginalWindow();
+  } else completeQualtricsReturn(receipt).then(destination => {
     status.textContent = 'Task data submitted. Continuing to the questionnaires…';
     document.getElementById('continue').href = destination;
     document.getElementById('fallback').hidden = false;
