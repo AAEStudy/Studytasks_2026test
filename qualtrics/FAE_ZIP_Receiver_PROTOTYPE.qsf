@@ -1,0 +1,2277 @@
+{
+  "SurveyEntry": {
+    "SurveyID": "SV_FAEReceiverDraft",
+    "SurveyName": "FAE ZIP Receiver — PROTOTYPE",
+    "SurveyDescription": "Separate receiver for synthetic validation. Not connected to the live task.",
+    "SurveyLanguage": "EN",
+    "SurveyStatus": "Inactive",
+    "SurveyStartDate": "0000-00-00 00:00:00",
+    "SurveyExpirationDate": "0000-00-00 00:00:00"
+  },
+  "SurveyElements": [
+    {
+      "SurveyID": "SV_FAEReceiverDraft",
+      "Element": "BL",
+      "PrimaryAttribute": "Survey Blocks",
+      "SecondaryAttribute": null,
+      "TertiaryAttribute": null,
+      "Payload": [
+        {
+          "Type": "Default",
+          "Description": "Automatic data receiver - JS fields",
+          "ID": "BL_FAEReceiver",
+          "BlockElements": [
+            {
+              "Type": "Question",
+              "QuestionID": "QID1"
+            }
+          ],
+          "Options": {
+            "BlockLocking": "false",
+            "RandomizeQuestions": "false",
+            "BlockVisibility": "Expanded"
+          }
+        }
+      ]
+    },
+    {
+      "SurveyID": "SV_FAEReceiverDraft",
+      "Element": "FL",
+      "PrimaryAttribute": "Survey Flow",
+      "SecondaryAttribute": null,
+      "TertiaryAttribute": null,
+      "Payload": {
+        "Type": "Root",
+        "FlowID": "FL_1",
+        "Flow": [
+          {
+            "Type": "EmbeddedData",
+            "FlowID": "FL_2",
+            "EmbeddedData": [
+              {
+                "Description": "__js_fae_schema",
+                "Type": "Recipient",
+                "Field": "__js_fae_schema",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_session_id",
+                "Type": "Recipient",
+                "Field": "__js_fae_session_id",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_subject_id",
+                "Type": "Recipient",
+                "Field": "__js_fae_subject_id",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_filename",
+                "Type": "Recipient",
+                "Field": "__js_fae_filename",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_bytes",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_bytes",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_sha256",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_sha256",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_chunk_count",
+                "Type": "Recipient",
+                "Field": "__js_fae_chunk_count",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_run_mode",
+                "Type": "Recipient",
+                "Field": "__js_fae_run_mode",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_return_url",
+                "Type": "Recipient",
+                "Field": "__js_fae_return_url",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0001",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0001",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0002",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0002",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0003",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0003",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0004",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0004",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0005",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0005",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0006",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0006",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0007",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0007",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0008",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0008",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0009",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0009",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0010",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0010",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0011",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0011",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0012",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0012",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0013",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0013",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0014",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0014",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0015",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0015",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0016",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0016",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0017",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0017",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0018",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0018",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0019",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0019",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0020",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0020",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0021",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0021",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0022",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0022",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0023",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0023",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0024",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0024",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0025",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0025",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0026",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0026",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0027",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0027",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0028",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0028",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0029",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0029",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0030",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0030",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0031",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0031",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0032",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0032",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0033",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0033",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0034",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0034",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0035",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0035",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0036",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0036",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0037",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0037",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0038",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0038",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0039",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0039",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0040",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0040",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0041",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0041",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0042",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0042",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0043",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0043",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0044",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0044",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0045",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0045",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0046",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0046",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0047",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0047",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0048",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0048",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0049",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0049",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0050",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0050",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0051",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0051",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0052",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0052",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0053",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0053",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0054",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0054",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0055",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0055",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0056",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0056",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0057",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0057",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0058",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0058",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0059",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0059",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0060",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0060",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0061",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0061",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0062",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0062",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0063",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0063",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0064",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0064",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0065",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0065",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0066",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0066",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0067",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0067",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0068",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0068",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0069",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0069",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0070",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0070",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0071",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0071",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0072",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0072",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0073",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0073",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0074",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0074",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0075",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0075",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0076",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0076",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0077",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0077",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0078",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0078",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0079",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0079",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0080",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0080",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0081",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0081",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0082",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0082",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0083",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0083",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0084",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0084",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0085",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0085",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0086",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0086",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0087",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0087",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0088",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0088",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0089",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0089",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0090",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0090",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0091",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0091",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0092",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0092",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0093",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0093",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0094",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0094",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0095",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0095",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0096",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0096",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0097",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0097",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0098",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0098",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0099",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0099",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0100",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0100",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0101",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0101",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0102",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0102",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0103",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0103",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0104",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0104",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0105",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0105",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0106",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0106",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0107",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0107",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0108",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0108",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0109",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0109",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0110",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0110",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0111",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0111",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0112",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0112",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0113",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0113",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0114",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0114",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0115",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0115",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0116",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0116",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0117",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0117",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0118",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0118",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0119",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0119",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0120",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0120",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0121",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0121",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0122",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0122",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0123",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0123",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0124",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0124",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0125",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0125",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0126",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0126",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0127",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0127",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0128",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0128",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0129",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0129",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0130",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0130",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0131",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0131",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0132",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0132",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0133",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0133",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0134",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0134",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0135",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0135",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0136",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0136",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0137",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0137",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0138",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0138",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0139",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0139",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0140",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0140",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0141",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0141",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0142",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0142",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0143",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0143",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0144",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0144",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0145",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0145",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0146",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0146",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0147",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0147",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0148",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0148",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0149",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0149",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0150",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0150",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0151",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0151",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0152",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0152",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0153",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0153",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0154",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0154",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0155",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0155",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0156",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0156",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0157",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0157",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0158",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0158",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0159",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0159",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0160",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0160",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0161",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0161",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0162",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0162",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0163",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0163",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0164",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0164",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0165",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0165",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0166",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0166",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0167",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0167",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0168",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0168",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0169",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0169",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0170",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0170",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0171",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0171",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0172",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0172",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0173",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0173",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0174",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0174",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0175",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0175",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0176",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0176",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0177",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0177",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0178",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0178",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0179",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0179",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0180",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0180",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0181",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0181",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0182",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0182",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0183",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0183",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0184",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0184",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0185",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0185",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0186",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0186",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0187",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0187",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0188",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0188",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0189",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0189",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0190",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0190",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0191",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0191",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0192",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0192",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0193",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0193",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0194",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0194",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0195",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0195",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0196",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0196",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0197",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0197",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0198",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0198",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0199",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0199",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0200",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0200",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0201",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0201",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0202",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0202",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0203",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0203",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0204",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0204",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0205",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0205",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0206",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0206",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0207",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0207",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0208",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0208",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0209",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0209",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0210",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0210",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0211",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0211",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0212",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0212",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0213",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0213",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0214",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0214",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0215",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0215",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0216",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0216",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0217",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0217",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0218",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0218",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0219",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0219",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0220",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0220",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0221",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0221",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0222",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0222",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0223",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0223",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0224",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0224",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0225",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0225",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0226",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0226",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0227",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0227",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0228",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0228",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0229",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0229",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0230",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0230",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0231",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0231",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0232",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0232",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0233",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0233",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0234",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0234",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0235",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0235",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0236",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0236",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0237",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0237",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0238",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0238",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0239",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0239",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0240",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0240",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0241",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0241",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0242",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0242",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0243",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0243",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0244",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0244",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0245",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0245",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0246",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0246",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0247",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0247",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0248",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0248",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0249",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0249",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0250",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0250",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0251",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0251",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0252",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0252",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0253",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0253",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0254",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0254",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0255",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0255",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_zip_0256",
+                "Type": "Recipient",
+                "Field": "__js_fae_zip_0256",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_receiver_status",
+                "Type": "Custom",
+                "Field": "__js_fae_receiver_status",
+                "Value": "pending",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              },
+              {
+                "Description": "__js_fae_receiver_error",
+                "Type": "Custom",
+                "Field": "__js_fae_receiver_error",
+                "Value": "",
+                "VariableType": "String",
+                "DataVisibility": [],
+                "AnalyzeText": false
+              }
+            ]
+          },
+          {
+            "Type": "Block",
+            "ID": "BL_FAEReceiver",
+            "FlowID": "FL_3"
+          }
+        ],
+        "Properties": {
+          "Count": 3
+        }
+      }
+    },
+    {
+      "SurveyID": "SV_FAEReceiverDraft",
+      "Element": "QC",
+      "PrimaryAttribute": "Survey Question Count",
+      "SecondaryAttribute": "1",
+      "TertiaryAttribute": null,
+      "Payload": null
+    },
+    {
+      "SurveyID": "SV_FAEReceiverDraft",
+      "Element": "SO",
+      "PrimaryAttribute": "Survey Options",
+      "SecondaryAttribute": null,
+      "TertiaryAttribute": null,
+      "Payload": {
+        "BackButton": "false",
+        "SaveAndContinue": "false",
+        "SurveyProtection": "PublicSurvey",
+        "NoIndex": "Yes",
+        "SecureResponseFiles": "true",
+        "SurveyTermination": "DefaultMessage",
+        "Header": "",
+        "Footer": "",
+        "ProgressBarDisplay": "None",
+        "PageTransition": "None",
+        "PartialData": "+1 week",
+        "PartialDataCloseAfter": "LastActivity",
+        "PreviousButton": "Back",
+        "NextButton": "Submit",
+        "SurveyTitle": "Saving task data",
+        "CollectGeoLocation": "false",
+        "AnonymizeResponse": "Yes",
+        "SkinType": "templated",
+        "Skin": {
+          "brandingId": null,
+          "templateId": "*base",
+          "overrides": null
+        }
+      }
+    },
+    {
+      "SurveyID": "SV_FAEReceiverDraft",
+      "Element": "SQ",
+      "PrimaryAttribute": "QID1",
+      "SecondaryAttribute": "Automatic ZIP integrity check",
+      "TertiaryAttribute": null,
+      "Payload": {
+        "QuestionText": "<p data-fae-status>Verifying task data. Please keep this window open…</p>",
+        "DefaultChoices": false,
+        "DataExportTag": "receiver",
+        "QuestionType": "DB",
+        "Selector": "TB",
+        "DataVisibility": {
+          "Private": false,
+          "Hidden": false
+        },
+        "Configuration": {
+          "QuestionDescriptionOption": "UseText"
+        },
+        "QuestionDescription": "Automatic ZIP integrity check",
+        "ChoiceOrder": [],
+        "Validation": {
+          "Settings": {
+            "Type": "None"
+          }
+        },
+        "GradingData": [],
+        "Language": [],
+        "NextChoiceId": 1,
+        "NextAnswerId": 1,
+        "QuestionID": "QID1",
+        "QuestionJS": "(function () {\nfunction createQualtricsCodec() {\n  // Keep this entire factory in ES5 syntax: Qualtrics' editor parses the inlined\n  // copy separately from the participant browser. Promises/WebCrypto run there.\n  var chunkSize = 18000, maxChunks = 256, schema = 'fae-qualtrics-zip-v1';\n  function chunkName(n) { return 'fae_zip_' + ('0000' + n).slice(-4); }\n  var metadata = ['fae_schema', 'fae_session_id', 'fae_subject_id', 'fae_filename',\n    'fae_zip_bytes', 'fae_zip_sha256', 'fae_chunk_count', 'fae_run_mode', 'fae_return_url'];\n  var fieldNames = metadata.slice();\n  for (var index = 1; index <= maxChunks; index++) fieldNames.push(chunkName(index));\n  function fail(message) { throw new Error(message); }\n  function scalar(value, label) {\n    if (typeof value !== 'string' || !value || value.length > 256 || /[\\r\\n\\0]/.test(value)) fail('Invalid ' + label);\n    return value;\n  }\n  function filename(value) {\n    scalar(value, 'filename');\n    if (!/^[A-Za-z0-9][A-Za-z0-9_.-]*\\.zip$/.test(value)) fail('Unsafe ZIP filename');\n    return value;\n  }\n  function integer(value, label, max) {\n    if (!/^[1-9][0-9]*$/.test(String(value))) fail('Invalid ' + label);\n    var n = Number(value);\n    if (!isFinite(n) || Math.floor(n) !== n || n > max) fail(label + ' exceeds prototype capacity');\n    return n;\n  }\n  function validateReturnUrl(value) {\n    if (value == null || value === '') return '';\n    if (typeof value !== 'string' || value.length > 8000) fail('Invalid return URL');\n    var url = new URL(value);\n    var survey = /(?:^|\\.)qualtrics\\.com$/.test(url.hostname) && /^\\/jfe\\/form\\/SV_[A-Za-z0-9]+$/.test(url.pathname);\n    var receipt = url.origin === 'https://aaestudy.github.io' && url.pathname === '/Studytasks_2026test/qualtrics/saved.html';\n    if (url.protocol !== 'https:' || url.username || url.password || (!survey && !receipt)) fail('Invalid return destination');\n    return url.href;\n  }\n  function hash(bytes) {\n    var cryptoApi = typeof crypto !== 'undefined' ? crypto : null;\n    if (!cryptoApi || !cryptoApi.subtle) fail('Secure browser hashing is unavailable');\n    return cryptoApi.subtle.digest('SHA-256', bytes).then(function (digest) {\n      var values = new Uint8Array(digest), hex = '';\n      for (var n = 0; n < values.length; n++) hex += ('0' + values[n].toString(16)).slice(-2);\n      return hex;\n    });\n  }\n  function build(bytes, info) {\n    return Promise.resolve().then(function () {\n      if (!(bytes instanceof Uint8Array) || !bytes.length) fail('Missing ZIP bytes');\n      if (bytes.length > chunkSize * maxChunks * 3 / 4) fail('ZIP exceeds prototype capacity');\n      var binary = '';\n      for (var n = 0; n < bytes.length; n += 8192) binary += String.fromCharCode.apply(null, bytes.subarray(n, n + 8192));\n      var base64 = btoa(binary);\n      return hash(bytes).then(function (digest) {\n        var fields = {\n          fae_schema: schema,\n          fae_session_id: scalar(info.sessionId, 'session ID'),\n          fae_subject_id: scalar(info.subjectId, 'subject ID'),\n          fae_filename: filename(info.filename),\n          fae_zip_bytes: String(bytes.length),\n          fae_zip_sha256: digest,\n          fae_chunk_count: String(Math.ceil(base64.length / chunkSize)),\n          fae_run_mode: info.runMode,\n          fae_return_url: validateReturnUrl(info.returnUrl)\n        };\n        if (['test', 'full', 'probe'].indexOf(fields.fae_run_mode) === -1) fail('Invalid run mode');\n        for (var n = 0; n < base64.length; n += chunkSize) fields[chunkName(n / chunkSize + 1)] = base64.slice(n, n + chunkSize);\n        return verify(fields).then(function () { return fields; });\n      });\n    });\n  }\n  function verify(fields) {\n    return Promise.resolve().then(function () {\n      if (fields.fae_schema !== schema) fail('Unrecognized envelope schema');\n      scalar(fields.fae_session_id, 'session ID');\n      scalar(fields.fae_subject_id, 'subject ID');\n      filename(fields.fae_filename);\n      validateReturnUrl(fields.fae_return_url);\n      if (['test', 'full', 'probe'].indexOf(fields.fae_run_mode) === -1) fail('Invalid run mode');\n      var count = integer(fields.fae_chunk_count, 'chunk count', maxChunks);\n      var byteCount = integer(fields.fae_zip_bytes, 'ZIP byte count', chunkSize * maxChunks * 3 / 4);\n      if (!/^[a-f0-9]{64}$/.test(fields.fae_zip_sha256 || '')) fail('Invalid SHA-256');\n      var chunks = [];\n      for (var n = 1; n <= maxChunks; n++) {\n        var value = fields[chunkName(n)];\n        if (n > count) {\n          if (value != null && value !== '') fail('Unexpected extra ZIP chunk');\n          continue;\n        }\n        if (typeof value !== 'string' || !value.length || value.length > chunkSize ||\n            (n < count && value.length !== chunkSize)) fail('Missing or truncated chunk ' + n);\n        chunks.push(value);\n      }\n      var base64 = chunks.join('');\n      if (base64.length !== 4 * Math.ceil(byteCount / 3) ||\n          !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(base64)) fail('Invalid base64 or length');\n      var binary = atob(base64);\n      if (btoa(binary) !== base64) fail('Non-canonical base64');\n      var bytes = new Uint8Array(binary.length);\n      for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);\n      if (bytes.length !== byteCount) fail('ZIP byte count mismatch');\n      if (bytes.length < 22 || bytes[0] !== 0x50 || bytes[1] !== 0x4b || bytes[2] !== 3 || bytes[3] !== 4) fail('Missing ZIP header');\n      return hash(bytes).then(function (digest) {\n        if (digest !== fields.fae_zip_sha256) fail('ZIP checksum mismatch');\n        return bytes;\n      });\n    });\n  }\n  return { build: build, verify: verify, validateReturnUrl: validateReturnUrl, fieldNames: fieldNames, chunkSize: chunkSize, maxChunks: maxChunks, schema: schema };\n}\n// Installed into QID1 by build-qualtrics-receiver.mjs, with the codec inlined.\nQualtrics.SurveyEngine.addOnload(function () {\n  this.hideNextButton();\n  this.hidePreviousButton();\n});\nQualtrics.SurveyEngine.addOnReady(function () {\n  var question = this;\n  var engine = Qualtrics.SurveyEngine;\n  var codec = createQualtricsCodec();\n  var container = question.getQuestionContainer();\n  // Text imports or the editor can strip custom HTML attributes.\n  var message = container.querySelector('[data-fae-status]') || container.querySelector('.QuestionText') || container;\n  var fields = {};\n  function showFailure(error) {\n    var reason = String(error.message || error).slice(0,200);\n    try {\n      engine.setJSEmbeddedData('fae_receiver_status', 'invalid');\n      engine.setJSEmbeddedData('fae_receiver_error', reason);\n    } catch (ignored) {}\n    message.textContent = 'We could not verify the task data. Your upload has not been confirmed. Test diagnostic: ' + reason;\n  }\n  try {\n    if (typeof engine.getJSEmbeddedData !== 'function' || typeof engine.setJSEmbeddedData !== 'function') {\n      throw new Error('The new Qualtrics embedded-data methods are unavailable.');\n    }\n    engine.setJSEmbeddedData('fae_receiver_status', 'checking');\n    for (var i = 0; i < codec.fieldNames.length; i++) {\n      var name = codec.fieldNames[i];\n      fields[name] = engine.getJSEmbeddedData(name);\n    }\n    if (!fields.fae_schema) {\n      throw new Error('Missing JS-visible schema. Check __js_fae_schema above this block in Survey Flow and use the updated test sender.');\n    }\n  } catch (error) {\n    showFailure(error);\n    return;\n  }\n  codec.verify(fields).then(function () {\n    // Survey Flow handles this URL only after the response is submitted.\n    engine.setJSEmbeddedData('fae_return_url', codec.validateReturnUrl(fields.fae_return_url));\n    // \"verified\" means integrity checked in the browser, not yet durable storage.\n    engine.setJSEmbeddedData('fae_receiver_status', 'verified');\n    engine.setJSEmbeddedData('fae_receiver_error', '');\n    message.textContent = 'Submitting task data. Please keep this window open…';\n    question.clickNextButton();\n  }).catch(showFailure);\n});\n\n}());"
+      }
+    }
+  ]
+}

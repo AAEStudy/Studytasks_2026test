@@ -6,6 +6,7 @@ import { webcrypto } from "node:crypto";
 import * as schedule from "../js/image-schedule.mjs";
 import { splitStudyExports } from "../js/analysis-exports.mjs";
 import { createSessionZip, zipToBase64 } from "../js/session-bundle.mjs";
+import { createQualtricsCodec } from "../js/qualtrics-bundle.mjs";
 
 const read = path => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 const defaultReturn = "https://usf.az1.qualtrics.com/jfe/form/SV_8wijLZLkAmgskVE";
@@ -15,7 +16,7 @@ function collection(rows = []) {
     filter: criteria => collection(rows.filter(row => Object.entries(criteria).every(([key, value]) => row[key] === value))) };
 }
 
-function runtime(parameters = { subjectID: "ID0007" }, { redirectTestOnly = false } = {}) {
+function runtime(parameters = { subjectID: "ID0007" }, { redirectTestOnly = false, transport = {} } = {}) {
   let now = 0, timerId = 0, initOptions, timeline;
   const timers = new Map(), listeners = new Map(), navigations = [], downloads = [], events = [], warnings = [];
   const fetches = [], builderCalls = [], audioPlays = [];
@@ -41,8 +42,10 @@ function runtime(parameters = { subjectID: "ID0007" }, { redirectTestOnly = fals
   const display = {
     _html: "",
     get innerHTML() { return this._html; },
-    set innerHTML(value) { this._html = value; events.push({ type: "display", at: now }); }
+    set innerHTML(value) { this._html = value; events.push({ type: "display", at: now }); },
+    querySelector(selector) { return { addEventListener(type, callback) { buttons.set(selector, callback); } }; }
   };
+  const buttons = new Map();
   class BrowserURL extends URL {
     static createObjectURL() { return `blob:qa-${downloads.length + 1}`; }
     static revokeObjectURL() {}
@@ -62,7 +65,8 @@ function runtime(parameters = { subjectID: "ID0007" }, { redirectTestOnly = fals
     search: `?${new URLSearchParams(parameters)}`,
     replace(url) { navigations.push({ url, at: now }); events.push({ type: "navigation", at: now }); }
   };
-  Object.defineProperty(location, "href", { set() { assert.fail("completion must use location.replace"); } });
+  location.origin = 'https://aaestudy.github.io';
+  Object.defineProperty(location, "href", { get() { return location.origin + '/Studytasks_2026test/' + location.search; }, set() { assert.fail("completion must use location.replace"); } });
   const window = {
     location, setTimeout, clearTimeout: id => timers.delete(id),
     addEventListener(type, callback) {
@@ -73,7 +77,8 @@ function runtime(parameters = { subjectID: "ID0007" }, { redirectTestOnly = fals
   };
   const psych = { data: { addProperties() {}, get: () => { dataReads++; return collection(); } },
     getDisplayElement: () => display, run: built => { timeline = built; } };
-  const context = vm.createContext({ ...schedule, splitStudyExports, createSessionZip, zipToBase64, document, window, URL: BrowserURL, URLSearchParams,
+  const context = vm.createContext({ ...schedule, splitStudyExports, createSessionZip, zipToBase64, createQualtricsCodec,
+    ...transport, document, window, URL: BrowserURL, URLSearchParams,
     Blob, TextEncoder, crypto: webcrypto, performance: { now: () => now },
     setTimeout, clearTimeout: id => timers.delete(id),
     console: { warn: message => warnings.push(message) },
@@ -97,14 +102,15 @@ function runtime(parameters = { subjectID: "ID0007" }, { redirectTestOnly = fals
   let main = read("main.js").replace(/^import .*\n/gm, "").replace(/start\(\);\s*$/, `
     globalThis.qa = { buildQualtricsReturnUrl, getQualtricsReturnUrl, finishStudy,
       sharedState, start, buildPipeSaveTrials, getResultFiles, REDIRECT_TO_QUALTRICS,
-      DEFAULT_QUALTRICS_RETURN_URL };
+      DEFAULT_QUALTRICS_RETURN_URL, getSessionBundleBytes };
   `);
   if (redirectTestOnly) {
     assert.match(main, /^let REDIRECT_TEST_ONLY = false;/m, "the local override must exercise the real mode switch");
     main = main.replace(/^let REDIRECT_TEST_ONLY = false;/m, "let REDIRECT_TEST_ONLY = true;");
   }
   vm.runInContext(main, context);
-  return { context, qa: context.qa, psych, display, navigations, downloads, events, warnings, advance,
+  return { context, qa: context.qa, psych, display, buttons, navigations, downloads, events, warnings, advance,
+    dispatch(type, event) { for (const listener of listeners.get(type) || []) listener(event); },
     fetches, builderCalls, audioPlays, dataReads: () => dataReads,
     onFinish: () => initOptions.on_finish(), timeline: () => timeline,
     guardCount: () => listeners.get("beforeunload")?.size || 0,
@@ -142,6 +148,102 @@ test("Qualtrics return IDs follow launch ID, existing return ID, then exact ID-p
   }
   assert.equal(run.navigations.length, 0);
   assert.equal(run.qa.sharedState.studyCompleted, false);
+});
+
+test('Qualtrics task handoff stages the exact five-file bundle before POST and never starts DataPipe or an early return', async () => {
+  const calls = [];
+  let releaseStage, submitted;
+  const staged = new Promise(resolve => { releaseStage = resolve; });
+  const run = runtime({ subjectID: 'ID0007', id: '0042', saveTo: 'qualtrics' }, { transport: {
+    stageQualtricsSession: async input => {
+      calls.push('stage');
+      assert.equal(input.returnUrl, defaultReturn + '?id=0042');
+      assert.equal(input.receiptBase, 'https://aaestudy.github.io/Studytasks_2026test/qualtrics/saved.html');
+      await staged;
+      return { fields: { ...input.fields, fae_return_url: input.receiptBase + '?session=test&nonce=test' }, backupRetained: true };
+    },
+    postQualtricsBundle: async (fields, receiver) => {
+      calls.push('post'); submitted = fields;
+      assert.equal(receiver, 'https://usf.az1.qualtrics.com/jfe/form/SV_b7rI1T6DVd3u0dw');
+      assert.deepEqual(await createQualtricsCodec().verify(fields), run.qa.getSessionBundleBytes(run.psych));
+    }
+  } });
+  await run.qa.start();
+  assert.equal(run.timeline().filter(trial => trial.data?.event === 'pipe_save').length, 0);
+  assert.match(run.timeline().at(-1).stimulus(), /save your task data/);
+  const finish = run.onFinish();
+  while (!calls.length) await new Promise(resolve => setImmediate(resolve));
+  assert.equal(run.qa.sharedState.studyCompleted, false, 'leave-page guards must remain active until staging completes');
+  assert.ok(run.beforeUnload().calls > 0);
+  await run.onFinish();
+  assert.deepEqual(calls, ['stage'], 'repeated completion cannot stage overlapping submissions');
+  releaseStage(); await finish;
+  assert.deepEqual(calls, ['stage','post']);
+  assert.equal(submitted.fae_subject_id, 'ID0007');
+  assert.equal(submitted.fae_run_mode, 'test');
+  assert.equal(run.qa.sharedState.studyCompleted, true);
+  assert.equal(run.beforeUnload().calls, 0);
+  run.advance(10000);
+  assert.deepEqual(run.navigations, []);
+  run.dispatch('pageshow', { persisted: true });
+  assert.match(run.display.innerHTML, /Try saving again/);
+  assert.deepEqual(calls, ['stage','post'], 'Back restoration must not resend automatically');
+  run.buttons.get('#retry-qualtrics-save')();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(calls, ['stage','post','post'], 'explicit retry reuses the same staged session');
+});
+
+test('blocked storage access still reaches primary Qualtrics transport; construction errors offer one explicit retry', async () => {
+  let posts = 0, stages = 0, previous;
+  const run = runtime({ subjectID: 'ID0007', saveTo: 'qualtrics' }, { transport: {
+    stageQualtricsSession: async (input, environment) => {
+      stages++;
+      assert.equal(environment.indexedDB, undefined);
+      assert.equal(environment.sessionStorage, undefined);
+      return { fields: { ...input.fields, fae_return_url: input.returnUrl }, backupRetained: false };
+    },
+    postQualtricsBundle: async fields => {
+      posts++;
+      if (posts === 1) { previous = fields; throw new Error('Construction failed'); }
+      assert.equal(fields, previous);
+    }
+  } });
+  for (const key of ['indexedDB','sessionStorage']) Object.defineProperty(run.context.window, key, { get() { throw new Error('SecurityError'); } });
+  await run.qa.start(); await run.onFinish();
+  assert.equal(posts, 1); assert.equal(stages, 1);
+  assert.equal(run.qa.sharedState.studyCompleted, false);
+  assert.match(run.display.innerHTML, /could not be confirmed/);
+  run.buttons.get('#retry-qualtrics-save')();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(posts, 2); assert.equal(stages, 1);
+});
+
+test('explicit recovery submits one retained session without rebuilding tasks or overwriting its stored return', async () => {
+  const fields = { fae_session_id: 'original-session', fae_subject_id: 'ID0007', fae_return_url: 'stored-callback' };
+  const sent = [];
+  const run = runtime({ subjectID: 'ID0007', saveTo: 'qualtrics', resumeSave: '1' }, { transport: {
+    listPendingQualtricsSessions: async subject => { assert.equal(subject, 'ID0007'); return [{ fields }, { fields: { ...fields, fae_session_id: 'second' } }]; },
+    postQualtricsBundle: async value => { sent.push(value); }
+  } });
+  await run.qa.start();
+  assert.deepEqual(run.builderCalls, []); assert.deepEqual(run.fetches, []);
+  assert.equal(sent.length, 0);
+  run.buttons.get('#resume-qualtrics-save')();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(sent, [fields]);
+  assert.equal(run.qa.sharedState.resultExports, undefined);
+  const missing = runtime({ subjectID: 'ID0007', saveTo: 'qualtrics', resumeSave: '1' }, { transport: { listPendingQualtricsSessions: async () => [] } });
+  await missing.qa.start();
+  assert.match(missing.display.innerHTML, /No completed task data/);
+  assert.equal(missing.timeline(), undefined);
+});
+
+test('redirect-only mode skips Qualtrics transport and backup recovery even when both options are requested', async () => {
+  const run = runtime({ subjectID: 'ID0007', saveTo: 'qualtrics', redirectTest: '1', resumeSave: '1' });
+  await run.qa.start(); await run.onFinish(); run.advance(500);
+  assert.equal(run.navigations[0].url, defaultReturn + '?id=0007');
+  assert.deepEqual(run.builderCalls, []);
+  assert.equal(run.dataReads(), 0);
 });
 
 test("return URL construction preserves explicit query/hash and safely encodes a supplied credit ID", () => {

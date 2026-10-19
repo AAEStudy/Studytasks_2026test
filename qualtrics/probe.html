@@ -1,0 +1,45 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FAE receiver test</title>
+<style>
+body{font:18px/1.5 system-ui;max-width:760px;margin:60px auto;padding:0 24px;color:#172a35;background:#f7fafb}
+input,select,button{font:inherit;padding:10px;box-sizing:border-box;width:100%;margin:8px 0 20px}
+button{background:#193e52;color:white;border:0;border-radius:6px;cursor:pointer}button:disabled{opacity:.5}
+pre{white-space:pre-wrap;overflow-wrap:anywhere;background:white;padding:20px;border:1px solid #ccd9df}
+</style>
+<h1>Test the separate Qualtrics receiver</h1>
+<p>This creates synthetic task files and sends them automatically. Use only the published link for the new test receiver. The existing questionnaire survey is blocked here.</p>
+<label>Published receiver link<input id="url" type="url" placeholder="https://usf.az1.qualtrics.com/jfe/form/SV_…" autocomplete="off"></label>
+<label>Synthetic payload size<select id="size"><option value="65536" selected>64 KiB</option><option value="524288">512 KiB</option><option value="2097152">2 MiB</option><option value="3145728">3 MiB</option></select></label>
+<button id="prepare">Prepare synthetic session</button>
+<pre id="summary">Nothing has been sent.</pre>
+<button id="send" disabled>Send test session to Qualtrics</button>
+<p>After the receiver finishes, export its responses as CSV with all fields and run the recovery script. A completed screen alone is not the persistence check.</p>
+<script type="module">
+import { createSessionZip } from '../js/session-bundle.mjs';
+import { createQualtricsCodec, postQualtricsBundle, validateReceiverUrl } from '../js/qualtrics-bundle.mjs';
+const el = id => document.getElementById(id);
+let fields;
+el('prepare').onclick = async () => {
+  el('send').disabled = true;
+  try {
+    validateReceiverUrl(el('url').value.trim());
+    const session = `probe_${crypto.randomUUID()}`;
+    const line = 'SYNTHETIC\t42\t0.625\t3\tcorrect\tUnicode-é-中文\n';
+    const budget = Number(el('size').value);
+    const files = ['MRT/probe.tsv','Image_practice/probe.csv','Calibration/probe.csv','Final_judgments/probe.csv']
+      .map(filename => ({filename, text:'synthetic_only\n' + line.repeat(Math.ceil(budget / 4 / new TextEncoder().encode(line).length))}));
+    files.push({filename:'Diagnostics/probe.json', text:JSON.stringify({synthetic:true, session})});
+    const bytes = createSessionZip(files);
+    fields = await createQualtricsCodec().build(bytes, {filename:`FAE_${session}.zip`,sessionId:session,subjectId:'SYNTHETIC',runMode:'probe'});
+    el('summary').textContent = JSON.stringify({session, bytes:bytes.length, chunks:fields.fae_chunk_count, sha256:fields.fae_zip_sha256},null,2);
+    el('send').disabled = false;
+  } catch(error) { fields = null; el('summary').textContent = error.message; }
+};
+el('send').onclick = async () => {
+  el('send').disabled = true;
+  try { await postQualtricsBundle(fields, el('url').value.trim()); }
+  catch(error) { el('summary').textContent = error.message; el('send').disabled = false; }
+};
+</script>

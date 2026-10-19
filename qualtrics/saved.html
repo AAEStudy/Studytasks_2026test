@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>Continuing to the questionnaires</title>
+<style>body{max-width:700px;margin:15vh auto;padding:24px;font:20px/1.5 system-ui,sans-serif;color:#222}a{color:inherit}</style>
+<main>
+  <p id="status" role="status">Finishing the task data handoff. Please keep this window open.</p>
+  <p id="fallback" hidden><a id="continue">Continue to the questionnaires</a></p>
+</main>
+<script type="module">
+  import { completeQualtricsReturn } from '../js/qualtrics-outbox.mjs';
+  const parameters = new URLSearchParams(window.location.search);
+  const status = document.getElementById('status');
+  completeQualtricsReturn({ sessionId: parameters.get('session'), nonce: parameters.get('nonce') }).then(destination => {
+    status.textContent = 'Task data submitted. Continuing to the questionnaires…';
+    document.getElementById('continue').href = destination;
+    document.getElementById('fallback').hidden = false;
+    window.location.replace(destination);
+  }).catch(error => {
+    status.textContent = String(error.message || error);
+  });
+</script>
+</html>

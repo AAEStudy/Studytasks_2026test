@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FAE Qualtrics receiver test</title>
+<style>
+body{font:18px/1.5 system-ui,sans-serif;max-width:780px;margin:48px auto;padding:0 24px;color:#142b39;background:#f5f9fb}
+label{display:block;margin-top:24px}select,button{font:inherit;padding:12px;border-radius:6px;margin:8px 8px 12px 0}
+button{background:#174c68;color:#fff;border:0;cursor:pointer}button:disabled{opacity:.5;cursor:default}
+#details{background:#e2ebf0;color:#173e53}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#fff;padding:20px;border:1px solid #cfdae1;font-size:14px}
+#status{font-weight:600}small{overflow-wrap:anywhere}details{margin:20px 0}
+textarea{box-sizing:border-box;width:100%;height:240px;font:13px/1.4 monospace;padding:12px}
+</style></head><body>
+<h1>Test your Qualtrics receiver</h1>
+<p>This sends five synthetic task files bundled in one ZIP to your separate test survey. It contains no participant data and needs no account token.</p>
+<small>Receiver: https://usf.az1.qualtrics.com/jfe/form/SV_b7rI1T6DVd3u0dw</small>
+<h2>Install the updated receiver first</h2>
+<p>Import the updated field file into this survey. Keep the new <strong>Automatic data receiver - JS fields</strong> block, remove the old receiver block, and place the new embedded fields above the question. Field names must begin with <code>__js_fae_</code>.</p>
+<button id="copy-code">Copy corrected receiver JavaScript</button><p id="copy-status" role="status"></p>
+<details id="code-panel"><summary>Receiver JavaScript for the new fields</summary><textarea id="receiver-code" readonly aria-label="Corrected receiver JavaScript" spellcheck="false"></textarea></details>
+<h2>Send a synthetic test after publishing</h2>
+<label for="size">Test size</label><select id="size"><option value="65536">64 KiB — start here</option><option value="2097152">2 MiB — after the first test passes</option></select>
+<p id="status" role="status">Preparing synthetic files...</p>
+<button id="send" disabled>Send test ZIP to Qualtrics</button><button id="details" disabled>Download expected test details</button>
+<p>The send button opens the Qualtrics receiver in this tab. After it finishes, export the receiver's responses as CSV with all fields. The export must match the expected checksum below.</p>
+<details open><summary>Expected test details</summary><pre id="summary"></pre></details>
+<details><summary>Previous test details</summary><pre id="previous">No previous test recorded in this browser.</pre></details>
+<script>function createSessionZip(files) {
+  const encoder = new TextEncoder();
+  const parts = [], central = [];
+  let offset = 0;
+  const crc32 = bytes => {
+    let crc = 0xffffffff;
+    for (const byte of bytes) {
+      crc ^= byte;
+      for (let bit = 0; bit < 8; bit++) crc = (crc >>> 1) ^ ((crc & 1) ? 0xedb88320 : 0);
+    }
+    return (crc ^ 0xffffffff) >>> 0;
+  };
+  const seen = new Set();
+  for (const file of files) {
+    if (!file.filename || file.filename.startsWith('/') || file.filename.includes('\\') ||
+        file.filename.split('/').some(part => !part || part === '..' || part === '.') || seen.has(file.filename)) {
+      throw new Error('Unsafe or duplicate ZIP filename');
+    }
+    seen.add(file.filename);
+    const name = encoder.encode(file.filename), bytes = encoder.encode(file.text);
+    if (name.length > 65535 || bytes.length > 0xffffffff) throw new Error('ZIP entry too large');
+    const crc = crc32(bytes);
+    const header = new Uint8Array(30 + name.length), h = new DataView(header.buffer);
+    h.setUint32(0, 0x04034b50, true); h.setUint16(4, 20, true);
+    h.setUint16(6, 0x800, true); h.setUint16(12, 33, true);
+    h.setUint32(14, crc, true); h.setUint32(18, bytes.length, true);
+    h.setUint32(22, bytes.length, true); h.setUint16(26, name.length, true);
+    header.set(name, 30);
+    const entry = new Uint8Array(46 + name.length), e = new DataView(entry.buffer);
+    e.setUint32(0, 0x02014b50, true); e.setUint16(4, 20, true); e.setUint16(6, 20, true);
+    e.setUint16(8, 0x800, true); e.setUint16(14, 33, true);
+    e.setUint32(16, crc, true); e.setUint32(20, bytes.length, true);
+    e.setUint32(24, bytes.length, true); e.setUint16(28, name.length, true);
+    e.setUint32(42, offset, true); entry.set(name, 46);
+    parts.push(header, bytes); central.push(entry); offset += header.length + bytes.length;
+  }
+  const directorySize = central.reduce((size, entry) => size + entry.length, 0);
+  if (files.length > 65535 || offset + directorySize > 0xffffffff) throw new Error('ZIP64 not supported');
+  const end = new Uint8Array(22), e = new DataView(end.buffer);
+  e.setUint32(0, 0x06054b50, true); e.setUint16(8, files.length, true);
+  e.setUint16(10, files.length, true); e.setUint32(12, directorySize, true); e.setUint32(16, offset, true);
+  const zip = new Uint8Array(offset + directorySize + end.length);
+  let position = 0;
+  for (const part of [...parts, ...central, end]) { zip.set(part, position); position += part.length; }
+  return zip;
+}
+
+function createQualtricsCodec() {
+  // Keep this entire factory in ES5 syntax: Qualtrics' editor parses the inlined
+  // copy separately from the participant browser. Promises/WebCrypto run there.
+  var chunkSize = 18000, maxChunks = 256, schema = 'fae-qualtrics-zip-v1';
+  function chunkName(n) { return 'fae_zip_' + ('0000' + n).slice(-4); }
+  var metadata = ['fae_schema', 'fae_session_id', 'fae_subject_id', 'fae_filename',
+    'fae_zip_bytes', 'fae_zip_sha256', 'fae_chunk_count', 'fae_run_mode', 'fae_return_url'];
+  var fieldNames = metadata.slice();
+  for (var index = 1; index <= maxChunks; index++) fieldNames.push(chunkName(index));
+  function fail(message) { throw new Error(message); }
+  function scalar(value, label) {
+    if (typeof value !== 'string' || !value || value.length > 256 || /[\r\n\0]/.test(value)) fail('Invalid ' + label);
+    return value;
+  }
+  function filename(value) {
+    scalar(value, 'filename');
+    if (!/^[A-Za-z0-9][A-Za-z0-9_.-]*\.zip$/.test(value)) fail('Unsafe ZIP filename');
+    return value;
+  }
+  function integer(value, label, max) {
+    if (!/^[1-9][0-9]*$/.test(String(value))) fail('Invalid ' + label);
+    var n = Number(value);
+    if (!isFinite(n) || Math.floor(n) !== n || n > max) fail(label + ' exceeds prototype capacity');
+    return n;
+  }
+  function validateReturnUrl(value) {
+    if (value == null || value === '') return '';
+    if (typeof value !== 'string' || value.length > 8000) fail('Invalid return URL');
+    var url = new URL(value);
+    var survey = /(?:^|\.)qualtrics\.com$/.test(url.hostname) && /^\/jfe\/form\/SV_[A-Za-z0-9]+$/.test(url.pathname);
+    var receipt = url.origin === 'https://aaestudy.github.io' && url.pathname === '/Studytasks_2026test/qualtrics/saved.html';
+    if (url.protocol !== 'https:' || url.username || url.password || (!survey && !receipt)) fail('Invalid return destination');
+    return url.href;
+  }
+  function hash(bytes) {
+    var cryptoApi = typeof crypto !== 'undefined' ? crypto : null;
+    if (!cryptoApi || !cryptoApi.subtle) fail('Secure browser hashing is unavailable');
+    return cryptoApi.subtle.digest('SHA-256', bytes).then(function (digest) {
+      var values = new Uint8Array(digest), hex = '';
+      for (var n = 0; n < values.length; n++) hex += ('0' + values[n].toString(16)).slice(-2);
+      return hex;
+    });
+  }
+  function build(bytes, info) {
+    return Promise.resolve().then(function () {
+      if (!(bytes instanceof Uint8Array) || !bytes.length) fail('Missing ZIP bytes');
+      if (bytes.length > chunkSize * maxChunks * 3 / 4) fail('ZIP exceeds prototype capacity');
+      var binary = '';
+      for (var n = 0; n < bytes.length; n += 8192) binary += String.fromCharCode.apply(null, bytes.subarray(n, n + 8192));
+      var base64 = btoa(binary);
+      return hash(bytes).then(function (digest) {
+        var fields = {
+          fae_schema: schema,
+          fae_session_id: scalar(info.sessionId, 'session ID'),
+          fae_subject_id: scalar(info.subjectId, 'subject ID'),
+          fae_filename: filename(info.filename),
+          fae_zip_bytes: String(bytes.length),
+          fae_zip_sha256: digest,
+          fae_chunk_count: String(Math.ceil(base64.length / chunkSize)),
+          fae_run_mode: info.runMode,
+          fae_return_url: validateReturnUrl(info.returnUrl)
+        };
+        if (['test', 'full', 'probe'].indexOf(fields.fae_run_mode) === -1) fail('Invalid run mode');
+        for (var n = 0; n < base64.length; n += chunkSize) fields[chunkName(n / chunkSize + 1)] = base64.slice(n, n + chunkSize);
+        return verify(fields).then(function () { return fields; });
+      });
+    });
+  }
+  function verify(fields) {
+    return Promise.resolve().then(function () {
+      if (fields.fae_schema !== schema) fail('Unrecognized envelope schema');
+      scalar(fields.fae_session_id, 'session ID');
+      scalar(fields.fae_subject_id, 'subject ID');
+      filename(fields.fae_filename);
+      validateReturnUrl(fields.fae_return_url);
+      if (['test', 'full', 'probe'].indexOf(fields.fae_run_mode) === -1) fail('Invalid run mode');
+      var count = integer(fields.fae_chunk_count, 'chunk count', maxChunks);
+      var byteCount = integer(fields.fae_zip_bytes, 'ZIP byte count', chunkSize * maxChunks * 3 / 4);
+      if (!/^[a-f0-9]{64}$/.test(fields.fae_zip_sha256 || '')) fail('Invalid SHA-256');
+      var chunks = [];
+      for (var n = 1; n <= maxChunks; n++) {
+        var value = fields[chunkName(n)];
+        if (n > count) {
+          if (value != null && value !== '') fail('Unexpected extra ZIP chunk');
+          continue;
+        }
+        if (typeof value !== 'string' || !value.length || value.length > chunkSize ||
+            (n < count && value.length !== chunkSize)) fail('Missing or truncated chunk ' + n);
+        chunks.push(value);
+      }
+      var base64 = chunks.join('');
+      if (base64.length !== 4 * Math.ceil(byteCount / 3) ||
+          !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(base64)) fail('Invalid base64 or length');
+      var binary = atob(base64);
+      if (btoa(binary) !== base64) fail('Non-canonical base64');
+      var bytes = new Uint8Array(binary.length);
+      for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      if (bytes.length !== byteCount) fail('ZIP byte count mismatch');
+      if (bytes.length < 22 || bytes[0] !== 0x50 || bytes[1] !== 0x4b || bytes[2] !== 3 || bytes[3] !== 4) fail('Missing ZIP header');
+      return hash(bytes).then(function (digest) {
+        if (digest !== fields.fae_zip_sha256) fail('ZIP checksum mismatch');
+        return bytes;
+      });
+    });
+  }
+  return { build: build, verify: verify, validateReturnUrl: validateReturnUrl, fieldNames: fieldNames, chunkSize: chunkSize, maxChunks: maxChunks, schema: schema };
+}
+
+function validateReceiverUrl(value) {
+  const url = new URL(value);
+  if (url.origin !== 'https://usf.az1.qualtrics.com' ||
+      !/^\/jfe\/form\/SV_[A-Za-z0-9]+$/.test(url.pathname) ||
+      url.username || url.password || url.search || url.hash) {
+    throw new Error('Use the published anonymous link for the separate USF receiver survey');
+  }
+  if (url.pathname.endsWith('/SV_8wijLZLkAmgskVE')) {
+    throw new Error('This is the existing questionnaire survey, not the separate receiver');
+  }
+  return url.href;
+}
+
+async function postQualtricsBundle(fields, receiverUrl, documentObject = document) {
+  const action = validateReceiverUrl(receiverUrl);
+  await createQualtricsCodec().verify(fields);
+  const form = documentObject.createElement('form');
+  form.method = 'POST'; form.action = action;
+  form.enctype = 'application/x-www-form-urlencoded';
+  form.acceptCharset = 'UTF-8'; form.hidden = true;
+  const allowedFields = new Set(createQualtricsCodec().fieldNames);
+  for (const [name, value] of Object.entries(fields)) {
+    if (!allowedFields.has(name)) throw new Error('Unknown receiver field');
+    const input = documentObject.createElement('input');
+    // The modern question API exposes __js_name through getJSEmbeddedData('name').
+    // Flow declarations and exported column names must use this same wire name.
+    input.type = 'hidden'; input.name = '__js_' + name; input.value = value;
+    form.appendChild(input);
+  }
+  documentObject.body.appendChild(form);
+  form.submit();
+}
+var receiverUrl = "https://usf.az1.qualtrics.com/jfe/form/SV_b7rI1T6DVd3u0dw";
+var fields = null;
+var manifest = null;
+var preparing = 0;
+var getElement = function (id) { return document.getElementById(id); };
+getElement('receiver-code').value = "(function () {\nfunction createQualtricsCodec() {\n  // Keep this entire factory in ES5 syntax: Qualtrics' editor parses the inlined\n  // copy separately from the participant browser. Promises/WebCrypto run there.\n  var chunkSize = 18000, maxChunks = 256, schema = 'fae-qualtrics-zip-v1';\n  function chunkName(n) { return 'fae_zip_' + ('0000' + n).slice(-4); }\n  var metadata = ['fae_schema', 'fae_session_id', 'fae_subject_id', 'fae_filename',\n    'fae_zip_bytes', 'fae_zip_sha256', 'fae_chunk_count', 'fae_run_mode', 'fae_return_url'];\n  var fieldNames = metadata.slice();\n  for (var index = 1; index <= maxChunks; index++) fieldNames.push(chunkName(index));\n  function fail(message) { throw new Error(message); }\n  function scalar(value, label) {\n    if (typeof value !== 'string' || !value || value.length > 256 || /[\\r\\n\\0]/.test(value)) fail('Invalid ' + label);\n    return value;\n  }\n  function filename(value) {\n    scalar(value, 'filename');\n    if (!/^[A-Za-z0-9][A-Za-z0-9_.-]*\\.zip$/.test(value)) fail('Unsafe ZIP filename');\n    return value;\n  }\n  function integer(value, label, max) {\n    if (!/^[1-9][0-9]*$/.test(String(value))) fail('Invalid ' + label);\n    var n = Number(value);\n    if (!isFinite(n) || Math.floor(n) !== n || n > max) fail(label + ' exceeds prototype capacity');\n    return n;\n  }\n  function validateReturnUrl(value) {\n    if (value == null || value === '') return '';\n    if (typeof value !== 'string' || value.length > 8000) fail('Invalid return URL');\n    var url = new URL(value);\n    var survey = /(?:^|\\.)qualtrics\\.com$/.test(url.hostname) && /^\\/jfe\\/form\\/SV_[A-Za-z0-9]+$/.test(url.pathname);\n    var receipt = url.origin === 'https://aaestudy.github.io' && url.pathname === '/Studytasks_2026test/qualtrics/saved.html';\n    if (url.protocol !== 'https:' || url.username || url.password || (!survey && !receipt)) fail('Invalid return destination');\n    return url.href;\n  }\n  function hash(bytes) {\n    var cryptoApi = typeof crypto !== 'undefined' ? crypto : null;\n    if (!cryptoApi || !cryptoApi.subtle) fail('Secure browser hashing is unavailable');\n    return cryptoApi.subtle.digest('SHA-256', bytes).then(function (digest) {\n      var values = new Uint8Array(digest), hex = '';\n      for (var n = 0; n < values.length; n++) hex += ('0' + values[n].toString(16)).slice(-2);\n      return hex;\n    });\n  }\n  function build(bytes, info) {\n    return Promise.resolve().then(function () {\n      if (!(bytes instanceof Uint8Array) || !bytes.length) fail('Missing ZIP bytes');\n      if (bytes.length > chunkSize * maxChunks * 3 / 4) fail('ZIP exceeds prototype capacity');\n      var binary = '';\n      for (var n = 0; n < bytes.length; n += 8192) binary += String.fromCharCode.apply(null, bytes.subarray(n, n + 8192));\n      var base64 = btoa(binary);\n      return hash(bytes).then(function (digest) {\n        var fields = {\n          fae_schema: schema,\n          fae_session_id: scalar(info.sessionId, 'session ID'),\n          fae_subject_id: scalar(info.subjectId, 'subject ID'),\n          fae_filename: filename(info.filename),\n          fae_zip_bytes: String(bytes.length),\n          fae_zip_sha256: digest,\n          fae_chunk_count: String(Math.ceil(base64.length / chunkSize)),\n          fae_run_mode: info.runMode,\n          fae_return_url: validateReturnUrl(info.returnUrl)\n        };\n        if (['test', 'full', 'probe'].indexOf(fields.fae_run_mode) === -1) fail('Invalid run mode');\n        for (var n = 0; n < base64.length; n += chunkSize) fields[chunkName(n / chunkSize + 1)] = base64.slice(n, n + chunkSize);\n        return verify(fields).then(function () { return fields; });\n      });\n    });\n  }\n  function verify(fields) {\n    return Promise.resolve().then(function () {\n      if (fields.fae_schema !== schema) fail('Unrecognized envelope schema');\n      scalar(fields.fae_session_id, 'session ID');\n      scalar(fields.fae_subject_id, 'subject ID');\n      filename(fields.fae_filename);\n      validateReturnUrl(fields.fae_return_url);\n      if (['test', 'full', 'probe'].indexOf(fields.fae_run_mode) === -1) fail('Invalid run mode');\n      var count = integer(fields.fae_chunk_count, 'chunk count', maxChunks);\n      var byteCount = integer(fields.fae_zip_bytes, 'ZIP byte count', chunkSize * maxChunks * 3 / 4);\n      if (!/^[a-f0-9]{64}$/.test(fields.fae_zip_sha256 || '')) fail('Invalid SHA-256');\n      var chunks = [];\n      for (var n = 1; n <= maxChunks; n++) {\n        var value = fields[chunkName(n)];\n        if (n > count) {\n          if (value != null && value !== '') fail('Unexpected extra ZIP chunk');\n          continue;\n        }\n        if (typeof value !== 'string' || !value.length || value.length > chunkSize ||\n            (n < count && value.length !== chunkSize)) fail('Missing or truncated chunk ' + n);\n        chunks.push(value);\n      }\n      var base64 = chunks.join('');\n      if (base64.length !== 4 * Math.ceil(byteCount / 3) ||\n          !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(base64)) fail('Invalid base64 or length');\n      var binary = atob(base64);\n      if (btoa(binary) !== base64) fail('Non-canonical base64');\n      var bytes = new Uint8Array(binary.length);\n      for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);\n      if (bytes.length !== byteCount) fail('ZIP byte count mismatch');\n      if (bytes.length < 22 || bytes[0] !== 0x50 || bytes[1] !== 0x4b || bytes[2] !== 3 || bytes[3] !== 4) fail('Missing ZIP header');\n      return hash(bytes).then(function (digest) {\n        if (digest !== fields.fae_zip_sha256) fail('ZIP checksum mismatch');\n        return bytes;\n      });\n    });\n  }\n  return { build: build, verify: verify, validateReturnUrl: validateReturnUrl, fieldNames: fieldNames, chunkSize: chunkSize, maxChunks: maxChunks, schema: schema };\n}\n// Installed into QID1 by build-qualtrics-receiver.mjs, with the codec inlined.\nQualtrics.SurveyEngine.addOnload(function () {\n  this.hideNextButton();\n  this.hidePreviousButton();\n});\nQualtrics.SurveyEngine.addOnReady(function () {\n  var question = this;\n  var engine = Qualtrics.SurveyEngine;\n  var codec = createQualtricsCodec();\n  var container = question.getQuestionContainer();\n  // Text imports or the editor can strip custom HTML attributes.\n  var message = container.querySelector('[data-fae-status]') || container.querySelector('.QuestionText') || container;\n  var fields = {};\n  function showFailure(error) {\n    var reason = String(error.message || error).slice(0,200);\n    try {\n      engine.setJSEmbeddedData('fae_receiver_status', 'invalid');\n      engine.setJSEmbeddedData('fae_receiver_error', reason);\n    } catch (ignored) {}\n    message.textContent = 'We could not verify the task data. Your upload has not been confirmed. Test diagnostic: ' + reason;\n  }\n  try {\n    if (typeof engine.getJSEmbeddedData !== 'function' || typeof engine.setJSEmbeddedData !== 'function') {\n      throw new Error('The new Qualtrics embedded-data methods are unavailable.');\n    }\n    engine.setJSEmbeddedData('fae_receiver_status', 'checking');\n    for (var i = 0; i < codec.fieldNames.length; i++) {\n      var name = codec.fieldNames[i];\n      fields[name] = engine.getJSEmbeddedData(name);\n    }\n    if (!fields.fae_schema) {\n      throw new Error('Missing JS-visible schema. Check __js_fae_schema above this block in Survey Flow and use the updated test sender.');\n    }\n  } catch (error) {\n    showFailure(error);\n    return;\n  }\n  codec.verify(fields).then(function () {\n    // Survey Flow handles this URL only after the response is submitted.\n    engine.setJSEmbeddedData('fae_return_url', codec.validateReturnUrl(fields.fae_return_url));\n    // \"verified\" means integrity checked in the browser, not yet durable storage.\n    engine.setJSEmbeddedData('fae_receiver_status', 'verified');\n    engine.setJSEmbeddedData('fae_receiver_error', '');\n    message.textContent = 'Submitting task data. Please keep this window open…';\n    question.clickNextButton();\n  }).catch(showFailure);\n});\n\n}());\n";
+getElement('copy-code').onclick = async function () {
+  var area = getElement('receiver-code');
+  getElement('code-panel').open = true;
+  try {
+    if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(area.value);
+    } else {
+      area.focus(); area.select();
+      if (!document.execCommand('copy')) throw new Error('Copy unavailable');
+    }
+    getElement('copy-status').textContent = 'Copied. Replace the entire question JavaScript with this code, save, and publish.';
+  } catch (error) {
+    area.focus(); area.select();
+    getElement('copy-status').textContent = 'Code selected. Press Command+C on Mac or Ctrl+C on Windows, then paste into the question JavaScript editor.';
+  }
+};
+function rememberManifest() {
+  try { localStorage.setItem('fae_receiver_probe_manifest', JSON.stringify(manifest)); } catch (error) {}
+}
+async function prepareOfflineProbe() {
+  var generation = ++preparing;
+  getElement('send').disabled = true;
+  getElement('details').disabled = true;
+  fields = null;
+  getElement('status').textContent = 'Preparing synthetic files...';
+  try {
+    var random = new Uint8Array(12);
+    crypto.getRandomValues(random);
+    var randomId = Array.from(random, function (n) { return ('0' + n.toString(16)).slice(-2); }).join('');
+    var session = 'probe_' + Date.now() + '_' + randomId;
+    var budget = Number(getElement('size').value);
+    var specifications = [
+      ['MRT/probe.tsv', 'subject\ttrial\ttask\tRT_from_metronome\n', 'SYNTHETIC\t1\tmetronome\t0.025\n'],
+      ['Image_practice/probe.csv', 'subject,pic1,pic2,RT\n', 'SYNTHETIC,1,2,0.625\n'],
+      ['Calibration/probe.csv', 'subject,pic1,pic2,RT\n', 'SYNTHETIC,3,4,0.750\n'],
+      ['Final_judgments/probe.csv', 'subject,pic,confidence\n', 'SYNTHETIC,1,3\n']
+    ];
+    var files = specifications.map(function (spec) {
+      return { filename:spec[0], text:spec[1] + spec[2].repeat(Math.ceil(budget / 4 / new TextEncoder().encode(spec[2]).length)) };
+    });
+    files.push({filename:'Diagnostics/probe.json', text:JSON.stringify({synthetic_only:true,session_id:session,created_at_utc:new Date().toISOString()})});
+    var zip = createSessionZip(files);
+    var prepared = await createQualtricsCodec().build(zip, {
+      filename:'FAE_' + session + '.zip', sessionId:session, subjectId:'SYNTHETIC', runMode:'probe'
+    });
+    if (generation !== preparing) return;
+    fields = prepared;
+    manifest = {receiver:receiverUrl, session_id:session, filename:fields.fae_filename,
+      zip_bytes:zip.length, sha256:fields.fae_zip_sha256, chunk_count:Number(fields.fae_chunk_count),
+      files:files.map(function (file) { return {filename:file.filename, utf8_bytes:new TextEncoder().encode(file.text).length}; })};
+    rememberManifest();
+    getElement('status').textContent = 'Ready. No data has been sent.';
+    getElement('summary').textContent = JSON.stringify(manifest, null, 2);
+    getElement('send').disabled = false;
+    getElement('details').disabled = false;
+  } catch (error) {
+    getElement('status').textContent = 'Could not prepare the test: ' + error.message;
+  }
+}
+getElement('size').onchange = prepareOfflineProbe;
+getElement('details').onclick = function () {
+  if (!manifest) return;
+  var address = URL.createObjectURL(new Blob([JSON.stringify(manifest,null,2) + '\n'],{type:'application/json'}));
+  var link = document.createElement('a');
+  link.href = address; link.download = manifest.session_id + '_expected.json';
+  document.body.appendChild(link); link.click(); link.remove();
+  setTimeout(function () { URL.revokeObjectURL(address); },1000);
+};
+getElement('send').onclick = async function () {
+  getElement('send').disabled = true;
+  getElement('size').disabled = true;
+  try {
+    rememberManifest();
+    getElement('status').textContent = 'Sending this synthetic session to the receiver...';
+    await postQualtricsBundle(fields,receiverUrl);
+  } catch (error) {
+    getElement('status').textContent = error.message;
+    getElement('send').disabled = false;
+    getElement('size').disabled = false;
+  }
+};
+try {
+  var previous = localStorage.getItem('fae_receiver_probe_manifest');
+  if (previous) getElement('previous').textContent = 'Previous test details: ' + previous;
+} catch (error) {}
+var preparation = prepareOfflineProbe();
+</script></body></html>

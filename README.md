@@ -25,6 +25,21 @@ MRT block. Exported filenames and rows identify it as `test`.
 
 Run data export checks with `node --test tests/data-export.test.mjs`.
 
+## Test saving directly to Qualtrics
+
+The separate receiver has passed live export/recovery tests for 64 KiB and 2 MiB
+synthetic ZIPs. Follow [the receiver setup](qualtrics/README.md) to add the final
+questionnaire return, then append `&saveTo=qualtrics` to the task launch URL while
+preserving its `subjectID`, `id`, and optional `return` parameters. This option
+sends the existing five-file ZIP to the receiver instead of DataPipe. The normal
+launch still uses DataPipe pending the actual-task save-and-return test.
+
+The receiver submits before its End of Survey redirect returns to the task's
+receipt page, which continues to the original questionnaire destination.
+An available IndexedDB backup is committed before leaving the task. Recovery
+uses the same task URL and browser with `&saveTo=qualtrics&resumeSave=1`; it offers
+one explicit submission of retained data for that subject, without rerunning tasks.
+
 ## Check only the Qualtrics return
 
 After Qualtrics sends you to GitHub, append `&redirectTest=1` to the existing

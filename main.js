@@ -1,11 +1,13 @@
 // main.js (ES module)
 // Orchestrates interleaving MRT and Meta-Emotion calibration while producing ONE file per task.
 //
-// Data saving uses DataPipe and local downloads; Qualtrics redirect is optional.
+// Data saving supports DataPipe or the separate Qualtrics receiver.
 
 import { initMetaEmotion, buildMetaEmotionPractice, buildMetaEmotionCalibrationChunk, buildMetaEmotionReview, buildMetaEmotionMetaJ, exportMetaEmotion } from "./metaemotion.js?v=20261018-middle-level";
 import { splitStudyExports } from "./js/analysis-exports.mjs?v=20261018-compact-exports";
 import { createSessionZip, zipToBase64 } from "./js/session-bundle.mjs?v=20261019-bundle";
+import { createQualtricsCodec, postQualtricsBundle } from "./js/qualtrics-bundle.mjs?v=20261019-receiver";
+import { stageQualtricsSession, listPendingQualtricsSessions } from "./js/qualtrics-outbox.mjs?v=20261019-receiver";
 
 // ===================== QUICK TEST CONTROLS =====================
 // Redirect-only check: uncomment REDIRECT_TEST_ONLY = true below to skip tasks/saves.
@@ -34,11 +36,15 @@ const DATA_PIPE_EXPERIMENT_ID = "9XShb2sstH1d";
 const REDIRECT_TO_QUALTRICS = true;
 const DEFAULT_QUALTRICS_RETURN_URL = "https://usf.az1.qualtrics.com/jfe/form/SV_8wijLZLkAmgskVE";
 const QUALTRICS_RETURN_PARAM = "return";
+// Enable only for an integration test until saving and questionnaire routing pass.
+const DEFAULT_DATA_SAVE_TARGET = "datapipe";
+const QUALTRICS_RECEIVER_URL = "https://usf.az1.qualtrics.com/jfe/form/SV_b7rI1T6DVd3u0dw";
 
 // Qualtrics-provided participant identifiers.
 const urlParams = new URLSearchParams(window.location.search);
 
 function getParam(name){ return urlParams.get(name); }
+const SAVE_TO_QUALTRICS = DEFAULT_DATA_SAVE_TARGET === "qualtrics" || getParam("saveTo") === "qualtrics";
 
 let subjectID = urlParams.get("subjectID");
 let numericID = urlParams.get("id");
@@ -172,6 +178,67 @@ function getResultFiles(jsPsych){
   ].filter(file => String(file.text || "").length > 0);
 }
 
+function getSessionBundleBytes(jsPsych){
+  if (!sharedState.bundleBytes) {
+    const files = getResultFiles(jsPsych).map(file => {
+      const key = Object.keys(RESULT_FILENAMES).find(key => RESULT_FILENAMES[key] === file.filename);
+      return { ...file, filename: `${RESULT_FOLDERS[key]}/${file.filename}` };
+    });
+    sharedState.bundleBytes = createSessionZip(files);
+  }
+  return sharedState.bundleBytes;
+}
+
+function qualtricsStorageEnvironment(){
+  const environment = { crypto: globalThis.crypto, location: window.location };
+  for (const name of ['indexedDB', 'sessionStorage']) {
+    try { environment[name] = window[name]; }
+    catch { environment[name] = undefined; }
+  }
+  return environment;
+}
+
+async function sendResultsToQualtrics(pending){
+  if (sharedState.qualtricsTransferInProgress) return;
+  sharedState.qualtricsTransferInProgress = true;
+  const display = jsPsych.getDisplayElement();
+  display.innerHTML = '<div class="center"><p>Saving your task data. Please keep this window open…</p></div>';
+  try {
+    if (!pending) {
+      if (!sharedState.qualtricsTransfer) {
+        const fields = await createQualtricsCodec().build(getSessionBundleBytes(jsPsych), {
+          filename: `FAE_${RUN_MODE}_${SAFE_SUBJECT_ID}_${SESSION_ID}.zip`,
+          sessionId: SESSION_ID, subjectId: subjectID, runMode: RUN_MODE
+        });
+        sharedState.qualtricsTransfer = await stageQualtricsSession({ fields,
+          returnUrl: getQualtricsReturnUrl(),
+          receiptBase: new URL('./qualtrics/saved.html', window.location.href).href
+        }, qualtricsStorageEnvironment());
+      }
+      pending = sharedState.qualtricsTransfer;
+    }
+    sharedState.qualtricsTransfer = pending;
+    // Keep the task's leave-page guards active until staging has completed.
+    sharedState.studyCompleted = true;
+    // Form navigation starts the receiver. The receiver's End of Survey redirect
+    // will reach our receipt page only after Qualtrics records the response.
+    await postQualtricsBundle(pending.fields, QUALTRICS_RECEIVER_URL, document);
+  } catch (error) {
+    console.warn('Qualtrics transfer could not start:', error);
+    showQualtricsRetry(pending);
+  }
+}
+
+function showQualtricsRetry(pending){
+  sharedState.studyCompleted = false;
+  sharedState.qualtricsTransferInProgress = false;
+  const display = jsPsych.getDisplayElement();
+  display.innerHTML = '<div class="center"><p>Your task data could not be confirmed as saved.</p><p>Please keep this window open.</p><button id="retry-qualtrics-save" type="button">Try saving again</button></div>';
+  display.querySelector('#retry-qualtrics-save').addEventListener('click', () => {
+    void sendResultsToQualtrics(pending);
+  }, { once: true });
+}
+
 function downloadTextFile(filename, text, mime){
   const blob = new Blob([text], { type: `${mime};charset=utf-8` });
   const url = URL.createObjectURL(blob);
@@ -226,6 +293,9 @@ function shouldDownloadResults(){
 }
 
 function completionPromptHtml(){
+  if (SAVE_TO_QUALTRICS) {
+    return '<div class="center" style="font-size:24px;line-height:1.35;"><p>The tasks are complete.</p><p>Press <b>SPACE</b> to save your task data and continue to the questionnaires.</p></div>';
+  }
   const unconfirmed = hasUnconfirmedSaves();
   const action = shouldDownloadResults()
     ? (unconfirmed ? "download backup files" : "download your result files")
@@ -246,11 +316,7 @@ function buildPipeSaveTrials(jsPsych){
       filename: bundle.filename,
       data_string: () => {
         if (!sharedState.bundleBase64) {
-          const files = getResultFiles(jsPsych).map(file => {
-            const key = Object.keys(RESULT_FILENAMES).find(key => RESULT_FILENAMES[key] === file.filename);
-            return { ...file, filename: `${RESULT_FOLDERS[key]}/${file.filename}` };
-          });
-          sharedState.bundleBase64 = zipToBase64(createSessionZip(files));
+          sharedState.bundleBase64 = zipToBase64(getSessionBundleBytes(jsPsych));
         }
         return sharedState.bundleBase64;
       },
@@ -448,6 +514,9 @@ const sharedState = { mrtCursor: 0, mrtInitialized: false, mrtMainStarted: false
 
 function finishStudy(){
   if (sharedState.studyCompleted) return;
+  if (SAVE_TO_QUALTRICS && !REDIRECT_TEST_ONLY && getParam('redirectTest') !== '1') {
+    return sendResultsToQualtrics();
+  }
   sharedState.studyCompleted = true;
   const display = jsPsych.getDisplayElement();
   if (REDIRECT_TO_QUALTRICS) {
@@ -474,6 +543,14 @@ jsPsych.data.addProperties({ subject: subjectID });
 // Make jsPsych available for MRT builder (it expects params.jsPsych)
 window.__jsPsychInstance = jsPsych;
 
+// Back from a failed navigation can restore the completed page from memory.
+// Offer one explicit retry using the same staged data; never resend on load.
+if (SAVE_TO_QUALTRICS) window.addEventListener('pageshow', event => {
+  if (event.persisted && sharedState.qualtricsTransfer) {
+    showQualtricsRetry(sharedState.qualtricsTransfer);
+  }
+});
+
 async function start(){
   if (REDIRECT_TEST_ONLY || getParam("redirectTest") === "1") {
     const destination = getQualtricsReturnUrl();
@@ -491,6 +568,22 @@ async function start(){
       choices: [" "],
       data: {task:"system", event:"redirect_test"}
     }]);
+    return;
+  }
+
+  // Recovery is explicit and sends one retained session at a time. It never
+  // launches a batch of overlapping retries or silently replays an old session.
+  if (SAVE_TO_QUALTRICS && getParam('resumeSave') === '1') {
+    const pending = await listPendingQualtricsSessions(subjectID, qualtricsStorageEnvironment());
+    const display = jsPsych.getDisplayElement();
+    if (!pending.length) {
+      display.innerHTML = '<div class="center"><p>No completed task data awaiting submission was found for this participant in this browser.</p><p>Please contact the researcher before restarting the tasks.</p></div>';
+      return;
+    }
+    display.innerHTML = '<div class="center"><p>Your completed task data is ready to submit.</p><p>Please keep this window open.</p><button id="resume-qualtrics-save" type="button">Submit completed task data</button></div>';
+    display.querySelector('#resume-qualtrics-save').addEventListener('click', () => {
+      void sendResultsToQualtrics(pending[0]);
+    }, { once: true });
     return;
   }
 
@@ -575,7 +668,7 @@ async function start(){
   timeline.push(...buildMetaEmotionReview(metaState, 20));
   timeline.push(...buildMetaEmotionMetaJ(metaState, 60));
 
-  if (SAVE_TO_DATA_PIPE) {
+  if (SAVE_TO_DATA_PIPE && !SAVE_TO_QUALTRICS) {
     timeline.push(...buildPipeSaveTrials(jsPsych));
   }
 
