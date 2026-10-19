@@ -10,8 +10,7 @@ Related: #278 covers the recurring Harvard token-validation failure. This report
 
 ### Observed evidence
 
-- Experiment: `FAEData`, ID `9XShb2sstH1d`.
-- Destination: Harvard Dataverse, dataset `doi:10.7910/DVN/NLTRZD` (database ID `14297987`).
+- Survey, experiment, dataset and account identifiers are omitted from this public report. I can provide the details privately to maintainers.
 - Earlier queue records contained:
 
 ```text
@@ -33,7 +32,7 @@ failureReason: "Provider error 403: Forbidden"
 }
 ```
 
-The filename was `Diagnostics_connection_test_20261018T222252Z_83b77322.json`. Large files and simultaneous study submissions were therefore not necessary to reproduce a queued save.
+Large files and simultaneous study submissions were therefore not necessary to reproduce a queued save. The test-file reference can be provided privately.
 
 ### Troubleshooting already completed
 
@@ -53,11 +52,11 @@ This is a hypothesis to investigate, not a confirmed explanation of DataPipe's i
 
 ### Requested investigation
 
-1. Inspect the sanitized upstream status, Content-Type, response body, request ID, and any Retry-After header for failed Harvard requests, including `POST /api/datasets/14297987/add`. Please distinguish an ISP/filter rejection from a Dataverse application error or invalid token.
+1. Inspect the sanitized upstream status, Content-Type, response body, request ID, and any Retry-After header for failed Harvard requests, including `POST /api/datasets/{dataset-id}/add`. Please distinguish an ISP/filter rejection from a Dataverse application error or invalid token.
 2. Check whether queued uploads to this provider retry concurrently and whether they share an outbound IP.
 3. Consider provider-aware concurrency limits and a shared cooldown/backoff with jitter, so a batch of failures does not all retry together during the same block. Harvard's stated approximately 30-minute block may be relevant; it should not be assumed to be a universal fixed retry interval.
 4. Expose useful provider diagnostics and next-retry timing in the dashboard, while clearly distinguishing **accepted/queued by DataPipe** from **delivered to Dataverse**.
 
 Harvard's related infrastructure discussion is https://github.com/IQSS/dataverse.harvard.edu/issues/380.
 
-No API token or participant data is included in this report.
+Please contact me privately for experiment details, dataset identifiers and test-file references needed to locate the relevant logs. No API token or participant data is included in this report.
