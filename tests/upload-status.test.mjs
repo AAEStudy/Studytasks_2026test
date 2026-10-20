@@ -5,6 +5,7 @@ import vm from "node:vm";
 import { webcrypto } from "node:crypto";
 import * as schedule from "../js/image-schedule.mjs";
 import { splitStudyExports } from "../js/analysis-exports.mjs";
+import { resolveStudyConfig, createMrtIntervalSchedule } from "../js/study-schedule.mjs";
 
 const read = path => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 const plain = value => JSON.parse(JSON.stringify(value));
@@ -22,7 +23,7 @@ function runtime({ download = false, blockedStorage = false } = {}) {
   }
   const window = {
     // These status checks exercise the isolated DataPipe completion route.
-    location: { search: "?subjectID=SID4187372347&id=&saveTo=datapipe", replace: url => navigations.push(url) },
+    location: { search: "?subjectID=SID4187372347&id=&saveTo=datapipe&mode=test", replace: url => navigations.push(url) },
     setTimeout, clearTimeout() {}, addEventListener() {}, removeEventListener() {},
     localStorage: { setItem(key, value) {
       if (blockedStorage) throw new Error("storage blocked");
@@ -33,7 +34,7 @@ function runtime({ download = false, blockedStorage = false } = {}) {
     createElement: () => ({ href: "", download: "", remove() {}, click() { downloads.push(this.download); } }) };
   const psych = { data: { addProperties() {}, get: () => collection([]) },
     getDisplayElement: () => display, run: built => { timeline = built; } };
-  const context = vm.createContext({ ...schedule, splitStudyExports, window, document, URL: BrowserURL, URLSearchParams,
+  const context = vm.createContext({ ...schedule, resolveStudyConfig, createMrtIntervalSchedule, splitStudyExports, window, document, URL: BrowserURL, URLSearchParams,
     Blob, TextEncoder, crypto: webcrypto, performance: { now: () => 0 }, setTimeout, clearTimeout() {},
     console: { warn: (...args) => warnings.push(args) },
     fetch: async path => {

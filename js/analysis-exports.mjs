@@ -11,14 +11,15 @@ const COMPARISON_CORE = Object.freeze(["subject", "systemtime", "pic1", "pic2", 
 const JUDGMENT_CORE = Object.freeze(["subject", "systemtime", "pic", "higherlower", "firstRT", "confidence", "secondRT"]);
 const CAL_CHECK = Object.freeze(["cal_check_id", "cal_check_after_trial", "cal_check_expected", "cal_check_response", "cal_check_correct", "cal_check_rt_ms"]);
 const FINAL_CHECK = Object.freeze(["final_check_id", "final_check_after_trial", "final_check_expected", "final_check_response", "final_check_correct", "final_check_rt_ms"]);
-const ROW_CONTEXT = Object.freeze(["row_index", "phase", "chunk", "trial_index"]);
+const ROW_CONTEXT = Object.freeze(["row_index", "phase", "chunk", "trial_index", "mrt_section", "mrt_interval", "mrt_probe_in_section"]);
 const ANALYSIS_SESSION = Object.freeze(["session_id", "run_mode", "configured_tasks_complete", "full_protocol_complete", "export_schema_version"]);
 const SESSION_COLUMNS = new Set([
   ...ANALYSIS_SESSION, "study_version", "session_started_at_utc",
   "practice_trials_planned", "practice_trials_completed", "calibration_trials_planned",
   "calibration_trials_completed", "calibration_trials_full", "meta_trials_planned",
   "meta_trials_completed", "review_images_planned", "review_images_completed",
-  "mrt_blocks_planned", "mrt_blocks_completed"
+  "mrt_blocks_planned", "mrt_blocks_completed", "study_schedule_version",
+  "scheduled_breaks_planned", "scheduled_breaks_completed"
 ]);
 const DATASETS = Object.freeze([
   { key: "mrt", output: "mrtTsv", delimiter: "\t", core: MRT_CORE,

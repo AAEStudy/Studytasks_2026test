@@ -20,8 +20,53 @@ It does not guarantee immunity to Harvard's shared-IP traffic limits.
 Confirm the provider is connected and run an end-to-end test before recruitment.
 Local backup filenames remain unchanged and contain no folder prefix.
 
-The current quick-test configuration has six calibration comparisons and one
-MRT block. Exported filenames and rows identify it as `test`.
+## Study length and mode switch
+
+Ordinary launches now use the **full four-section schedule**. After practice,
+each section runs its whole picture set and then one sustained MRT block:
+
+| Section | Picture comparisons | MRT probe intervals | Break afterward |
+| --- | ---: | ---: | --- |
+| 1 | 90 | 12 | Optional 2 minutes |
+| 2 | 100 | 12 | Mandatory minimum 3 minutes |
+| 3 | 90 | 12 | Optional 2 minutes |
+| 4 | 100 | 12 | Mandatory minimum 5 minutes |
+
+There are 380 comparisons and 48 main probes. The full schedule targets a
+42-second mean tapping interval with ±15-second jitter. It is generated once
+per session and balanced within each section. Complete 1,300-ms tapping cycles
+quantize each block's nominal 8:24 to **8:24.4**, or **33:37.6** across all four
+blocks. Probe answers, transitions, instructions, and breaks add to that time.
+Do not treat the tapping duration as the total session duration; pilot the full
+run to establish the actual completion-time distribution.
+
+Optional breaks can be skipped or ended early. Mandatory breaks disable
+Continue until their minimum time has elapsed. **No break restarts the task
+automatically or expires a participant's session.** The timers measure elapsed
+time, including time with this tab in the background. Quarter, halfway,
+three-quarter and primary-task-completion messages accompany the breaks.
+The final five-minute break precedes the final instructions, whole-set review
+and existing brief SPACE screen, followed by 60 final judgments.
+
+For the **preserved short test**, append `&mode=test` to an existing task URL
+from Qualtrics (use `?mode=test` if there are no other parameters). Switch back
+with `mode=full` or remove the mode parameter. Keep `subjectID`, `id`, and any
+`return` parameter intact. Do not switch modes partway through a run.
+
+The short mode retains the previous six calibration comparisons, one 40-second
+MRT interval (31 tapping cycles), all existing practice, 20 review images and
+60 final judgments, with the existing presentation and instruction timing.
+It has no new overview or scheduled-break screens. A persistent TEST banner,
+filenames, and exported `run_mode` identify it. Both modes use the same dual
+saving and original-tab questionnaire return. To change the default for all
+launches, edit `DEFAULT_RUN_MODE` in `js/study-schedule.mjs` and publish it.
+
+Diagnostics include `study_timing`: the full interval schedule, section plan,
+progress events and actual break durations/choices. Scheduled breaks are
+separate from participant-triggered MRT P-key pause rows. MRT analysis rows also
+identify `mrt_section`, `mrt_interval`, and `mrt_probe_in_section` (zero during
+practice). Full-protocol completion requires the scheduled breaks as well as
+all task outcomes.
 
 Run data export checks with `node --test tests/data-export.test.mjs`.
 
@@ -49,9 +94,9 @@ questionnaire destination. The return field and End of Survey setup are required
 An available IndexedDB backup is committed before the POST. Recovery
 uses the same task URL and browser with `&saveTo=qualtrics&resumeSave=1`; it offers
 one explicit submission of retained data for that subject, without rerunning tasks.
-Local automatic downloads remain enabled during testing. Actual-task export
-recovery has passed; the updated tab return still needs the live test before
-recruitment. Back navigation does not imply a save failed or resubmit data.
+Local automatic downloads remain enabled. The full schedule needs a pilot with
+the real receivers before recruitment. Back navigation does not imply a save
+failed or resubmit data.
 
 ## Check only the Qualtrics return
 

@@ -7,6 +7,8 @@ import * as schedule from "../js/image-schedule.mjs";
 import { splitStudyExports } from "../js/analysis-exports.mjs";
 import { createSessionZip, zipToBase64 } from "../js/session-bundle.mjs";
 import { createQualtricsCodec } from "../js/qualtrics-bundle.mjs";
+import { resolveStudyConfig, createMrtIntervalSchedule } from "../js/study-schedule.mjs";
+import { buildSectionBreak } from "../js/study-breaks.mjs";
 
 const read = path => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 const defaultReturn = "https://usf.az1.qualtrics.com/jfe/form/SV_8wijLZLkAmgskVE";
@@ -165,7 +167,7 @@ function runtime(parameters = { subjectID: "ID0007" }, { redirectTestOnly = fals
     },
     listPendingQualtricsSessions: transport.listPendingQualtricsSessions || (async () => [])
   };
-  const context = vm.createContext({ ...schedule, splitStudyExports, createSessionZip, zipToBase64,
+  const context = vm.createContext({ ...schedule, resolveStudyConfig, createMrtIntervalSchedule, buildSectionBreak, splitStudyExports, createSessionZip, zipToBase64,
     createQualtricsCodec: () => {
       const codec = createQualtricsCodec(), build = codec.build;
       codec.build = (...args) => { events.push({ type: 'hash', at: now }); return build(...args); };
@@ -421,7 +423,7 @@ test('Qualtrics task handoff stages the exact five-file bundle before POST and n
   releaseStage(); await finish;
   assert.deepEqual(calls, ['stage','post']);
   assert.equal(submitted.fae_subject_id, 'ID0007');
-  assert.equal(submitted.fae_run_mode, 'test');
+  assert.equal(submitted.fae_run_mode, 'full');
   assert.equal(run.qa.sharedState.studyCompleted, false, 'submission start is not a post-submit receipt');
   assert.ok(run.beforeUnload().calls > 0);
   assert.equal(run.posts[0].options.target, run.tabs[0].targetName);

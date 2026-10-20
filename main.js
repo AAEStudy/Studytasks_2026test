@@ -4,7 +4,9 @@
 // Data saving sends one shared ZIP to DataPipe and Qualtrics, with local backups.
 
 import { initMetaEmotion, buildMetaEmotionPractice, buildMetaEmotionCalibrationChunk, buildMetaEmotionReview, buildMetaEmotionMetaJ, exportMetaEmotion } from "./metaemotion.js?v=20261018-middle-level";
-import { splitStudyExports } from "./js/analysis-exports.mjs?v=20261018-compact-exports";
+import { splitStudyExports } from "./js/analysis-exports.mjs?v=20261020-full-schedule";
+import { resolveStudyConfig, createMrtIntervalSchedule } from "./js/study-schedule.mjs?v=20261020-full-schedule";
+import { buildSectionBreak } from "./js/study-breaks.mjs?v=20261020-full-schedule";
 import { createSessionZip, zipToBase64 } from "./js/session-bundle.mjs?v=20261019-bundle";
 import { createQualtricsCodec, postQualtricsBundle } from "./js/qualtrics-bundle.mjs?v=20261019-save-tab";
 import { stageQualtricsSession, listPendingQualtricsSessions, completeQualtricsReturn } from "./js/qualtrics-outbox.mjs?v=20261019-save-tab";
@@ -16,15 +18,12 @@ import { openQualtricsSaveTab, waitForQualtricsTabReceipt } from "./js/qualtrics
 // &redirectTest=1 to the GitHub URL after arriving from Qualtrics.
 let REDIRECT_TEST_ONLY = false;
 // REDIRECT_TEST_ONLY = true;
-// Full study: const META_CALIBRATION_COMPARISONS = "ALL";
-const META_CALIBRATION_COMPARISONS = 6;
-
-// Full study: const MRT_TOTAL_BLOCKS = 35;
-const MRT_TOTAL_BLOCKS = 1;
-
-// These can usually stay as-is. They only control how the shortened/long task is split.
-const META_CALIBRATION_COMPARISONS_PER_CHUNK = 10;
-const MRT_BLOCKS_PER_CHUNK = 2;
+// Full mode is the default. Append ?mode=test (or &mode=test after existing
+// parameters) for the unchanged short run. ?mode=full restores the full run.
+// The default for all launches is one switch in js/study-schedule.mjs.
+const STUDY_CONFIG = resolveStudyConfig(window.location.search);
+const META_CALIBRATION_COMPARISONS = STUDY_CONFIG.calibrationComparisons;
+const MRT_TOTAL_BLOCKS = STUDY_CONFIG.mrtProbeIntervals;
 
 // null = a fresh reproducible image order each session; use an integer for a fixed test order.
 const IMAGE_SCHEDULE_SEED = null;
@@ -94,14 +93,13 @@ function safeFilenamePart(value){
 }
 
 const EXPORT_SCHEMA_VERSION = "fae-export-v3";
-const STUDY_VERSION = "FAE-2026-10-19-bundle";
+const STUDY_VERSION = "FAE-2026-10-20-four-sections";
 const SESSION_STARTED_AT_UTC = new Date().toISOString();
 const SESSION_STAMP = sessionStamp(new Date(SESSION_STARTED_AT_UTC));
 const SESSION_RANDOM_ID = globalThis.crypto?.randomUUID?.()
   ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
 const SESSION_ID = `${SESSION_STAMP}_${SESSION_RANDOM_ID}`;
-const RUN_MODE = MRT_TOTAL_BLOCKS === 35 && (META_CALIBRATION_COMPARISONS === "ALL" || META_CALIBRATION_COMPARISONS === 380)
-  ? "full" : "test";
+const RUN_MODE = STUDY_CONFIG.mode;
 const SAFE_SUBJECT_ID = safeFilenamePart(subjectID);
 
 const RESULT_FILENAMES = {
@@ -133,12 +131,18 @@ function getSessionMetadata(jsPsych){
   const configuredComplete = practiceCompleted === state.practicePairs.length
     && calibrationCompleted === state.calibrationTargetCount
     && metaCompleted === 60 && reviewCompleted === 20 && mrtCompleted === MRT_TOTAL_BLOCKS;
+  const plannedBreaks = STUDY_CONFIG.sections.filter(section => section.break);
+  const breaksComplete = plannedBreaks.every(section => sharedState.scheduledBreaks.some(
+    record => record.section === section.number && record.minimum_met === true));
   return {
     export_schema_version: EXPORT_SCHEMA_VERSION,
     study_version: STUDY_VERSION,
     session_id: SESSION_ID,
     session_started_at_utc: SESSION_STARTED_AT_UTC,
     run_mode: RUN_MODE,
+    study_schedule_version: STUDY_CONFIG.scheduleVersion,
+    scheduled_breaks_planned: plannedBreaks.length,
+    scheduled_breaks_completed: sharedState.scheduledBreaks.length,
     practice_trials_planned: state.practicePairs.length,
     practice_trials_completed: practiceCompleted,
     calibration_trials_planned: state.calibrationTargetCount,
@@ -151,7 +155,7 @@ function getSessionMetadata(jsPsych){
     mrt_blocks_planned: MRT_TOTAL_BLOCKS,
     mrt_blocks_completed: mrtCompleted,
     configured_tasks_complete: configuredComplete,
-    full_protocol_complete: RUN_MODE === "full" && configuredComplete
+    full_protocol_complete: RUN_MODE === "full" && configuredComplete && breaksComplete
   };
 }
 
@@ -164,12 +168,23 @@ function getResultExports(jsPsych){
     ? sharedState.convertToCSV(sharedState.customData, metadata)
     : "";
 
-  sharedState.resultExports = Object.freeze(splitStudyExports({
+  const outputs = splitStudyExports({
     mrtTsv,
     pracCsvText: metaOut.pracCsvText,
     caliCsvText: metaOut.caliCsvText,
     metaJCsvText: metaOut.metaJCsvText
-  }, metadata, RESULT_FILENAMES));
+  }, metadata, RESULT_FILENAMES);
+  const diagnostics = JSON.parse(outputs.diagnosticsJsonText);
+  diagnostics.study_timing = {
+    schedule_version: STUDY_CONFIG.scheduleVersion,
+    sections: STUDY_CONFIG.sections,
+    mrt_interval_schedule: sharedState.mrtIntervalSchedule || [],
+    scheduled_breaks: sharedState.scheduledBreaks,
+    progress_events: jsPsych.data.get().values().filter(row =>
+      row.task === "system" && ["study_overview", "section_start", "scheduled_break"].includes(row.event))
+  };
+  outputs.diagnosticsJsonText = JSON.stringify(diagnostics);
+  sharedState.resultExports = Object.freeze(outputs);
   return sharedState.resultExports;
 }
 
@@ -590,7 +605,7 @@ function audioUnlockTrial(nextSet = false){
 
 
 // Global shared state for interleaving
-const sharedState = { mrtCursor: 0, mrtInitialized: false, mrtMainStarted: false, trialNum: 0, probeBlockCounter: 0, studyCompleted: false, uploadStatuses: [] };
+const sharedState = { mrtCursor: 0, mrtInitialized: false, mrtMainStarted: false, trialNum: 0, probeBlockCounter: 0, studyCompleted: false, uploadStatuses: [], scheduledBreaks: [] };
 
 function finishStudy(){
   if (sharedState.studyCompleted) return;
@@ -615,6 +630,15 @@ function finishStudy(){
 }
 
 const jsPsych = initJsPsych({
+  // jsPsych prepares the page at run time, so install the banner only after its
+  // display exists. Keep it outside the trial container so it survives trials.
+  on_trial_start: () => {
+    if (RUN_MODE !== "test" || document.querySelector(".study-test-banner")) return;
+    const banner = document.createElement("div");
+    banner.className = "study-test-banner";
+    banner.textContent = "SHORT TEST MODE · 6 image comparisons · 1 MRT interval";
+    document.body.appendChild(banner);
+  },
   on_finish: finishStudy
 });
 
@@ -676,9 +700,21 @@ async function start(){
   });
   window.__metaState = metaState;
 
+  if (metaState.calibrationTargetCount !== META_CALIBRATION_COMPARISONS) {
+    throw new Error("The image list does not contain the scheduled comparison count.");
+  }
+  sharedState.mrtIntervalSchedule = createMrtIntervalSchedule(STUDY_CONFIG);
+
   const timeline = [];
-  const calibrationChunkSize = Math.max(1, Math.min(META_CALIBRATION_COMPARISONS_PER_CHUNK, metaState.calibrationTargetCount));
-  const mrtBlocksPerChunk = Math.max(1, Math.min(MRT_BLOCKS_PER_CHUNK, MRT_TOTAL_BLOCKS));
+
+  if (RUN_MODE === "full") {
+    timeline.push(transitionScreen(`<h2>Welcome to the study tasks</h2>
+      <p>After practicing both tasks, you will complete <b>four sections</b>. Each section contains picture comparisons followed by metronome tapping.</p>
+      <p>Progress messages will let you know when you are one-quarter, halfway, and three-quarters through these primary tasks.</p>
+      <p>You may take a <b>2-minute break</b> after the first and third sections. There is a required <b>3-minute break halfway through</b> and a required <b>5-minute break after the fourth section</b>.</p>
+      <p>After those sections, you will complete the final picture judgments and return to the questionnaires.</p>
+      <p>Press <b>SPACE</b> to begin.</p>`, {event: "study_overview"}));
+  }
 
   // ---- Preload Meta-Emotion images to prevent uneven display / blank frames ----
   const metaPreload = [];
@@ -715,34 +751,29 @@ async function start(){
   // Picture instructions and practice follow the completed MRT practice.
   timeline.push(...buildMetaEmotionPractice(metaState));
 
-  // -------- Interleaving plan --------
-  let calibrationChunkIndex = 1;
-  while (metaState.caliCursor < metaState.calibrationTargetCount || sharedState.mrtCursor < MRT_TOTAL_BLOCKS) {
-    if (metaState.caliCursor < metaState.calibrationTargetCount) {
-      if (calibrationChunkIndex > 1) {
-        timeline.push(transitionScreen(`<p><b>Image Comparison Task</b></p><p>You will now have some image comparison trials.</p><p>Press <b>SPACE</b> to continue to the next set of image comparisons.</p>`, {event:"task_switch", next:"calibration"}));
-      }
-      timeline.push(...buildMetaEmotionCalibrationChunk(metaState, calibrationChunkSize, calibrationChunkIndex));
-      calibrationChunkIndex++;
+  // One sustained MRT block follows each picture set. The short preset has one
+  // six-comparison set and one MRT interval, with no new screens or timed breaks.
+  for (const section of STUDY_CONFIG.sections) {
+    if (section.number > 1) {
+      timeline.push(transitionScreen(`<p><b>Image Comparison Task</b></p><p>You will now begin the next section with image comparisons, followed by metronome tapping.</p><p>Press <b>SPACE</b> when you are ready.</p>`, {event:"section_start", section: section.number, next:"calibration"}));
     }
+    timeline.push(...buildMetaEmotionCalibrationChunk(metaState, section.comparisons, section.number));
 
-    if (sharedState.mrtCursor < MRT_TOTAL_BLOCKS) {
-      const firstMrtSet = !sharedState.mrtMainStarted;
-      const mrtChunk = buildMRTChunk({
-        jsPsych,
-        subjectID,
-        metronomeAudio,
-        _state: sharedState,
-        includeMidBreak: false,
-        numBlocks: MRT_TOTAL_BLOCKS,
-        blocksToTake: mrtBlocksPerChunk
-      }).timeline;
+    const firstMrtSet = !sharedState.mrtMainStarted;
+    const mrtChunk = buildMRTChunk({
+      jsPsych, subjectID, metronomeAudio, _state: sharedState,
+      includeMidBreak: false, numBlocks: MRT_TOTAL_BLOCKS,
+      blocksToTake: section.probes, sectionBreaks: RUN_MODE === "full"
+    }).timeline;
 
-      if (mrtChunk.length > 0) {
-        // The first set already has its own audio-enable transition and countdown.
-        if (!firstMrtSet) timeline.push(audioUnlockTrial(true));
-        timeline.push(...mrtChunk);
-      }
+    if (mrtChunk.length > 0) {
+      // The first set already has its own audio-enable transition and countdown.
+      if (!firstMrtSet) timeline.push(audioUnlockTrial(true));
+      timeline.push(...mrtChunk);
+    }
+    if (section.break) {
+      timeline.push(buildSectionBreak({ jsPsych, trialType: jsPsychHtmlKeyboardResponse, section: section.number,
+        breakSpec: section.break, onRecord: record => sharedState.scheduledBreaks.push(record) }));
     }
   }
 

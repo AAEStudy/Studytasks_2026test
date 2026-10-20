@@ -105,9 +105,9 @@ trials. Optional participant-requested replays are an explicit exception: they
 repeat the same picture(s) immediately, as requested, and remain flagged in data.
 
 The existing six-comparison test limit is applied after generating the full order.
-It therefore exercises a randomized prefix, not a complete calibration. Restore
-META_CALIBRATION_COMPARISONS = "ALL" for all 380 comparisons. Other timing, MRT
-blocks, response controls, confidence wording and saving endpoints are unchanged.
+It therefore exercises a randomized prefix, not a complete calibration. Select
+mode=full for all 380 comparisons, or mode=test for the preserved short run.
+See README.md for the full alternating schedule and scheduled breaks.
 
 WHY: distribute exposure over time, remove focal-image runs and stable order/key
 cues, and make specific prior choices less conveniently retrievable. This does
