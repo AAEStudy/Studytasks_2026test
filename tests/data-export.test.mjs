@@ -6,6 +6,7 @@ import vm from "node:vm";
 import { webcrypto } from "node:crypto";
 import { splitStudyExports, restoreWideExports } from "../js/analysis-exports.mjs";
 import { createSessionZip, zipToBase64 } from "../js/session-bundle.mjs";
+import { resolveStudyConfig, createMrtIntervalSchedule } from "../js/study-schedule.mjs";
 
 globalThis.STUDY_RESPONSE_SETTINGS = { imageReplayLimit: 5 };
 const { exportMetaEmotion, parseCSV } = await import("../metaemotion.js");
@@ -82,16 +83,16 @@ function runtime(records = [], full = false) {
   const planned = full ? 380 : 6;
   const state = { subject: "CHECK", practicePairs: new Array(12), calibrationPairs: new Array(380), calibrationTargetCount: planned };
   const psych = { data: { addProperties() {}, get: () => collection(records) }, run() {} };
-  const context = vm.createContext({ console, performance, URLSearchParams, crypto: webcrypto,
+  const context = vm.createContext({ console, performance, URLSearchParams, crypto: webcrypto, resolveStudyConfig, createMrtIntervalSchedule,
     document: { addEventListener() {}, removeEventListener() {} },
-    window: { location: { search: "?subjectID=CHECK" }, __metaState: state, addEventListener() {}, removeEventListener() {} },
+    window: { location: { search: `?subjectID=CHECK&mode=${full ? "full" : "test"}` }, __metaState: state, addEventListener() {}, removeEventListener() {} },
     Audio: class {}, initJsPsych: () => psych, exportMetaEmotion, splitStudyExports, createSessionZip, zipToBase64,
     jsPsychHtmlKeyboardResponse: {}, jsPsychInstructions: {}, jsPsychPipe: {}, jsPsychPreload: {} });
   vm.runInContext(read("js/response-controls.js") + "\n" + read("mrt.js"), context);
   let main = read("main.js").replace(/^import .*\n/gm, "").replace(/start\(\);\s*$/, "globalThis.qa = { sharedState, getResultFiles, getResultExports, buildPipeSaveTrials, getSessionMetadata, RESULT_FILENAMES };");
-  if (full) main = main.replace("const META_CALIBRATION_COMPARISONS = 6;", 'const META_CALIBRATION_COMPARISONS = "ALL";').replace("const MRT_TOTAL_BLOCKS = 1;", "const MRT_TOTAL_BLOCKS = 35;");
   vm.runInContext(main, context);
-  const built = context.buildMRTPractice({ subjectID: "CHECK", jsPsych: psych, metronomeAudio: {}, _state: context.qa.sharedState, numBlocks: full ? 35 : 1 });
+  context.qa.sharedState.mrtIntervalSchedule = createMrtIntervalSchedule(resolveStudyConfig(`?mode=${full ? "full" : "test"}`));
+  const built = context.buildMRTPractice({ subjectID: "CHECK", jsPsych: psych, metronomeAudio: {}, _state: context.qa.sharedState, numBlocks: full ? 48 : 1 });
   return { context, psych, state, built, qa: context.qa };
 }
 
@@ -116,14 +117,15 @@ test("short and full runs report separate completion flags and identical upload/
   for (const full of [false, true]) {
     const records = completedRecords(full ? 380 : 6);
     const { qa } = runtime(records, full);
-    qa.sharedState.customData.subject.push(...new Array((full ? 35 : 1) + 1).fill("CHECK"));
-    qa.sharedState.customData.task.push("practice_probe", ...new Array(full ? 35 : 1).fill("thought_probe"));
+    qa.sharedState.customData.subject.push(...new Array((full ? 48 : 1) + 1).fill("CHECK"));
+    qa.sharedState.customData.task.push("practice_probe", ...new Array(full ? 48 : 1).fill("thought_probe"));
+    if (full) qa.sharedState.scheduledBreaks.push(...[1, 2, 3, 4].map(section => ({ section, minimum_met: true })));
     const metadata = qa.getSessionMetadata({ data: { get: () => collection(records) } });
     assert.equal(metadata.run_mode, full ? "full" : "test");
     assert.equal(metadata.configured_tasks_complete, true);
     assert.equal(metadata.full_protocol_complete, full);
     assert.equal(metadata.calibration_trials_completed, full ? 380 : 6);
-    assert.equal(metadata.mrt_blocks_completed, full ? 35 : 1);
+    assert.equal(metadata.mrt_blocks_completed, full ? 48 : 1);
     const psych = { data: { get: () => collection(records) } };
     const files = qa.getResultFiles(psych), pipes = qa.buildPipeSaveTrials(psych);
     assert.equal(files.length, 5);
@@ -142,9 +144,24 @@ test("short and full runs report separate completion flags and identical upload/
     assert.ok(Object.isFrozen(first), "all five exports must share a frozen completed-task snapshot");
     assert.equal(files.at(-1).mime, "application/json");
     assert.deepEqual(JSON.parse(files.at(-1).text), JSON.parse(first.diagnosticsJsonText));
+    const timing = JSON.parse(first.diagnosticsJsonText).study_timing;
+    assert.equal(timing.mrt_interval_schedule.length, full ? 48 : 1);
+    assert.equal(timing.scheduled_breaks.length, full ? 4 : 0);
     records.push(pair("calibration"));
     assert.equal(qa.getResultExports(psych), first, "completed-task snapshot is frozen across subsequent save events");
   }
+});
+
+test("full protocol is incomplete when a mandatory scheduled break is missing", () => {
+  const { qa, psych } = runtime(completedRecords(380), true);
+  qa.sharedState.customData.task.push(...new Array(48).fill("thought_probe"));
+  qa.sharedState.scheduledBreaks.push(...[1, 2, 3].map(section => ({ section, minimum_met: true })));
+  assert.equal(qa.getSessionMetadata(psych).configured_tasks_complete, true);
+  assert.equal(qa.getSessionMetadata(psych).full_protocol_complete, false);
+  qa.sharedState.scheduledBreaks.push({ section: 4, minimum_met: false });
+  assert.equal(qa.getSessionMetadata(psych).full_protocol_complete, false);
+  qa.sharedState.scheduledBreaks[3].minimum_met = true;
+  assert.equal(qa.getSessionMetadata(psych).full_protocol_complete, true);
 });
 
 test("the study's image exports put response checks beside Lee outcomes and separate diagnostic controls", () => {

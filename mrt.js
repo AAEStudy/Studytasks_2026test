@@ -248,6 +248,9 @@ var jsPsych = params.jsPsych;
       if (customData.basis_layout === undefined) {
         customData.basis_layout = new Array(customData.subject.length).fill("NA");
       }
+      for (const column of ["mrt_section", "mrt_interval", "mrt_probe_in_section"]) {
+        if (customData[column] === undefined) customData[column] = new Array(customData.subject.length).fill(0);
+      }
       // Flag to ensure we only run instructions + practice once across interleaving
       if (params._state.mrtInitialized === undefined) params._state.mrtInitialized = false;
       const lag_time = 650;
@@ -464,6 +467,10 @@ var jsPsych = params.jsPsych;
 
       // ---------------- Data Saving Functions ----------------
       function saveProbeMetadata(label = "NA", basis = "NA", basisRT = "NA", check = {}) {
+        const interval = params._state.activeMrtInterval;
+        customData.mrt_section.push(interval?.section ?? 0);
+        customData.mrt_interval.push(interval?.interval ?? 0);
+        customData.mrt_probe_in_section.push(interval?.probeInSection ?? 0);
         customData.confidence_label.push(label);
         customData.main_basis.push(basis);
         customData.probe3_rt.push(basisRT);
@@ -958,7 +965,13 @@ var jsPsych = params.jsPsych;
             data: { task: 'mrt', event: 'probe_resume' },
             on_start: trial => {
               const kinds = StudyResponses.takeReminder('mrt_');
-              trial.stimulus = `${kinds.length ? StudyResponses.reminderHtml() : ''}<p style="font-size:24pt; text-align:center;">Press the spacebar to continue and resume clicking along to the metronome.</p>`;
+              const interval = params._state.activeMrtInterval;
+              const nextInterval = interval && params._state.mrtIntervalSchedule[interval.interval];
+              const sectionComplete = params.sectionBreaks && interval && (!nextInterval || nextInterval.section !== interval.section);
+              const message = sectionComplete
+                ? "This set of metronome tapping is complete. Press SPACE to see your progress and the next break."
+                : "Press the spacebar to continue and resume clicking along to the metronome.";
+              trial.stimulus = `${kinds.length ? StudyResponses.reminderHtml() : ''}<p style="font-size:24pt; text-align:center;">${message}</p>`;
               trial.data = { ...trial.data, speed_reminder_shown: kinds.length > 0, reminder_kinds: kinds };
               if (lastProbeRow !== null) {
                 customData.speed_reminder_shown[lastProbeRow] = kinds.length > 0;
@@ -1063,12 +1076,22 @@ var jsPsych = params.jsPsych;
       const baseTime = 40;
       const jitterRange = 15;
 
-      const intervals = practiceOnly ? [] : generateJitteredIntervals(numBlocks, baseTime, jitterRange);
+      // Main orchestration supplies the saved, balanced schedule. Legacy callers
+      // also generate only once, so later chunks never silently change intervals.
+      if (!practiceOnly && !params._state.mrtIntervalSchedule) {
+        params._state.mrtIntervalSchedule = generateJitteredIntervals(numBlocks, baseTime, jitterRange)
+          .map((seconds, i) => ({ interval: i + 1, section: 1, probeInSection: i + 1,
+            targetSeconds: seconds, tappingTrials: Math.round(seconds * 1000 / 1300),
+            tappingMs: Math.round(seconds * 1000 / 1300) * 1300 }));
+      }
+      const intervals = practiceOnly ? [] : params._state.mrtIntervalSchedule;
+      if (!practiceOnly && intervals.length !== numBlocks) throw new Error("MRT schedule length mismatch");
 
       for (let i = 0; i < intervals.length; i++) {
         let blockTimeline = [];
-        let intervalSeconds = intervals[i];
-        let nTappingTrials = Math.round((intervalSeconds * 1000) / 1300);
+        const interval = intervals[i];
+        const nTappingTrials = interval.tappingTrials;
+        if (!Number.isInteger(nTappingTrials) || nTappingTrials <= 0) throw new Error("Invalid MRT tapping interval");
 
         for (let j = 0; j < nTappingTrials; j++) {
           blockTimeline.push(tapping_trial);
@@ -1084,7 +1107,11 @@ var jsPsych = params.jsPsych;
           blockTimeline = blockTimeline.concat(countdown_main);
         }
 
-        mrt_blocks.push(blockTimeline);
+        mrt_blocks.push([{ timeline: blockTimeline,
+          data: { mrt_section: interval.section, mrt_interval: interval.interval,
+            mrt_probe_in_section: interval.probeInSection },
+          on_timeline_start: () => { params._state.activeMrtInterval = interval; }
+        }]);
       }
 
       // Cursor used to resume MRT blocks after switching away

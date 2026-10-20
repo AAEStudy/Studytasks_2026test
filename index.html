@@ -109,6 +109,13 @@
     .study-response-button { min-height: 64px; padding: 12px 20px; font: inherit; color: white; background: #242424; border: 2px solid #ddd; border-radius: 4px; cursor: pointer; }
     .study-response-button:hover { background: #444; }
     .study-response-button:disabled { color: #999; border-color: #555; cursor: not-allowed; background: #121212; }
+    .study-progress-screen { width: min(860px, calc(100vw - 40px)); margin: 24px auto; text-align: left; font-size: 22px; line-height: 1.5; }
+    .study-progress-screen h2 { font-size: 28px; line-height: 1.35; }
+    .study-break-actions { display: flex; flex-wrap: wrap; gap: 16px; margin: 24px 0; }
+    .study-break-actions [hidden] { display: none; }
+    .study-break-status { min-height: 3em; font-variant-numeric: tabular-nums; }
+    .study-break-note { font-size: 18px; }
+    .study-test-banner { position: fixed; top: 0; left: 0; right: 0; z-index: 1000; padding: 3px 12px; background: #773200; color: white; font: 14px sans-serif; text-align: center; pointer-events: none; }
     .emotion-response-options.four { gap: 12px; margin: 36px 0 24px; }
     .emotion-response-options.four .study-response-button {
       box-sizing: border-box;
@@ -263,8 +270,8 @@
 
 <!-- MRT builder (adapted from your original runMetronomeTask) -->
 <script src="js/response-controls.js?v=20261018-immediate-final-checks"></script>
-<script src="mrt.js?v=20261018-mrt-readable-probes"></script>
+<script src="mrt.js?v=20261020-full-schedule"></script>
 
 <!-- Main orchestration (ES module) -->
-<script type="module" src="main.js?v=20261019-save-tab"></script>
+<script type="module" src="main.js?v=20261020-full-schedule"></script>
 </html>

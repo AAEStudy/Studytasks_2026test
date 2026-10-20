@@ -1,7 +1,7 @@
 # FAE analysis files and diagnostics
 
 Current export schema: `fae-export-v3`.
-Study version: `FAE-2026-10-19-bundle`.
+Study version: `FAE-2026-10-20-four-sections`.
 
 Each completed session saves four compact analysis files and one diagnostics
 JSON file. All five share the generated subject ID and session ID in their
@@ -68,6 +68,11 @@ and useful quality indicators:
 
 `probe_order, basis_display_order, basis_layout, probe1_fast, probe3_fast, speed_reminder_shown`
 
+After `row_index`, `mrt_section`, `mrt_interval`, and `mrt_probe_in_section`
+identify each main row's section (1–4), overall probe interval (1–48), and
+interval within that section (1–12). Practice uses zero. These fields allow
+early/late and task-switch checks without changing the original outcome columns.
+
 `task` distinguishes practice tapping, main tapping, practice probes, main
 thought probes, pauses and instructed responses. Filter rows for the intended
 analysis. Tapping offsets and probe RTs retain their existing units and coding;
@@ -88,7 +93,8 @@ sessions are possible.
 
 `run_mode` distinguishes the shortened test from the full protocol.
 `configured_tasks_complete` indicates completion of the configured task counts;
-`full_protocol_complete` also requires the full protocol configuration. These
+`full_protocol_complete` also requires the full protocol configuration and
+completion of all scheduled-break screens with mandatory minimums met. These
 remain visible in the analysis files so a completed shortened test cannot be
 mistaken for full study data.
 
@@ -100,6 +106,16 @@ mouse-movement measurements, timing gate settings, image randomization and
 source provenance, planned/completed counts, response-format versions, and
 technical warning details. Session settings are stored once. Constant fields
 within a dataset are stored once rather than repeated in every row.
+
+`study_timing` stores the section plan, the one-time generated MRT interval
+schedule, progress-screen events and scheduled-break records. Break records
+distinguish skipping an optional break, taking it, ending it early, and meeting
+the mandatory minimum. They include actual break time, time deciding whether
+to take a break, total screen time, and UTC timestamps. These records are
+separate from participant P-key pauses in the MRT TSV; the legacy `break_time`
+column is not used for the new section breaks. The historical session fields
+`mrt_blocks_planned/completed` continue to count probe intervals (48 in full
+mode), not the four sustained MRT blocks.
 
 No study outcome is discarded. `js/analysis-exports.mjs` provides
 `restoreWideExports(analysisOutputs, diagnosticsJsonText)` to reconstruct the
