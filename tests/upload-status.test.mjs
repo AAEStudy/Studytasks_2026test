@@ -12,7 +12,7 @@ const plain = value => JSON.parse(JSON.stringify(value));
 const collection = rows => ({ values: () => rows,
   filter: criteria => collection(rows.filter(row => Object.entries(criteria).every(([key, value]) => row[key] === value))) });
 
-function runtime({ download = false, blockedStorage = false } = {}) {
+function runtime({ download, blockedStorage = false } = {}) {
   const storage = new Map(), downloads = [], navigations = [], timers = [], warnings = [];
   let timeline, finish;
   const display = { innerHTML: "" };
@@ -48,7 +48,7 @@ function runtime({ download = false, blockedStorage = false } = {}) {
   const meta = read("metaemotion.js").replace(/^import .*\n/gm, "").replace(/^export /gm, "");
   vm.runInContext(read("js/response-controls.js") + "\n" + read("mrt.js") + "\n" + meta, context);
   const main = read("main.js").replace(/^import .*\n/gm, "")
-    .replace(/const DOWNLOAD_RESULTS_AT_END = (?:true|false);/, `const DOWNLOAD_RESULTS_AT_END = ${download};`)
+    .replace(/const DOWNLOAD_RESULTS_AT_END = (?:true|false);/, original => download === undefined ? original : `const DOWNLOAD_RESULTS_AT_END = ${download};`)
     .replace(/start\(\);\s*$/, `globalThis.qa = { start, sharedState, buildPipeSaveTrials,
       recordPipeSave, hasUnconfirmedSaves, shouldDownloadResults, completionPromptHtml, finishStudy };`);
   vm.runInContext(main, context);
@@ -125,7 +125,7 @@ test("the pinned jsPsych engine records the bundle result before advancing, incl
   }
 });
 
-test("a bundle failure forces a visible backup warning", async () => {
+test("a bundle failure keeps a visible save warning without enabling participant downloads", async () => {
   const run = runtime();
   await run.qa.start();
   const trials = run.timeline().filter(trial => trial.data?.event === "pipe_save");
@@ -133,15 +133,15 @@ test("a bundle failure forces a visible backup warning", async () => {
   assert.equal(failed.success, false, "the adapter's incoming success flag cannot hide failure");
   for (const trial of trials.slice(1)) assert.equal(save(trial, { http_status: 200, save_state: "stored" }).success, true);
   assert.equal(run.qa.hasUnconfirmedSaves(), true);
-  assert.equal(run.qa.shouldDownloadResults(), true, "failure forces backups even when the configured download flag is false");
+  assert.equal(run.qa.shouldDownloadResults(), false, "failure must not override disabled downloads");
   const end = run.timeline().at(-1);
   const html = typeof end.stimulus === "function" ? end.stimulus() : end.stimulus;
   assert.match(html, /could not be confirmed as saved online/i);
-  assert.match(html, /keep the backup files/i);
+  assert.match(html, /let the researcher know/i);
+  assert.doesNotMatch(html, /download|backup files/i);
   assert.doesNotMatch(html, /all (?:files|responses|data).*saved successfully/i);
   end.on_finish({ response: " " });
-  assert.equal(run.downloads.length, 5);
-  assert.equal(new Set(run.downloads).size, 5);
+  assert.equal(run.downloads.length, 0);
   assert.equal(run.navigations.length, 0);
   run.finish();
   const redirect = run.timers.find(timer => timer.delay === 500);
@@ -153,7 +153,7 @@ test("a bundle failure forces a visible backup warning", async () => {
   assert.equal(run.context.window.__FAEUploadStatus.subjectID, "SID4187372347");
 });
 
-test("a failed bundle offers all five original backups before redirect without resubmitting", async () => {
+test("a failed bundle preserves its status and return without downloads or resubmission", async () => {
   const run = runtime();
   await run.qa.start();
   const trials = run.timeline().filter(trial => trial.data?.event === "pipe_save");
@@ -167,14 +167,14 @@ test("a failed bundle offers all five original backups before redirect without r
   assert.equal(manifest.files.at(-1).save_state, "failed");
   assert.deepEqual(JSON.parse(run.storage.get("FAE:last-upload-status")), manifest);
   assert.equal(run.qa.hasUnconfirmedSaves(), true);
-  assert.equal(run.qa.shouldDownloadResults(), true);
-  assert.match(run.qa.completionPromptHtml(), /keep the backup files/i);
+  assert.equal(run.qa.shouldDownloadResults(), false);
+  assert.doesNotMatch(run.qa.completionPromptHtml(), /download|backup files/i);
   assert.equal(run.downloads.length, 0);
   assert.equal(run.navigations.length, 0);
   assert.equal(run.timers.length, 0, "a failed upload does not add retry or early-redirect timers");
   run.timeline().at(-1).on_finish({ response: " " });
-  assert.equal(run.downloads.length, 5);
-  assert.equal(run.navigations.length, 0, "backups begin before the Qualtrics return");
+  assert.equal(run.downloads.length, 0);
+  assert.equal(run.navigations.length, 0, "the completion callback still controls the Qualtrics return");
   assert.equal(run.timeline().filter(trial => trial.data?.event === "pipe_save").length, 1, "failure adds no duplicate uploads");
   run.finish();
   const redirects = run.timers.filter(timer => timer.delay === 500);
@@ -240,7 +240,7 @@ test("unknown results and contradictory accepted-with-error results cannot retai
     const data = save(trial, result);
     assert.equal(data.success, false, JSON.stringify(result));
     assert.equal(run.qa.hasUnconfirmedSaves(), true);
-    assert.equal(run.qa.shouldDownloadResults(), true);
+    assert.equal(run.qa.shouldDownloadResults(), false);
     const entry = run.context.window.__FAEUploadStatus.files[0];
     assert.equal(entry.save_state, "unconfirmed");
     assert.equal(entry.error_code, result.code || null);
@@ -260,7 +260,7 @@ test("a later result replaces the bundle status without duplicating it", () => {
   assert.equal(run.qa.hasUnconfirmedSaves(), false);
 });
 
-test("blocked browser storage cannot prevent status handling, backups or the Qualtrics return", async () => {
+test("blocked browser storage preserves status handling and the Qualtrics return without downloads", async () => {
   const run = runtime({ blockedStorage: true });
   await run.qa.start();
   const trial = run.qa.buildPipeSaveTrials(run.psych)[0];
@@ -269,13 +269,13 @@ test("blocked browser storage cannot prevent status handling, backups or the Qua
   assert.equal(run.qa.hasUnconfirmedSaves(), true);
   assert.equal(run.storage.size, 0);
   assert.doesNotThrow(() => run.timeline().at(-1).on_finish({ response: " " }));
-  assert.equal(run.downloads.length, 5);
+  assert.equal(run.downloads.length, 0);
   assert.doesNotThrow(() => run.finish());
   run.timers.find(timer => timer.delay === 500).callback();
   assert.equal(run.navigations.length, 1);
 });
 
-test("configured backups remain enabled even when every recorded upload is stored", () => {
+test("downloads require explicitly changing the researcher code switch", () => {
   const run = runtime({ download: true });
   for (const trial of run.qa.buildPipeSaveTrials(run.psych)) save(trial, { http_status: 200, save_state: "stored" });
   assert.equal(run.qa.hasUnconfirmedSaves(), false);

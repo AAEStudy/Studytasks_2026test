@@ -92,7 +92,7 @@ still skips tasks, exports and saves; it is not a storage test.
 Check this complete route:
 
 1. Complete the shortened task and press SPACE on its final screen. This opens
-   the submission tab synchronously, before hashing or backup downloads. If the
+   the submission tab synchronously, before hashing or browser storage. If the
    browser blocks it, use the task's **Open submission window** button.
 2. Confirm DataPipe attempted one ZIP save; a queued result is not proof of
    delivery to Harvard. The Qualtrics receiver should then verify and submit

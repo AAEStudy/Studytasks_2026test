@@ -94,7 +94,9 @@ questionnaire destination. The return field and End of Survey setup are required
 An available IndexedDB backup is committed before the POST. Recovery
 uses the same task URL and browser with `&saveTo=qualtrics&resumeSave=1`; it offers
 one explicit submission of retained data for that subject, without rerunning tasks.
-Local automatic downloads remain enabled. The full schedule needs a pilot with
+Participant file downloads and their instructions are disabled in both modes,
+including after a failed or unconfirmed DataPipe attempt. Browser recovery and
+both remote saves remain enabled. The full schedule needs a pilot with
 the real receivers before recruitment. Back navigation does not imply a save
 failed or resubmit data.
 

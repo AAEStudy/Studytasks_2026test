@@ -277,7 +277,7 @@ test('both storage destinations are enabled by default and isolated test URLs di
 });
 
 test('the default flow attempts DataPipe first then sends the identical frozen ZIP to Qualtrics for stored, queued and failed outcomes', async () => {
-  for (const result of [
+  for (const mode of ['full', 'test']) for (const result of [
     { http_status: 201, save_state: 'stored', error: null },
     { http_status: 202, save_state: 'queued', error: null },
     { http_status: 403, save_state: 'rejected', error: 'Provider rejected upload' },
@@ -285,7 +285,7 @@ test('the default flow attempts DataPipe first then sends the identical frozen Z
   ]) {
     const calls = [];
     let submitted;
-    const run = runtime({ subjectID: 'ID0007', id: '0042' }, { useDefaultSaveTargets: true, transport: {
+    const run = runtime({ subjectID: 'ID0007', id: '0042', mode }, { useDefaultSaveTargets: true, transport: {
       stageQualtricsSession: async input => {
         calls.push('qualtrics-stage');
         assert.equal(input.returnUrl, defaultReturn + '?id=0042');
@@ -313,9 +313,10 @@ test('the default flow attempts DataPipe first then sends the identical frozen Z
     run.context.createSessionZip = () => assert.fail('The completed ZIP must be reused');
     run.context.exportMetaEmotion = () => assert.fail('The completed exports must be reused');
     timeline.at(-1).on_finish({ response: ' ' });
-    assert.equal(run.downloads.length, 5, 'configured local backups remain enabled');
+    assert.equal(run.downloads.length, 0, 'no upload outcome can enable participant downloads');
+    assert.doesNotMatch(timeline.at(-1).stimulus(), /download|backup files/i);
     assert.equal(run.tabs.length, 1, 'the save tab opens synchronously in the final gesture');
-    assert.equal(run.events.findIndex(event => event.type === 'open') < run.events.findIndex(event => event.type === 'download'), true);
+    assert.equal(run.events.some(event => event.type === 'download'), false);
     await run.onFinish();
     assert.deepEqual(calls, ['datapipe-attempt', 'datapipe-finished', 'qualtrics-stage', 'qualtrics-post']);
     assert.equal(submitted.fae_filename, pipe.filename);
@@ -337,6 +338,7 @@ test('the default flow attempts DataPipe first then sends the identical frozen Z
     run.advance(149); assert.deepEqual(run.navigations, []);
     run.advance(1);
     assert.equal(run.navigations[0].url, defaultReturn + '?id=0042');
+    assert.equal(run.downloads.length, 0);
   }
 });
 
@@ -413,7 +415,7 @@ test('Qualtrics task handoff stages the exact five-file bundle before POST and n
   run.timeline().at(-1).on_finish({ response: ' ' });
   assert.equal(run.tabs.length, 1);
   assert.deepEqual(calls, [], 'opening the tab does not hash, stage or submit data');
-  assert.equal(run.events.findIndex(event => event.type === 'open') < run.events.findIndex(event => event.type === 'download'), true);
+  assert.equal(run.downloads.length, 0);
   const finish = run.onFinish();
   while (!calls.length) await new Promise(resolve => setImmediate(resolve));
   assert.equal(run.qa.sharedState.studyCompleted, false, 'leave-page guards must remain active until staging completes');
@@ -490,7 +492,7 @@ test('popup denial waits for one explicit new-tab gesture and the original tab p
   run.timeline().at(-1).on_finish({ response: ' ' });
   assert.equal(run.tabs.length, 1);
   assert.equal(run.tabs[0].blocked, true);
-  assert.equal(run.downloads.length, 5);
+  assert.equal(run.downloads.length, 0);
   await run.onFinish();
   assert.match(run.display.innerHTML, /Open submission window/);
   assert.equal(run.posts.length, 0);
@@ -672,13 +674,13 @@ test("all MRT unload guards remain active before completion and yield for the co
   assert.equal(run.navigations.length, 1);
 });
 
-test("the final SPACE gesture starts all five backups before completion redirects", async () => {
+test("the final SPACE gesture preserves the completion redirect without file downloads", async () => {
   const run = runtime();
   await run.qa.start();
   const end = run.timeline().at(-1);
   end.on_finish({ response: " " });
-  assert.equal(run.downloads.length, 5);
-  assert.equal(new Set(run.downloads.map(file => file.filename)).size, 5);
+  assert.equal(run.downloads.length, 0);
+  assert.doesNotMatch(end.stimulus(), /download|backup files/i);
   assert.equal(run.qa.sharedState.studyCompleted, false);
   assert.equal(run.navigations.length, 0);
   await run.onFinish();
@@ -687,7 +689,7 @@ test("the final SPACE gesture starts all five backups before completion redirect
   assert.equal(run.navigations.length, 0);
   run.advance(1);
   assert.equal(run.navigations.length, 1);
-  assert.ok(run.events.findLastIndex(event => event.type === "download") < run.events.findIndex(event => event.type === "display"));
+  assert.equal(run.events.some(event => event.type === "download"), false);
   assert.ok(run.events.findIndex(event => event.type === "display") < run.events.findIndex(event => event.type === "navigation"));
 });
 

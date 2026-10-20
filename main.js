@@ -1,7 +1,7 @@
 // main.js (ES module)
 // Orchestrates interleaving MRT and Meta-Emotion calibration while producing ONE file per task.
 //
-// Data saving sends one shared ZIP to DataPipe and Qualtrics, with local backups.
+// Data saving sends one shared ZIP to DataPipe and Qualtrics, with browser recovery.
 
 import { initMetaEmotion, buildMetaEmotionPractice, buildMetaEmotionCalibrationChunk, buildMetaEmotionReview, buildMetaEmotionMetaJ, exportMetaEmotion } from "./metaemotion.js?v=20261018-middle-level";
 import { splitStudyExports } from "./js/analysis-exports.mjs?v=20261020-full-schedule";
@@ -29,8 +29,9 @@ const MRT_TOTAL_BLOCKS = STUDY_CONFIG.mrtProbeIntervals;
 const IMAGE_SCHEDULE_SEED = null;
 const SHUFFLE_REVIEW_AND_META_JUDGMENTS = true;
 
-// Keep local downloads during testing as a backup for the DataPipe saves.
-const DOWNLOAD_RESULTS_AT_END = true;
+// Participant file downloads are disabled in both full and short test modes.
+// This switch does not control remote saves or the Qualtrics recovery outbox.
+const DOWNLOAD_RESULTS_AT_END = false;
 const SAVE_TO_DATA_PIPE = true;
 const DATA_PIPE_EXPERIMENT_ID = "9XShb2sstH1d";
 const REDIRECT_TO_QUALTRICS = true;
@@ -384,7 +385,8 @@ function hasUnconfirmedSaves(){
 }
 
 function shouldDownloadResults(){
-  return DOWNLOAD_RESULTS_AT_END || hasUnconfirmedSaves();
+  // A failed or unconfirmed DataPipe attempt must not enable file downloads.
+  return DOWNLOAD_RESULTS_AT_END;
 }
 
 function completionPromptHtml(){
@@ -397,7 +399,7 @@ function completionPromptHtml(){
     : "finish";
   return `<div class="center" style="font-size:24px; line-height:1.35;">
     <p>Done.</p>
-    ${unconfirmed ? "<p>Some responses could not be confirmed as saved online. Please keep the backup files and let the researcher know.</p>" : ""}
+    ${unconfirmed ? `<p>Some responses could not be confirmed as saved online. ${shouldDownloadResults() ? "Please keep the backup files and let the researcher know." : "Please let the researcher know."}</p>` : ""}
     <p>Press <b>SPACE</b> to ${action}${REDIRECT_TO_QUALTRICS ? " and continue to the questionnaires" : ""}.</p>
   </div>`;
 }
@@ -622,7 +624,7 @@ function finishStudy(){
       <p>The tasks are complete. Continuing to the questionnaires…</p>
       <p>If you are not taken there automatically, <a href="${href}" style="color:inherit; text-decoration:underline;">continue to the questionnaires</a>.</p>
     </div>`;
-    // Allow the final SPACE gesture's backup downloads to start before navigation.
+    // Briefly display the completion message before returning to the questionnaires.
     window.setTimeout(() => window.location.replace(destination), 500);
   } else {
     display.innerHTML = '<p>The tasks are complete. Thank you.</p>';
@@ -787,7 +789,7 @@ async function start(){
     timeline.push(...buildPipeSaveTrials(jsPsych));
   }
 
-  // End screen. Local downloads happen here because the SPACE press counts as a user gesture.
+  // End screen. SPACE supplies the user gesture needed to open the submission tab.
   timeline.push({
     type: jsPsychHtmlKeyboardResponse,
     stimulus: completionPromptHtml,
@@ -798,6 +800,7 @@ async function start(){
       if (SAVE_TO_QUALTRICS) sharedState.qualtricsSaveTab = openQualtricsSaveTab(window);
       if (shouldDownloadResults()) downloadAllResults(jsPsych);
     },
+    // Preserve the legacy event name for diagnostic compatibility.
     data: {task:"system", event:"end_download"}
   });
 
