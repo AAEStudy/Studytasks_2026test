@@ -6,21 +6,19 @@ and a 2 MiB synthetic payload. The 2 MiB ZIP contained **2,098,041 bytes across
 all five original files recovered exactly. This verifies the `__js_fae_…` field
 names and the current USF receiver's storage/export behavior for those tests.
 
-Actual-task integration now attempts **both DataPipe and Qualtrics by default**.
-The task remains in its shortened configuration: **6 calibration
-comparisons and 1 MRT block**. The new-tab handoff and questionnaire return are
-the next acceptance check; full-protocol collection is not yet
-enabled. An actual shortened task ZIP has now also recovered intact (61,757
-bytes, all five files, all configured tasks complete). That export contained two
-identical submissions and **no return-URL field**, which explains the missing
-routing information in the recorded responses. Check the field and ending below.
+Google Drive through DataPipe is now the primary destination: five separate
+files go to their respective type folders. Qualtrics is a fallback if any file
+is queued, rejected, unconfirmed, or missing a stored response. All five
+confirmed Drive saves return directly to the questionnaires without a new tab.
+The task temporarily defaults to the preserved short configuration: six
+calibration comparisons and one MRT interval. The full schedule remains
+available with `mode=full`.
 
-After the DataPipe save attempt, the task independently sends the identical
-five-file ZIP to Qualtrics in a separate script-opened tab using a normal HTTPS
-form POST, without an API token. The original task tab stays open.
-Qualtrics stores it as encoded text in a survey
-response. Participants do not select or upload files. Exporting one response
-table restores everyone's original ZIPs and analysis files in one operation.
+When fallback is needed (or `saveTo=both` is explicit), the task sends a complete
+five-file ZIP to Qualtrics in a separate script-opened tab using an HTTPS form
+POST, without an API token. Its entries contain the same frozen bytes as the
+Drive uploads. The original task tab stays open. Participants do not select or
+upload files. Exporting the receiver responses restores the backup sessions.
 
 ## Update the existing receiver
 
@@ -73,16 +71,16 @@ the QSF remains a development artifact, so use TXT import.
 ## Test the actual task with both saves
 
 Use the normal task launch with its existing participant identifiers and custom
-`return` parameter. Both destinations are enabled when no override is supplied;
-`saveTo=both` explicitly selects the same behavior. For example:
+`return` parameter. Use `saveTo=both` to force both destinations for a receiver
+test; normal launches use Drive first and Qualtrics only as a fallback. For example:
 
 ```text
-https://aaestudy.github.io/Studytasks_2026test/?subjectID=ID0007&id=0007&saveTo=both
+https://aaestudy.github.io/Studytasks_2026test/?subjectID=ID0007&id=0007&mode=test&saveTo=both
 ```
 
-This sends one ZIP to DataPipe and then the same ZIP to the receiver, regardless
+This sends five separate files to Drive and then their ZIP to the receiver, regardless
 of DataPipe reporting stored, queued, rejected, uncertain or timed out. A
-30-second deadline covers the DataPipe request and body read; there are no
+30-second deadline covers each DataPipe request and body read; there are no
 automatic client retries. Timeout means its storage result is unknown, since
 the server may already have received it. For isolated troubleshooting only,
 `saveTo=datapipe` or `saveTo=qualtrics` selects just that destination.
@@ -94,8 +92,8 @@ Check this complete route:
 1. Complete the shortened task and press SPACE on its final screen. This opens
    the submission tab synchronously, before hashing or browser storage. If the
    browser blocks it, use the task's **Open submission window** button.
-2. Confirm DataPipe attempted one ZIP save; a queued result is not proof of
-   delivery to Harvard. The Qualtrics receiver should then verify and submit
+2. Confirm DataPipe attempted five text-file saves; a queued result is not proof
+   of delivery to Drive. The Qualtrics receiver should then verify and submit
    automatically.
 3. Qualtrics should redirect the submission tab to `qualtrics/saved.html` only
    after recording the response. That receipt notifies the original task tab,
@@ -108,9 +106,9 @@ Check this complete route:
 5. Export the receiver response and recover it with the command below. Confirm
    the five actual files and task metadata, rather than only a completion screen.
 
-Before recruitment, repeat with the intended full protocol and measure the ZIP
-size against the application limit. Both saves are enabled now, but full-protocol
-trial counts remain separate from this storage change.
+Before recruitment, repeat with the intended full protocol and verify the five
+Drive files and the fallback return. These storage changes preserve the full
+protocol counts and timing.
 
 ## Export and recover all sessions
 

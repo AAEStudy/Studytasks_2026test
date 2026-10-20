@@ -196,7 +196,7 @@ function runtime(parameters = { subjectID: "ID0007" }, { redirectTestOnly = fals
   }
   let main = read("main.js").replace(/^import .*\n/gm, "").replace(/start\(\);\s*$/, `
     globalThis.qa = { buildQualtricsReturnUrl, getQualtricsReturnUrl, finishStudy,
-      sharedState, start, buildPipeSaveTrials, getResultFiles, REDIRECT_TO_QUALTRICS,
+      sharedState, start, buildPipeSaveTrials, getResultFiles, getPipeResultFiles, shouldSaveToQualtrics, REDIRECT_TO_QUALTRICS,
       DEFAULT_QUALTRICS_RETURN_URL, getSessionBundleBytes, DATA_SAVE_TARGET,
       ACTIVE_SAVE_TO_DATA_PIPE, SAVE_TO_QUALTRICS };
   `);
@@ -252,11 +252,12 @@ test("Qualtrics return IDs follow launch ID, existing return ID, then exact ID-p
   assert.equal(run.qa.sharedState.studyCompleted, false);
 });
 
-test('both storage destinations are enabled by default and isolated test URLs disable only the other destination', async () => {
+test('Drive is primary by default and explicit destination overrides remain available', async () => {
   for (const [saveTo, expectedTarget, expectedPipe, expectedQualtrics] of [
-    [undefined, 'both', true, true],
-    ['', 'both', true, true],
-    ['unrecognized', 'both', true, true],
+    [undefined, 'drive', true, true],
+    ['', 'drive', true, true],
+    ['unrecognized', 'drive', true, true],
+    ['drive', 'drive', true, true],
     ['both', 'both', true, true],
     ['datapipe', 'datapipe', true, false],
     ['qualtrics', 'qualtrics', false, true]
@@ -269,20 +270,62 @@ test('both storage destinations are enabled by default and isolated test URLs di
     assert.equal(run.qa.SAVE_TO_QUALTRICS, expectedQualtrics);
     await run.qa.start();
     const events = Array.from(run.timeline(), trial => trial.data?.event);
-    assert.equal(events.filter(event => event === 'pipe_save').length, expectedPipe ? 1 : 0);
+    assert.equal(events.filter(event => event === 'pipe_save').length, expectedPipe ? 5 : 0);
     assert.equal(events.at(-1), 'end_download');
     if (expectedPipe) assert.equal(events.at(-2), 'pipe_save');
     assert.equal(run.qa.sharedState.qualtricsTransfer, undefined, 'Qualtrics never starts while tasks or DataPipe are running');
   }
 });
 
-test('the default flow attempts DataPipe first then sends the identical frozen ZIP to Qualtrics for stored, queued and failed outcomes', async () => {
-  for (const mode of ['full', 'test']) for (const result of [
-    { http_status: 201, save_state: 'stored', error: null },
+test('five confirmed Drive files return in the original tab without Qualtrics popup or downloads', async () => {
+  for (const mode of ['full', 'test']) {
+    const run = runtime({ subjectID: 'SIDstudy-participant', id: '0042', mode }, { useDefaultSaveTargets: true, popupBlockedAttempts: 10 });
+    await run.qa.start();
+    const pipes = run.timeline().filter(trial => trial.data?.event === 'pipe_save');
+    assert.equal(pipes.length, 5);
+    assert.equal(run.qa.shouldSaveToQualtrics(), true, 'missing receipts cannot count as stored');
+    const paths = ['MRT', 'Image_practice', 'Calibration', 'Final_judgments', 'Diagnostics'];
+    const keys = ['mrt', 'metaPractice', 'metaCalibration', 'metaJudgment', 'diagnostics'];
+    for (let index = 0; index < pipes.length; index++) {
+      const pipe = pipes[index];
+      assert.equal(pipe.action, 'save');
+      assert.equal(pipe.experiment_id, 'ThTYlS6YRHym');
+      assert.equal(pipe.data.file, keys[index]);
+      assert.equal(pipe.filename.split('/')[0], paths[index]);
+      assert.equal(pipe.post_trial_gap, index < 4 ? 1000 : 0);
+      assert.ok(pipe.data_string().length > 0);
+      pipe.on_finish({ ...pipe.data, result: { http_status: 201, save_state: 'stored', error: null } });
+      assert.equal(run.qa.shouldSaveToQualtrics(), index < 4);
+    }
+    const snapshot = run.qa.sharedState.resultExports;
+    assert.ok(Object.isFrozen(snapshot));
+    assert.equal(run.qa.sharedState.bundleBytes, undefined, 'ordinary Drive saving never builds a ZIP');
+    assert.equal(run.context.window.__FAEUploadStatus.files.length, 5);
+    const end = run.timeline().at(-1);
+    assert.doesNotMatch(end.stimulus(), /download|backup files/i);
+    end.on_finish({ response: ' ' });
+    assert.equal(run.tabs.length, 0, 'even a browser configured to block popups is never asked to open one');
+    await run.onFinish();
+    assert.equal(run.posts.length, 0);
+    assert.equal(run.completions.length, 0);
+    assert.equal(run.qa.sharedState.studyCompleted, true);
+    run.advance(499); assert.equal(run.navigations.length, 0);
+    run.advance(1);
+    assert.equal(run.navigations[0].url, defaultReturn + '?id=0042');
+    assert.equal(run.downloads.length, 0);
+    assert.equal(run.qa.sharedState.resultExports, snapshot);
+  }
+});
+
+test('a queued, failed, uncertain or missing file triggers the complete frozen Qualtrics fallback without replaying Drive saves', async () => {
+  const outcomes = [
     { http_status: 202, save_state: 'queued', error: null },
     { http_status: 403, save_state: 'rejected', error: 'Provider rejected upload' },
-    { http_status: null, save_state: 'unconfirmed', error: 'DataPipe timed out' }
-  ]) {
+    { http_status: null, save_state: 'unconfirmed', error: 'DataPipe timed out' },
+    { http_status: 200, save_state: 'accepted', error: null },
+    null
+  ];
+  for (const mode of ['full', 'test']) for (const [affectedIndex, outcome] of outcomes.entries()) {
     const calls = [];
     let submitted;
     const run = runtime({ subjectID: 'ID0007', id: '0042', mode }, { useDefaultSaveTargets: true, transport: {
@@ -296,37 +339,29 @@ test('the default flow attempts DataPipe first then sends the identical frozen Z
     } });
     await run.qa.start();
     const timeline = run.timeline();
-    const pipe = timeline.at(-2);
-    assert.equal(pipe.data.event, 'pipe_save');
-    const encoded = pipe.data_string();
-    calls.push('datapipe-attempt');
-    assert.deepEqual(calls, ['datapipe-attempt']);
-    assert.equal(submitted, undefined);
-    pipe.on_finish({ ...pipe.data, result });
-    calls.push('datapipe-finished');
-    assert.equal(run.qa.sharedState.uploadStatuses[0].save_state, result.save_state);
-    if (result.save_state === 'queued') {
-      assert.equal(run.context.window.__FAEUploadStatus.files[0].save_state, 'queued', 'queue acceptance cannot become a confirmed Dataverse save');
+    const pipes = timeline.filter(trial => trial.data?.event === 'pipe_save');
+    const files = pipes.map(pipe => ({ filename: pipe.filename, text: pipe.data_string() }));
+    for (let index = 0; index < pipes.length; index++) {
+      if (index === affectedIndex && outcome === null) continue;
+      const pipe = pipes[index];
+      calls.push('drive-' + pipe.data.file);
+      pipe.on_finish({ ...pipe.data, result: index === affectedIndex ? outcome : { http_status: 201, save_state: 'stored', error: null } });
     }
-    // Any attempt to rebuild the completed export or ZIP would now fail. Both
-    // destinations must retain the snapshot made before the DataPipe response.
-    run.context.createSessionZip = () => assert.fail('The completed ZIP must be reused');
+    assert.equal(run.qa.shouldSaveToQualtrics(), true);
+    assert.equal(run.qa.sharedState.bundleBytes, undefined, 'the Drive path still contains actual text files');
+    const expectedBundle = createSessionZip(files);
     run.context.exportMetaEmotion = () => assert.fail('The completed exports must be reused');
     timeline.at(-1).on_finish({ response: ' ' });
-    assert.equal(run.downloads.length, 0, 'no upload outcome can enable participant downloads');
+    assert.equal(run.downloads.length, 0);
     assert.doesNotMatch(timeline.at(-1).stimulus(), /download|backup files/i);
-    assert.equal(run.tabs.length, 1, 'the save tab opens synchronously in the final gesture');
-    assert.equal(run.events.some(event => event.type === 'download'), false);
+    assert.equal(run.tabs.length, 1);
     await run.onFinish();
-    assert.deepEqual(calls, ['datapipe-attempt', 'datapipe-finished', 'qualtrics-stage', 'qualtrics-post']);
-    assert.equal(submitted.fae_filename, pipe.filename);
+    assert.deepEqual(calls.slice(-2), ['qualtrics-stage', 'qualtrics-post']);
     assert.equal(submitted.fae_subject_id, 'ID0007');
     const bytes = await createQualtricsCodec().verify(submitted);
-    assert.deepEqual(Buffer.from(bytes), Buffer.from(encoded, 'base64'));
-    assert.equal(zipToBase64(run.qa.getSessionBundleBytes(run.psych)), encoded);
+    assert.deepEqual(Buffer.from(bytes), Buffer.from(expectedBundle), 'fallback ZIP preserves the five standalone files byte for byte');
     await run.onFinish();
     run.advance(10000);
-    assert.equal(calls.filter(call => call === 'datapipe-attempt').length, 1);
     assert.equal(calls.filter(call => call === 'qualtrics-post').length, 1);
     assert.deepEqual(run.navigations, [], 'the original tab waits for the post-submit receipt');
     assert.equal(run.qa.sharedState.studyCompleted, false);
@@ -356,9 +391,12 @@ test('a failed Qualtrics handoff retries its retained fields without replaying t
     }
   } });
   await run.qa.start();
-  const pipe = run.timeline().at(-2);
-  const encoded = pipe.data_string(); pipeAttempts++;
-  pipe.on_finish({ ...pipe.data, result: { http_status: 202, save_state: 'queued', error: null } });
+  const pipes = run.timeline().filter(trial => trial.data?.event === 'pipe_save');
+  const texts = pipes.map(pipe => pipe.data_string());
+  for (const pipe of pipes) {
+    pipeAttempts++;
+    pipe.on_finish({ ...pipe.data, result: { http_status: 202, save_state: 'queued', error: null } });
+  }
   run.context.buildPipeSaveTrials = () => assert.fail('Qualtrics retries must not construct another DataPipe attempt');
   run.psych.run = () => assert.fail('Qualtrics retries must not replay the study or its DataPipe timeline');
   run.timeline().at(-1).on_finish({ response: ' ' });
@@ -373,9 +411,9 @@ test('a failed Qualtrics handoff retries its retained fields without replaying t
   assert.equal(run.tabs.length, 2, 'the explicit retry opens exactly one fresh save tab');
   assert.equal(run.posts[0].options.target, run.tabs[0].targetName);
   assert.equal(run.posts[1].options.target, run.tabs[1].targetName);
-  assert.equal(pipeAttempts, 1);
-  assert.equal(pipe.data_string(), encoded);
-  assert.equal(run.qa.sharedState.uploadStatuses.length, 1);
+  assert.equal(pipeAttempts, 5);
+  assert.deepEqual(pipes.map(pipe => pipe.data_string()), texts);
+  assert.equal(run.qa.sharedState.uploadStatuses.length, 5);
   assert.equal(run.qa.sharedState.uploadStatuses[0].save_state, 'queued');
 });
 
@@ -395,7 +433,7 @@ test('Qualtrics task handoff stages the exact five-file bundle before POST and n
   const calls = [];
   let releaseStage, submitted;
   const staged = new Promise(resolve => { releaseStage = resolve; });
-  const run = runtime({ subjectID: 'ID0007', id: '0042', saveTo: 'qualtrics' }, { transport: {
+  const run = runtime({ subjectID: 'ID0007', id: '0042', saveTo: 'qualtrics', mode: 'full' }, { transport: {
     stageQualtricsSession: async input => {
       calls.push('stage');
       assert.equal(input.returnUrl, defaultReturn + '?id=0042');
@@ -614,11 +652,11 @@ test("building the study and save payloads cannot navigate or mark study complet
   assert.ok(timeline.length > 0);
   assert.deepEqual(Array.from(timeline.slice(-2), trial => trial.data.event),
     ["pipe_save", "end_download"],
-    "the completion gesture must follow the bundled save");
+    "the completion gesture must follow all separate file saves");
   const saves = run.qa.buildPipeSaveTrials(run.psych);
-  assert.equal(saves.length, 1);
+  assert.equal(saves.length, 5);
   assert.deepEqual(Array.from(saves, trial => trial.data.file),
-    ["bundle"]);
+    ["mrt", "metaPractice", "metaCalibration", "metaJudgment", "diagnostics"]);
   assert.ok(saves.every(trial => trial.data_string().length > 0));
   assert.equal(run.navigations.length, 0);
   assert.equal(run.downloads.length, 0);

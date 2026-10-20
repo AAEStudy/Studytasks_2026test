@@ -1,7 +1,7 @@
 # FAE analysis files and diagnostics
 
 Current export schema: `fae-export-v3`.
-Study version: `FAE-2026-10-20-four-sections`.
+Study version: `FAE-2026-10-20-drive-files`.
 
 Each completed session saves four compact analysis files and one diagnostics
 JSON file. All five share the generated subject ID and session ID in their
@@ -129,9 +129,9 @@ The external credit/return `id` is not added to any export.
 
 ## Saving and compatibility
 
-Each participant ZIP contains these folder paths:
+Each session saves actual files into these Google Drive subfolders:
 
-| File | Folder inside ZIP |
+| File | Drive subfolder |
 | --- | --- |
 | MRT TSV | `MRT/` |
 | Image-practice CSV | `Image_practice/` |
@@ -139,35 +139,26 @@ Each participant ZIP contains these folder paths:
 | Final-judgment CSV | `Final_judgments/` |
 | Diagnostics JSON | `Diagnostics/` |
 
-Keep Psych-DS metadata off in the DataPipe experiment to avoid extra metadata writes.
-Local backup filenames and diagnostics' analysis-file references stay bare,
-so browsers do not turn path separators into altered download names. Match the
-filename within each folder; file contents and schema are unchanged.
+Keep Psych-DS metadata off in DataPipe experiment `ThTYlS6YRHym`, so slashes
+create real Drive folders. Each file is submitted through `/api/data/` as text,
+with its folder prefix in the uploaded filename. Analysis-file references in
+diagnostics retain bare filenames. There are five ordered save trials and a
+separate status for each file, with one-second gaps and no automatic client
+retries. Each request/body read has a 30-second deadline. HTTP 201 is stored;
+202 is queued and not yet confirmed delivered to Drive.
 
-The five files are now submitted in one `FAE_<mode>_<subject>_<session>.zip`
-through `/api/base64/`. Enable binary uploads in DataPipe. Folder paths are
-inside the ZIP; each entry preserves the original UTF-8 file bytes. ZIP STORE
-avoids compression overhead. There is one save trial and one bundle status,
-with no per-file waits or client retries. HTTP 201 is stored; 202 is queued,
-not confirmed as delivered to Dataverse. The change reduces data submissions
-but cannot prevent shared-IP blocking or coordinate other participants.
-Normal launches also submit the identical frozen ZIP to the separate Qualtrics
-receiver after the DataPipe attempt. DataPipe has a 30-second request/body
-deadline, so a stalled upload cannot indefinitely block the Qualtrics handoff.
-Queued, rejected and uncertain results all proceed to that second destination.
-Qualtrics retries reuse the staged ZIP and do not resend DataPipe uploads.
-Local downloads remain enabled during testing; a rejected or unconfirmed
-DataPipe result also forces backups if that configuration is later disabled.
-The same frozen bytes are used for both uploads and local backups. Redirect-only
-quick mode skips every export and upload, including diagnostics. See
-[the receiver setup](qualtrics/README.md) for the required Survey Flow return
-and batch recovery of the original files from a Qualtrics response export.
+After five stored results, the task returns to the questionnaires in the same
+tab. If any result is missing, queued, failed, or unconfirmed, the final SPACE
+gesture opens the existing Qualtrics fallback. That fallback alone packages the
+same five frozen files into a ZIP with the folder paths above. Explicit
+`saveTo=both` forces it for testing; `saveTo=qualtrics` isolates it. Qualtrics
+retries reuse the staged ZIP and do not repeat Drive uploads. Match session IDs
+when reconciling a backup against a partly successful Drive session.
 
-The leading Lee outcome columns and their numerical coding are unchanged.
-Scripts should read the header row and select named columns. Scripts that
-expect the complete old column count or old technical column positions need
-updating, or can use the reconstructed wide files. Existing saved sessions are
-not silently altered; any converted copy must be kept separate from its source.
+Participant downloads remain disabled in all modes and failure states. The
+redirect-only test skips exports and uploads. See
+[the receiver setup](qualtrics/README.md) for the existing Survey Flow return
+and recovery of fallback files from a Qualtrics response export.
 
 ## Verified conversion example
 

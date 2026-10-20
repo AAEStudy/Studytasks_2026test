@@ -62,13 +62,15 @@ function save(trial, result, extra = {}) {
   return data;
 }
 
-test("building one binary save trial neither claims success nor starts transport or backups", () => {
+test("building five foldered text saves neither claims success nor starts transport or downloads", () => {
   const run = runtime();
   const trials = run.qa.buildPipeSaveTrials(run.psych);
-  assert.deepEqual(Array.from(trials, trial => trial.data.file), ["bundle"]);
-  assert.equal(trials[0].action, "saveBase64");
-  assert.deepEqual(Array.from(trials, trial => trial.post_trial_gap), [0]);
-  assert.match(trials[0].filename, /^FAE_.*\.zip$/);
+  assert.deepEqual(Array.from(trials, trial => trial.data.file), ["mrt", "metaPractice", "metaCalibration", "metaJudgment", "diagnostics"]);
+  assert.ok(trials.every(trial => trial.action === "save"));
+  assert.ok(trials.every(trial => trial.experiment_id === "ThTYlS6YRHym"));
+  assert.deepEqual(Array.from(trials, trial => trial.post_trial_gap), [1000, 1000, 1000, 1000, 0]);
+  assert.deepEqual(Array.from(trials, trial => trial.filename.split("/")[0]), ["MRT", "Image_practice", "Calibration", "Final_judgments", "Diagnostics"]);
+  assert.match(trials[0].filename, /^MRT\/MRT_test_.*\.tsv$/);
   assert.equal(run.qa.hasUnconfirmedSaves(), false, "future save trials are not recorded failures");
   assert.equal(run.qa.shouldDownloadResults(), false);
   assert.equal(run.qa.sharedState.uploadStatuses.length, 0);
@@ -77,7 +79,7 @@ test("building one binary save trial neither claims success nor starts transport
   assert.equal(run.downloads.length + run.navigations.length + run.timers.length, 0);
 });
 
-test("the pinned jsPsych engine records the bundle result before advancing, including queued and failed saves", () => {
+test("the pinned jsPsych engine records each file result before advancing, including queued and failed saves", () => {
   const source = read("js/external/jspsych.js");
   const start = source.indexOf("        finishTrial(data = {}) {");
   const end = source.indexOf("        endExperiment(", start);
@@ -106,9 +108,8 @@ test("the pinned jsPsych engine records the bundle result before advancing, incl
         "the upload result is retained before waiting for the next attempt");
       if (index < trials.length - 1) {
         assert.equal(nextCount, index, "no subsequent attempt starts immediately");
-        assert.equal(pending.due - now, 2000);
-        assert.match(run.display.innerHTML, /Saving your responses/);
-        now += 1999;
+        assert.equal(pending.due - now, 1000);
+        now += 999;
         assert.ok(now < pending.due);
         assert.equal(nextCount, index);
         now++;
@@ -118,14 +119,14 @@ test("the pinned jsPsych engine records the bundle result before advancing, incl
       }
       assert.equal(nextCount, index + 1);
     }
-    assert.equal(now, 0);
+    assert.equal(now, 4000);
     assert.equal(run.navigations.length + run.downloads.length, 0,
       "upload completion and pacing cannot start downloads or redirect early");
     assert.equal(run.qa.hasUnconfirmedSaves(), result.save_state === "rejected");
   }
 });
 
-test("a bundle failure keeps a visible save warning without enabling participant downloads", async () => {
+test("one file failure keeps a visible save warning without enabling participant downloads", async () => {
   const run = runtime();
   await run.qa.start();
   const trials = run.timeline().filter(trial => trial.data?.event === "pipe_save");
@@ -153,17 +154,18 @@ test("a bundle failure keeps a visible save warning without enabling participant
   assert.equal(run.context.window.__FAEUploadStatus.subjectID, "SID4187372347");
 });
 
-test("a failed bundle preserves its status and return without downloads or resubmission", async () => {
+test("a failed diagnostic file preserves all five statuses and return without downloads or resubmission", async () => {
   const run = runtime();
   await run.qa.start();
   const trials = run.timeline().filter(trial => trial.data?.event === "pipe_save");
-  assert.equal(trials.length, 1);
-  const diagnostics = trials[0];
-  assert.equal(diagnostics.data.file, "bundle");
+  assert.equal(trials.length, 5);
+  for (const trial of trials.slice(0, 4)) save(trial, { http_status: 201, save_state: "stored", error: null });
+  const diagnostics = trials[4];
+  assert.equal(diagnostics.data.file, "diagnostics");
   assert.equal(save(diagnostics, { http_status: 503, save_state: "failed", error: "Provider unavailable" }).success, false);
   const manifest = plain(run.context.window.__FAEUploadStatus);
-  assert.equal(manifest.files.length, 1);
-  assert.equal(manifest.files.at(-1).file, "bundle");
+  assert.equal(manifest.files.length, 5);
+  assert.equal(manifest.files.at(-1).file, "diagnostics");
   assert.equal(manifest.files.at(-1).save_state, "failed");
   assert.deepEqual(JSON.parse(run.storage.get("FAE:last-upload-status")), manifest);
   assert.equal(run.qa.hasUnconfirmedSaves(), true);
@@ -175,7 +177,7 @@ test("a failed bundle preserves its status and return without downloads or resub
   run.timeline().at(-1).on_finish({ response: " " });
   assert.equal(run.downloads.length, 0);
   assert.equal(run.navigations.length, 0, "the completion callback still controls the Qualtrics return");
-  assert.equal(run.timeline().filter(trial => trial.data?.event === "pipe_save").length, 1, "failure adds no duplicate uploads");
+  assert.equal(run.timeline().filter(trial => trial.data?.event === "pipe_save").length, 5, "failure adds no duplicate uploads");
   run.finish();
   const redirects = run.timers.filter(timer => timer.delay === 500);
   assert.equal(redirects.length, 1);
@@ -185,7 +187,7 @@ test("a failed bundle preserves its status and return without downloads or resub
     "the completion flow must leave confirmed analysis statuses intact");
 });
 
-test("the persisted bundle manifest preserves full SID and upload status without task or provider payloads", () => {
+test("the persisted five-file manifest preserves full SID and upload status without task or provider payloads", () => {
   const run = runtime();
   const trials = run.qa.buildPipeSaveTrials(run.psych);
   const privateData = "PRIVATE_TRIAL_DATA_123";
@@ -196,7 +198,7 @@ test("the persisted bundle manifest preserves full SID and upload status without
   assert.equal(manifest.subjectID, "SID4187372347");
   assert.equal(typeof manifest.session_id, "string");
   assert.ok(manifest.session_id.length > 20);
-  assert.deepEqual(manifest.files.map(file => file.file), ["bundle"]);
+  assert.deepEqual(manifest.files.map(file => file.file), ["mrt", "metaPractice", "metaCalibration", "metaJudgment", "diagnostics"]);
   for (let index = 0; index < trials.length; index++) {
     const file = manifest.files[index];
     assert.equal(file.filename, trials[index].filename);
@@ -228,7 +230,7 @@ test("202 queued and accepted saves are confirmed once without warnings, forced 
   run.timeline().at(-1).on_finish({ response: " " });
   assert.equal(run.downloads.length, 0);
   assert.equal(run.warnings.length, 0);
-  assert.equal(run.timeline().filter(trial => trial.data?.event === "pipe_save").length, 1);
+  assert.equal(run.timeline().filter(trial => trial.data?.event === "pipe_save").length, 5);
   assert.equal(run.timers.length, 0);
 });
 
@@ -248,14 +250,14 @@ test("unknown results and contradictory accepted-with-error results cannot retai
   }
 });
 
-test("a later result replaces the bundle status without duplicating it", () => {
+test("a later result replaces one file status without duplicating it", () => {
   const run = runtime();
   const trials = run.qa.buildPipeSaveTrials(run.psych);
   save(trials[0], { save_state: "failed", error: "offline" });
   save(trials[0], { http_status: 200, save_state: "stored" });
   const files = run.context.window.__FAEUploadStatus.files;
   assert.equal(files.length, 1);
-  assert.equal(files[0].file, "bundle");
+  assert.equal(files[0].file, "mrt");
   assert.equal(files[0].error, null);
   assert.equal(run.qa.hasUnconfirmedSaves(), false);
 });

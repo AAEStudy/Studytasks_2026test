@@ -10,19 +10,22 @@ Schema v3 saves four compact analysis files plus one diagnostics JSON file.
 Image instructed-response results immediately follow the original outcome
 columns. Technical fields and repeated session settings are stored in diagnostics.
 
-DataPipe receives **one ZIP per session** using its binary/base64 endpoint.
-The ZIP contains the five original files under `MRT/`, `Image_practice/`,
-`Calibration/`, `Final_judgments/` and `Diagnostics/`. Enable **binary uploads**
-for experiment `9XShb2sstH1d` in DataPipe; keep Psych-DS metadata off.
-The ZIP uses STORE (no compression), preserving exact UTF-8 bytes with CRC checks.
-This reduces participant-data requests from five to one, without four inter-file waits.
-It does not guarantee immunity to Harvard's shared-IP traffic limits.
-Confirm the provider is connected and run an end-to-end test before recruitment.
-Local backup filenames remain unchanged and contain no folder prefix.
+DataPipe experiment `ThTYlS6YRHym` saves **five separate text files** in real
+Google Drive subfolders: `MRT/`, `Image_practice/`, `Calibration/`,
+`Final_judgments/` and `Diagnostics/`. Files are uploaded in order through
+`/api/data/`, with one second between completed attempts. Each name contains
+the subject, run mode, and unique session ID. No ZIP is sent to Drive.
+
+Keep **Psych-DS metadata off** in this new DataPipe experiment: when enabled,
+DataPipe flattens slash-containing names instead of using these subfolders.
+Binary uploads are not needed for these text files. Enable data collection.
+If a DataPipe session cap is set, allow five uploads per participant (for
+example, at least 1,500 for 300 participants), because its counter is per file.
 
 ## Study length and mode switch
 
-Ordinary launches now use the **full four-section schedule**. After practice,
+Ordinary launches temporarily use the **preserved short test** for Drive save
+verification. Use `mode=full` for the full four-section schedule. After practice,
 each section runs its whole picture set and then one sustained MRT block:
 
 | Section | Picture comparisons | MRT probe intervals | Break afterward |
@@ -49,16 +52,16 @@ The final five-minute break precedes the final instructions, whole-set review
 and existing brief SPACE screen, followed by 60 final judgments.
 
 For the **preserved short test**, append `&mode=test` to an existing task URL
-from Qualtrics (use `?mode=test` if there are no other parameters). Switch back
-with `mode=full` or remove the mode parameter. Keep `subjectID`, `id`, and any
+from Qualtrics (use `?mode=test` if there are no other parameters). Run the full study
+with `mode=full`; removing the parameter currently retains the short default. Keep `subjectID`, `id`, and any
 `return` parameter intact. Do not switch modes partway through a run.
 
 The short mode retains the previous six calibration comparisons, one 40-second
 MRT interval (31 tapping cycles), all existing practice, 20 review images and
 60 final judgments, with the existing presentation and instruction timing.
 It has no new overview or scheduled-break screens. A persistent TEST banner,
-filenames, and exported `run_mode` identify it. Both modes use the same dual
-saving and original-tab questionnaire return. To change the default for all
+filenames, and exported `run_mode` identify it. Both modes use the same Drive saves,
+Qualtrics fallback, and original-tab questionnaire return. To change the default for all
 launches, edit `DEFAULT_RUN_MODE` in `js/study-schedule.mjs` and publish it.
 
 Diagnostics include `study_timing`: the full interval schedule, section plan,
@@ -72,33 +75,37 @@ Run data export checks with `node --test tests/data-export.test.mjs`.
 
 ## Save to DataPipe and Qualtrics
 
-The separate receiver has passed live export/recovery tests for 64 KiB and 2 MiB
-synthetic ZIPs. Normal task launches now attempt **both** destinations: one ZIP
-to DataPipe, then the identical frozen ZIP to the separate Qualtrics receiver.
-Follow [the receiver setup](qualtrics/README.md) to add the final questionnaire
-return, then test with the existing `subjectID`, `id`, and optional `return`
-parameters. `saveTo=both` explicitly selects the default. `saveTo=datapipe` and
-`saveTo=qualtrics` isolate a destination for troubleshooting.
+Normal launches use `saveTo=drive`: all five confirmed stored responses return
+directly to the questionnaires in the same tab, without opening a submission
+tab or constructing a ZIP. If any file is queued, rejected, uncertain, missing,
+or timed out, the final SPACE gesture starts the existing Qualtrics backup
+submission. That fallback contains the complete five-file session ZIP, with
+exactly the same frozen text bytes as the Drive files. A fallback submission
+may therefore overlap files already stored in Drive; match by session ID.
 
-The DataPipe attempt has a 30-second deadline covering the request and response
-body. Queued, rejected, uncertain and timed-out results all allow the Qualtrics
-handoff to proceed. A timeout does not prove that DataPipe failed to retain the
-upload; its server may still process a received request. No client retries are
-added. A Qualtrics retry does not repeat the DataPipe attempt.
+`saveTo=both` explicitly sends the five files to Drive and the full ZIP to the
+receiver on every run. `saveTo=datapipe` and `saveTo=qualtrics` isolate a
+destination for troubleshooting. Unknown values retain the normal Drive route.
+Keep the existing `subjectID`, `id`, and optional `return` URL parameters.
 
-The final SPACE gesture opens a separate submission tab while keeping the task
-tab in place. After submission, the receiver's End of Survey redirect reaches
-the receipt page in that child tab. A matching completion message closes the
-child where permitted and makes the original task tab continue to the stored
-questionnaire destination. The return field and End of Survey setup are required.
-An available IndexedDB backup is committed before the POST. Recovery
-uses the same task URL and browser with `&saveTo=qualtrics&resumeSave=1`; it offers
-one explicit submission of retained data for that subject, without rerunning tasks.
-Participant file downloads and their instructions are disabled in both modes,
-including after a failed or unconfirmed DataPipe attempt. Browser recovery and
-both remote saves remain enabled. The full schedule needs a pilot with
-the real receivers before recruitment. Back navigation does not imply a save
-failed or resubmit data.
+Each DataPipe request and body read has a 30-second deadline. No client retries
+are added: a timed-out request may already have reached the server, and a 202
+response is retained in DataPipe's retry queue rather than a stored Drive file.
+All five attempts finish before fallback selection. A Qualtrics retry does not
+repeat any DataPipe attempt.
+
+When needed, the Qualtrics save tab opens within the final SPACE gesture.
+Popup denial displays **Open submission window**. After submission, the
+receiver's End of Survey receipt closes the child where permitted and returns
+the original tab to the saved questionnaire destination. The existing receiver
+configuration remains required; see [the receiver setup](qualtrics/README.md).
+An available IndexedDB backup is committed before the fallback POST. Recovery
+uses the same task URL and browser with `&saveTo=qualtrics&resumeSave=1`.
+
+Participant file downloads and their instructions remain disabled in both
+modes, including after failed or unconfirmed uploads. Pilot the new Drive route
+and confirm all five folders/files before recruitment. The full schedule and
+its break/progress behavior are preserved behind `mode=full`.
 
 ## Check only the Qualtrics return
 

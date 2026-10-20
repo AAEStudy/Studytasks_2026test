@@ -11,9 +11,9 @@ const read = path => readFileSync(new URL(`../${path}`, import.meta.url), "utf8"
 const plain = value => JSON.parse(JSON.stringify(value));
 const flatten = timeline => Array.from(timeline).flatMap(item => [item, ...(item.timeline ? flatten(item.timeline) : [])]);
 
-test("mode switch defaults to full and retains the exact legacy short counts", () => {
-  assert.equal(resolveStudyConfig().mode, "full");
-  assert.equal(resolveStudyConfig("?mode=unknown").mode, "full");
+test("mode switch temporarily defaults to short for Drive testing and retains full mode", () => {
+  assert.equal(resolveStudyConfig().mode, "test");
+  assert.equal(resolveStudyConfig("?mode=unknown").mode, "test");
   assert.equal(resolveStudyConfig("?mode=full", "test").mode, "full");
   const short = resolveStudyConfig("?subjectID=CHECK&id=123&mode=test&saveTo=both");
   assert.deepEqual([short.calibrationComparisons, short.mrtProbeIntervals, short.mrtMeanSeconds,
@@ -23,7 +23,7 @@ test("mode switch defaults to full and retains the exact legacy short counts", (
 });
 
 test("every full schedule has equal sustained blocks and retains bounded interval jitter", () => {
-  const config = resolveStudyConfig();
+  const config = resolveStudyConfig("?mode=full");
   assert.deepEqual(config.sections.map(section => section.comparisons), [90, 100, 90, 100]);
   assert.deepEqual(config.sections.map(section => [section.break.kind, section.break.durationMs]),
     [["optional", 120000], ["mandatory", 180000], ["optional", 120000], ["mandatory", 300000]]);
@@ -104,7 +104,8 @@ for (const mode of ["full", "test"]) test(`${mode}: actual orchestration has all
   assert.equal(run.banners.length, full ? 0 : 1);
   const lastInterval = run.timeline.indexOf(intervals.at(-1));
   assert.equal(run.timeline[lastInterval + (full ? 2 : 1)].data.event, "meta_instructions");
-  assert.equal(run.timeline.at(-2).action, "saveBase64");
+  assert.equal(run.timeline.filter(trial => trial.data?.event === "pipe_save").length, 5);
+  assert.equal(run.timeline.at(-2).action, "save");
   assert.equal(run.timeline.at(-1).data.event, "end_download");
   const saved = run.state.mrtIntervalSchedule;
   run.context.buildMRTChunk({ jsPsych: {}, subjectID: "CHECK", metronomeAudio: {}, _state: run.state,

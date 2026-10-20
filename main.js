@@ -1,13 +1,13 @@
 // main.js (ES module)
 // Orchestrates interleaving MRT and Meta-Emotion calibration while producing ONE file per task.
 //
-// Data saving sends one shared ZIP to DataPipe and Qualtrics, with browser recovery.
+// Data saving sends five text files to Drive via DataPipe, with Qualtrics fallback.
 
 import { initMetaEmotion, buildMetaEmotionPractice, buildMetaEmotionCalibrationChunk, buildMetaEmotionReview, buildMetaEmotionMetaJ, exportMetaEmotion } from "./metaemotion.js?v=20261018-middle-level";
 import { splitStudyExports } from "./js/analysis-exports.mjs?v=20261020-full-schedule";
-import { resolveStudyConfig, createMrtIntervalSchedule } from "./js/study-schedule.mjs?v=20261020-full-schedule";
+import { resolveStudyConfig, createMrtIntervalSchedule } from "./js/study-schedule.mjs?v=20261020-drive-files";
 import { buildSectionBreak } from "./js/study-breaks.mjs?v=20261020-full-schedule";
-import { createSessionZip, zipToBase64 } from "./js/session-bundle.mjs?v=20261019-bundle";
+import { createSessionZip } from "./js/session-bundle.mjs?v=20261019-bundle";
 import { createQualtricsCodec, postQualtricsBundle } from "./js/qualtrics-bundle.mjs?v=20261019-save-tab";
 import { stageQualtricsSession, listPendingQualtricsSessions, completeQualtricsReturn } from "./js/qualtrics-outbox.mjs?v=20261019-save-tab";
 import { openQualtricsSaveTab, waitForQualtricsTabReceipt } from "./js/qualtrics-tab-handoff.mjs?v=20261019-save-tab";
@@ -18,8 +18,8 @@ import { openQualtricsSaveTab, waitForQualtricsTabReceipt } from "./js/qualtrics
 // &redirectTest=1 to the GitHub URL after arriving from Qualtrics.
 let REDIRECT_TEST_ONLY = false;
 // REDIRECT_TEST_ONLY = true;
-// Full mode is the default. Append ?mode=test (or &mode=test after existing
-// parameters) for the unchanged short run. ?mode=full restores the full run.
+// Short mode is the temporary default for the Drive save test. Append ?mode=full
+// (or &mode=full after existing parameters) to run the preserved full schedule.
 // The default for all launches is one switch in js/study-schedule.mjs.
 const STUDY_CONFIG = resolveStudyConfig(window.location.search);
 const META_CALIBRATION_COMPARISONS = STUDY_CONFIG.calibrationComparisons;
@@ -33,13 +33,13 @@ const SHUFFLE_REVIEW_AND_META_JUDGMENTS = true;
 // This switch does not control remote saves or the Qualtrics recovery outbox.
 const DOWNLOAD_RESULTS_AT_END = false;
 const SAVE_TO_DATA_PIPE = true;
-const DATA_PIPE_EXPERIMENT_ID = "9XShb2sstH1d";
+const DATA_PIPE_EXPERIMENT_ID = "ThTYlS6YRHym";
 const REDIRECT_TO_QUALTRICS = true;
 const DEFAULT_QUALTRICS_RETURN_URL = "https://usf.az1.qualtrics.com/jfe/form/SV_8wijLZLkAmgskVE";
 const QUALTRICS_RETURN_PARAM = "return";
-// Both copies are enabled by default. saveTo=datapipe or saveTo=qualtrics
-// isolates one destination when testing; unknown values retain both copies.
-const DEFAULT_DATA_SAVE_TARGET = "both";
+// Normal Drive saves use Qualtrics only if any file is not confirmed stored.
+// Explicit saveTo=both, datapipe, or qualtrics remains available for testing.
+const DEFAULT_DATA_SAVE_TARGET = "drive";
 const QUALTRICS_RECEIVER_URL = "https://usf.az1.qualtrics.com/jfe/form/SV_b7rI1T6DVd3u0dw";
 
 // Qualtrics-provided participant identifiers.
@@ -47,10 +47,10 @@ const urlParams = new URLSearchParams(window.location.search);
 
 function getParam(name){ return urlParams.get(name); }
 const requestedSaveTarget = getParam("saveTo");
-const DATA_SAVE_TARGET = ["both", "datapipe", "qualtrics"].includes(requestedSaveTarget)
+const DATA_SAVE_TARGET = ["drive", "both", "datapipe", "qualtrics"].includes(requestedSaveTarget)
   ? requestedSaveTarget : DEFAULT_DATA_SAVE_TARGET;
-const ACTIVE_SAVE_TO_DATA_PIPE = SAVE_TO_DATA_PIPE && ["both", "datapipe"].includes(DATA_SAVE_TARGET);
-const SAVE_TO_QUALTRICS = ["both", "qualtrics"].includes(DATA_SAVE_TARGET);
+const ACTIVE_SAVE_TO_DATA_PIPE = SAVE_TO_DATA_PIPE && ["drive", "both", "datapipe"].includes(DATA_SAVE_TARGET);
+const SAVE_TO_QUALTRICS = ["drive", "both", "qualtrics"].includes(DATA_SAVE_TARGET);
 
 let subjectID = urlParams.get("subjectID");
 let numericID = urlParams.get("id");
@@ -94,7 +94,7 @@ function safeFilenamePart(value){
 }
 
 const EXPORT_SCHEMA_VERSION = "fae-export-v3";
-const STUDY_VERSION = "FAE-2026-10-20-four-sections";
+const STUDY_VERSION = "FAE-2026-10-20-drive-files";
 const SESSION_STARTED_AT_UTC = new Date().toISOString();
 const SESSION_STAMP = sessionStamp(new Date(SESSION_STARTED_AT_UTC));
 const SESSION_RANDOM_ID = globalThis.crypto?.randomUUID?.()
@@ -110,8 +110,8 @@ const RESULT_FILENAMES = {
   metaJudgment: `Meta_emotion_metaJ_${RUN_MODE}_${SAFE_SUBJECT_ID}_${SESSION_ID}.csv`,
   diagnostics: `Diagnostics_${RUN_MODE}_${SAFE_SUBJECT_ID}_${SESSION_ID}.json`
 };
-// Paths inside the single participant ZIP.
-// Keep local backup names and diagnostic file references as bare filenames.
+// Real Drive subfolders when DataPipe Psych-DS metadata is off.
+// The optional Qualtrics fallback ZIP retains the same paths and file bytes.
 const RESULT_FOLDERS = Object.freeze({
   mrt: "MRT",
   metaPractice: "Image_practice",
@@ -198,6 +198,16 @@ function getResultFiles(jsPsych){
     { filename: RESULT_FILENAMES.metaJudgment, text: out.metaJCsvText, mime: "text/csv" },
     { filename: RESULT_FILENAMES.diagnostics, text: out.diagnosticsJsonText, mime: "application/json" }
   ].filter(file => String(file.text || "").length > 0);
+}
+
+function getPipeResultFiles(jsPsych){
+  const fields = { mrt: "mrtTsv", metaPractice: "pracCsvText", metaCalibration: "caliCsvText",
+    metaJudgment: "metaJCsvText", diagnostics: "diagnosticsJsonText" };
+  return Object.entries(RESULT_FILENAMES).map(([key, filename]) => ({
+    key, filename: `${RESULT_FOLDERS[key]}/${filename}`,
+    // Resolve only when saving begins, after all task responses are collected.
+    get text(){ return getResultExports(jsPsych)[fields[key]]; }
+  }));
 }
 
 function getSessionBundleBytes(jsPsych){
@@ -389,8 +399,18 @@ function shouldDownloadResults(){
   return DOWNLOAD_RESULTS_AT_END;
 }
 
+function shouldSaveToQualtrics(){
+  if (!SAVE_TO_QUALTRICS) return false;
+  if (DATA_SAVE_TARGET !== "drive") return true;
+  // A queued/accepted upload is retained by DataPipe but is not yet a Drive
+  // save confirmation. Missing results and failures also keep the fallback.
+  return Object.keys(RESULT_FILENAMES).some(key => !sharedState.uploadStatuses.some(saved =>
+    saved.file === key && saved.filename === `${RESULT_FOLDERS[key]}/${RESULT_FILENAMES[key]}`
+      && saved.save_state === "stored" && !saved.error));
+}
+
 function completionPromptHtml(){
-  if (SAVE_TO_QUALTRICS) {
+  if (shouldSaveToQualtrics()) {
     return '<div class="center" style="font-size:24px;line-height:1.35;"><p>The tasks are complete.</p><p>Press <b>SPACE</b> to save your task data and continue to the questionnaires.</p></div>';
   }
   const unconfirmed = hasUnconfirmedSaves();
@@ -405,22 +425,21 @@ function completionPromptHtml(){
 }
 
 function buildPipeSaveTrials(jsPsych){
-  const bundle = { key: "bundle", filename: `FAE_${RUN_MODE}_${SAFE_SUBJECT_ID}_${SESSION_ID}.zip` };
-  return [{
+  const files = getPipeResultFiles(jsPsych);
+  return files.map((file, index) => ({
       type: jsPsychPipe,
-      action: "saveBase64",
+      action: "save",
       experiment_id: DATA_PIPE_EXPERIMENT_ID,
-      filename: bundle.filename,
-      data_string: () => {
-        if (!sharedState.bundleBase64) {
-          sharedState.bundleBase64 = zipToBase64(getSessionBundleBytes(jsPsych));
-        }
-        return sharedState.bundleBase64;
-      },
-      post_trial_gap: 0,
-      data: { task: "system", event: "pipe_save", file: "bundle" },
-      on_finish: data => recordPipeSave(bundle, data)
-  }];
+      filename: file.filename,
+      data_string: () => file.text,
+      post_trial_gap: index < files.length - 1 ? 1000 : 0,
+      data: { task: "system", event: "pipe_save", file: file.key },
+      on_finish: data => {
+        recordPipeSave(file, data);
+        if (index < files.length - 1) jsPsych.getDisplayElement().innerHTML =
+          `<div class="center"><p>Saving your task data (${index + 1} of ${files.length}). Please keep this window open…</p></div>`;
+      }
+  }));
 }
 
 // Prepare audio for MRT (uses same filenames as your MRT task; adjust if your repo differs)
@@ -611,7 +630,7 @@ const sharedState = { mrtCursor: 0, mrtInitialized: false, mrtMainStarted: false
 
 function finishStudy(){
   if (sharedState.studyCompleted) return;
-  if (SAVE_TO_QUALTRICS && !REDIRECT_TEST_ONLY && getParam('redirectTest') !== '1') {
+  if (shouldSaveToQualtrics() && !REDIRECT_TEST_ONLY && getParam('redirectTest') !== '1') {
     return sendResultsToQualtrics();
   }
   sharedState.studyCompleted = true;
@@ -783,8 +802,8 @@ async function start(){
   timeline.push(...buildMetaEmotionReview(metaState, 20));
   timeline.push(...buildMetaEmotionMetaJ(metaState, 60));
 
-  // Complete the DataPipe attempt before the final gesture starts the separate
-  // Qualtrics handoff. A queued or failed attempt never disables that copy.
+  // Save each file in order. Normal Drive success returns in the same tab;
+  // queued, failed or missing confirmations retain the Qualtrics fallback.
   if (ACTIVE_SAVE_TO_DATA_PIPE) {
     timeline.push(...buildPipeSaveTrials(jsPsych));
   }
@@ -797,7 +816,7 @@ async function start(){
     on_finish: () => {
       // Open synchronously within the final SPACE gesture, before hashing or
       // storage work consumes the browser's permission to open a new tab.
-      if (SAVE_TO_QUALTRICS) sharedState.qualtricsSaveTab = openQualtricsSaveTab(window);
+      if (shouldSaveToQualtrics()) sharedState.qualtricsSaveTab = openQualtricsSaveTab(window);
       if (shouldDownloadResults()) downloadAllResults(jsPsych);
     },
     // Preserve the legacy event name for diagnostic compatibility.

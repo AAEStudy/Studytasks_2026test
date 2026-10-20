@@ -89,7 +89,7 @@ function runtime(records = [], full = false) {
     Audio: class {}, initJsPsych: () => psych, exportMetaEmotion, splitStudyExports, createSessionZip, zipToBase64,
     jsPsychHtmlKeyboardResponse: {}, jsPsychInstructions: {}, jsPsychPipe: {}, jsPsychPreload: {} });
   vm.runInContext(read("js/response-controls.js") + "\n" + read("mrt.js"), context);
-  let main = read("main.js").replace(/^import .*\n/gm, "").replace(/start\(\);\s*$/, "globalThis.qa = { sharedState, getResultFiles, getResultExports, buildPipeSaveTrials, getSessionMetadata, RESULT_FILENAMES };");
+  let main = read("main.js").replace(/^import .*\n/gm, "").replace(/start\(\);\s*$/, "globalThis.qa = { sharedState, getResultFiles, getResultExports, buildPipeSaveTrials, getSessionMetadata, getSessionBundleBytes, RESULT_FILENAMES };");
   vm.runInContext(main, context);
   context.qa.sharedState.mrtIntervalSchedule = createMrtIntervalSchedule(resolveStudyConfig(`?mode=${full ? "full" : "test"}`));
   const built = context.buildMRTPractice({ subjectID: "CHECK", jsPsych: psych, metronomeAudio: {}, _state: context.qa.sharedState, numBlocks: full ? 48 : 1 });
@@ -113,7 +113,7 @@ function completedRecords(calibrationCount) {
     ...Array.from({ length: 20 }, () => ({ task: "metaemotion", event: "image", phase: "review" }))];
 }
 
-test("short and full runs report separate completion flags and identical upload/download bytes", () => {
+test("short and full runs preserve the same frozen file bytes across Drive and Qualtrics exports", () => {
   for (const full of [false, true]) {
     const records = completedRecords(full ? 380 : 6);
     const { qa } = runtime(records, full);
@@ -129,16 +129,20 @@ test("short and full runs report separate completion flags and identical upload/
     const psych = { data: { get: () => collection(records) } };
     const files = qa.getResultFiles(psych), pipes = qa.buildPipeSaveTrials(psych);
     assert.equal(files.length, 5);
-    assert.equal(pipes.length, 1);
+    assert.equal(pipes.length, 5);
     assert.deepEqual(Array.from(pipes, pipe => pipe.data.file),
-      ["bundle"]);
+      ["mrt", "metaPractice", "metaCalibration", "metaJudgment", "diagnostics"]);
     const folders = ["MRT", "Image_practice", "Calibration", "Final_judgments", "Diagnostics"];
     files.forEach((file, i) => {
       assert.doesNotMatch(file.filename, /[/\\]/, "local backups keep usable bare filenames");
       assert.ok(file.filename.includes(`_${metadata.run_mode}_CHECK_${metadata.session_id}`));
     });
-    assert.equal(pipes[0].action, "saveBase64");
-    assert.equal(pipes[0].data_string(), zipToBase64(createSessionZip(files.map((file, i) => ({ ...file, filename: `${folders[i]}/${file.filename}` })))));
+    pipes.forEach((pipe, index) => {
+      assert.equal(pipe.action, "save");
+      assert.equal(pipe.filename, `${folders[index]}/${files[index].filename}`);
+      assert.equal(pipe.data_string(), files[index].text);
+    });
+    assert.equal(zipToBase64(qa.getSessionBundleBytes(psych)), zipToBase64(createSessionZip(files.map((file, i) => ({ ...file, filename: `${folders[i]}/${file.filename}` })))));
     const first = qa.getResultExports(psych);
     assert.equal(metadata.export_schema_version, "fae-export-v3");
     assert.ok(Object.isFrozen(first), "all five exports must share a frozen completed-task snapshot");
