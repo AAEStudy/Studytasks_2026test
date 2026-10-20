@@ -5,7 +5,7 @@
 
 import { initMetaEmotion, buildMetaEmotionPractice, buildMetaEmotionCalibrationChunk, buildMetaEmotionReview, buildMetaEmotionMetaJ, exportMetaEmotion } from "./metaemotion.js?v=20261018-middle-level";
 import { splitStudyExports } from "./js/analysis-exports.mjs?v=20261020-full-schedule";
-import { resolveStudyConfig, createMrtIntervalSchedule } from "./js/study-schedule.mjs?v=20261020-drive-files";
+import { resolveStudyConfig, createMrtIntervalSchedule } from "./js/study-schedule.mjs?v=20261020-drive-full";
 import { buildSectionBreak } from "./js/study-breaks.mjs?v=20261020-full-schedule";
 import { createSessionZip } from "./js/session-bundle.mjs?v=20261019-bundle";
 import { createQualtricsCodec, postQualtricsBundle } from "./js/qualtrics-bundle.mjs?v=20261019-save-tab";
@@ -18,8 +18,8 @@ import { openQualtricsSaveTab, waitForQualtricsTabReceipt } from "./js/qualtrics
 // &redirectTest=1 to the GitHub URL after arriving from Qualtrics.
 let REDIRECT_TEST_ONLY = false;
 // REDIRECT_TEST_ONLY = true;
-// Short mode is the temporary default for the Drive save test. Append ?mode=full
-// (or &mode=full after existing parameters) to run the preserved full schedule.
+// Full mode is the default. Append ?mode=test (or &mode=test after existing
+// parameters) for the preserved short run. ?mode=full restores the full run.
 // The default for all launches is one switch in js/study-schedule.mjs.
 const STUDY_CONFIG = resolveStudyConfig(window.location.search);
 const META_CALIBRATION_COMPARISONS = STUDY_CONFIG.calibrationComparisons;

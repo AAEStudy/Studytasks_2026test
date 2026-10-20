@@ -11,9 +11,9 @@ const read = path => readFileSync(new URL(`../${path}`, import.meta.url), "utf8"
 const plain = value => JSON.parse(JSON.stringify(value));
 const flatten = timeline => Array.from(timeline).flatMap(item => [item, ...(item.timeline ? flatten(item.timeline) : [])]);
 
-test("mode switch temporarily defaults to short for Drive testing and retains full mode", () => {
-  assert.equal(resolveStudyConfig().mode, "test");
-  assert.equal(resolveStudyConfig("?mode=unknown").mode, "test");
+test("mode switch defaults to full and retains the exact legacy short counts", () => {
+  assert.equal(resolveStudyConfig().mode, "full");
+  assert.equal(resolveStudyConfig("?mode=unknown").mode, "full");
   assert.equal(resolveStudyConfig("?mode=full", "test").mode, "full");
   const short = resolveStudyConfig("?subjectID=CHECK&id=123&mode=test&saveTo=both");
   assert.deepEqual([short.calibrationComparisons, short.mrtProbeIntervals, short.mrtMeanSeconds,

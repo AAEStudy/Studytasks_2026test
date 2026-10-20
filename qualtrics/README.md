@@ -10,9 +10,9 @@ Google Drive through DataPipe is now the primary destination: five separate
 files go to their respective type folders. Qualtrics is a fallback if any file
 is queued, rejected, unconfirmed, or missing a stored response. All five
 confirmed Drive saves return directly to the questionnaires without a new tab.
-The task temporarily defaults to the preserved short configuration: six
-calibration comparisons and one MRT interval. The full schedule remains
-available with `mode=full`.
+The task defaults to the full four-section schedule. The preserved short
+configuration (six calibration comparisons and one MRT interval) remains
+available with `mode=test`.
 
 When fallback is needed (or `saveTo=both` is explicit), the task sends a complete
 five-file ZIP to Qualtrics in a separate script-opened tab using an HTTPS form

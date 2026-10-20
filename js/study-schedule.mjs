@@ -1,5 +1,5 @@
 // One switch for ordinary launches; ?mode=test / ?mode=full overrides it per run.
-export const DEFAULT_RUN_MODE = "test";
+export const DEFAULT_RUN_MODE = "full";
 export const STUDY_SCHEDULE_VERSION = "four-sections-20261020";
 export const TAP_CYCLE_MS = 1300;
 

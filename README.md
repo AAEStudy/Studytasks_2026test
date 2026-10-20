@@ -24,8 +24,7 @@ example, at least 1,500 for 300 participants), because its counter is per file.
 
 ## Study length and mode switch
 
-Ordinary launches temporarily use the **preserved short test** for Drive save
-verification. Use `mode=full` for the full four-section schedule. After practice,
+Ordinary launches use the **full four-section schedule**. After practice,
 each section runs its whole picture set and then one sustained MRT block:
 
 | Section | Picture comparisons | MRT probe intervals | Break afterward |
@@ -52,8 +51,8 @@ The final five-minute break precedes the final instructions, whole-set review
 and existing brief SPACE screen, followed by 60 final judgments.
 
 For the **preserved short test**, append `&mode=test` to an existing task URL
-from Qualtrics (use `?mode=test` if there are no other parameters). Run the full study
-with `mode=full`; removing the parameter currently retains the short default. Keep `subjectID`, `id`, and any
+from Qualtrics (use `?mode=test` if there are no other parameters). Restore full
+mode with `mode=full` or remove the mode parameter. Keep `subjectID`, `id`, and any
 `return` parameter intact. Do not switch modes partway through a run.
 
 The short mode retains the previous six calibration comparisons, one 40-second
