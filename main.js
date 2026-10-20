@@ -708,7 +708,7 @@ async function start(){
   const timeline = [];
 
   if (RUN_MODE === "full") {
-    timeline.push(transitionScreen(`<h2>Welcome to the study tasks</h2>
+    timeline.push(transitionScreen(`<h2>Study Tasks Overview</h2>
       <p>After practicing both tasks, you will complete <b>four sections</b>. Each section contains picture comparisons followed by metronome tapping.</p>
       <p>Progress messages will let you know when you are one-quarter, halfway, and three-quarters through these primary tasks.</p>
       <p>You may take a <b>2-minute break</b> after the first and third sections. There is a required <b>3-minute break halfway through</b> and a required <b>5-minute break after the fourth section</b>.</p>
