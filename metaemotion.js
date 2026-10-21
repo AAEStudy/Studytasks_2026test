@@ -288,7 +288,7 @@ function finalJudgmentInstructions(jsPsych) {
     },
     {
       title: "<u>Reviewing the whole picture set</u>",
-      body: `<p><b>First, you will review the whole picture set</b>. When you advance, the images will be displayed in one <b>fast moving</b> sequence. <b>No response is needed during that time.</b> During the review, keep in mind the emotional feelings the whole set brings you as the images are displayed (rather than just one or two images). After the review, you will begin the final one by one picture judgments.</p>`
+      body: `<p><b>First, you will review the whole picture set again</b>. When you advance to the next screen, all of the images shown earlier will be displayed in one <b>fast moving</b> sequence. <b>No response is needed during that time.</b> During the review, keep in mind the emotional feelings the whole set brings you as the images are displayed (rather than just one or two images). After the review, you will begin the final one by one picture judgments.</p>`
     }
   ], [20000, 20000, 15000, 15000], "meta_instructions", jsPsych, {
     pageClass: "emotion-final-instructions",

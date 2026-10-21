@@ -308,7 +308,7 @@ test("final replay and whole-set review instructions occupy separate pages with 
   assert.match(trial.pages[3], /one <b>fast moving<\/b> sequence/);
   const reviewParagraphs = [...trial.pages[3].matchAll(/<p\b[^>]*>([\s\S]*?)<\/p>/g)]
     .map(([, html]) => plain(html)).filter(Boolean);
-  assert.deepEqual(reviewParagraphs, ["First, you will review the whole picture set. When you advance, the images will be displayed in one fast moving sequence. No response is needed during that time. During the review, keep in mind the emotional feelings the whole set brings you as the images are displayed (rather than just one or two images). After the review, you will begin the final one by one picture judgments."]);
+  assert.deepEqual(reviewParagraphs, ["First, you will review the whole picture set again. When you advance to the next screen, all of the images shown earlier will be displayed in one fast moving sequence. No response is needed during that time. During the review, keep in mind the emotional feelings the whole set brings you as the images are displayed (rather than just one or two images). After the review, you will begin the final one by one picture judgments."]);
 });
 
 test("comparison instructions retain independent 20/10-second page gates", () => {
