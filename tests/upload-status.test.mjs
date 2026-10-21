@@ -6,6 +6,7 @@ import { webcrypto } from "node:crypto";
 import * as schedule from "../js/image-schedule.mjs";
 import { splitStudyExports } from "../js/analysis-exports.mjs";
 import { resolveStudyConfig, createMrtIntervalSchedule } from "../js/study-schedule.mjs";
+import { createParticipationProgress } from "../js/participation-progress.mjs";
 
 const read = path => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 const plain = value => JSON.parse(JSON.stringify(value));
@@ -34,7 +35,7 @@ function runtime({ download, blockedStorage = false } = {}) {
     createElement: () => ({ href: "", download: "", remove() {}, click() { downloads.push(this.download); } }) };
   const psych = { data: { addProperties() {}, get: () => collection([]) },
     getDisplayElement: () => display, run: built => { timeline = built; } };
-  const context = vm.createContext({ ...schedule, resolveStudyConfig, createMrtIntervalSchedule, splitStudyExports, window, document, URL: BrowserURL, URLSearchParams,
+  const context = vm.createContext({ ...schedule, resolveStudyConfig, createMrtIntervalSchedule, createParticipationProgress, splitStudyExports, window, document, URL: BrowserURL, URLSearchParams,
     Blob, TextEncoder, crypto: webcrypto, performance: { now: () => 0 }, setTimeout, clearTimeout() {},
     console: { warn: (...args) => warnings.push(args) },
     fetch: async path => {
@@ -44,7 +45,7 @@ function runtime({ download, blockedStorage = false } = {}) {
     Audio: class { play() { return Promise.resolve(); } pause() {} },
     initJsPsych: options => { finish = options.on_finish; return psych; },
     jsPsychHtmlKeyboardResponse: {}, jsPsychImageKeyboardResponse: {},
-    jsPsychInstructions: {}, jsPsychPipe: {}, jsPsychPreload: {} });
+    jsPsychInstructions: {}, jsPsychPipe: { saveData() { assert.fail("status-only checks must not upload progress"); } }, jsPsychPreload: {} });
   const meta = read("metaemotion.js").replace(/^import .*\n/gm, "").replace(/^export /gm, "");
   vm.runInContext(read("js/response-controls.js") + "\n" + read("mrt.js") + "\n" + meta, context);
   const main = read("main.js").replace(/^import .*\n/gm, "")

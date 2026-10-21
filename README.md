@@ -19,8 +19,10 @@ the subject, run mode, and unique session ID. No ZIP is sent to Drive.
 Keep **Psych-DS metadata off** in this new DataPipe experiment: when enabled,
 DataPipe flattens slash-containing names instead of using these subfolders.
 Binary uploads are not needed for these text files. Enable data collection.
-If a DataPipe session cap is set, allow five uploads per participant (for
-example, at least 1,500 for 300 participants), because its counter is per file.
+If a DataPipe session cap is set, allow nine uploads per completed full-mode
+participant: four progress records plus five final files (at least 2,700 for
+300 completed participants, with additional room for pilots and partial runs).
+Short mode uses six uploads. DataPipe's counter is per file.
 
 ## Study length and mode switch
 
@@ -71,6 +73,47 @@ practice). Full-protocol completion requires the scheduled breaks as well as
 all task outcomes.
 
 Run data export checks with `node --test tests/data-export.test.mjs`.
+
+## Participation checkpoints
+
+After each completed picture-comparison-plus-MRT section, a small JSON progress
+record is sent in the background to the separate `Progress/` Drive subfolder.
+DataPipe creates this folder on the first successful upload; no manual folder
+setup or new connection is required. Full mode sends four records, short mode
+one. Each filename includes run mode, subject ID, session ID and section number,
+so later records do not overwrite earlier checkpoints or any final data file.
+
+To test this without running a full section, append `&mode=test` to the task URL
+opened from Qualtrics, keeping its participant and return parameters. After the
+six calibration comparisons and the one approximately 40-second MRT interval
+and probe questions, look for `Progress_test_<subject>_<session>_section-01.json`
+inside `Progress/`. This checkpoint is sent before whole-set review and final
+judgments; it does not require reaching the final data-save screen. Check that
+the file has six completed comparisons, one completed MRT probe, and the expected
+subject/session ID and elapsed time. Ordinary launches remain in full mode.
+
+Records include elapsed time since the task page loaded, UTC timestamps,
+completed comparison/probe counts, scheduled-break and P-key pause durations,
+and cumulative visible/hidden tab time where supported. They contain no task
+responses, tapping data, image ratings or external credit/return `id`. Use the
+latest successfully stored checkpoint per session to support partial credit;
+it establishes progress through that section, not the time the browser closed
+or proof of attention throughout the elapsed time. Section four completes the
+primary tasks; review and final judgments still remain.
+
+Checkpoint dispatch does not wait for the upload. Pending, queued or failed
+progress saves do not pause the task, trigger a popup, affect the five final-file
+save checks, or change the Qualtrics fallback/return route. No automatic retries,
+heartbeats or trial-by-trial uploads are added. A request already dispatched
+uses browser keepalive support where available, but closing the page or losing
+connectivity can still prevent delivery. Work before the first checkpoint or
+after the latest stored checkpoint is not captured by these records.
+
+Progress requests use the existing 30-second DataPipe deadline. The separate
+browser-only `window.__FAEProgressStatus` lists checkpoint records and upload
+states/durations for pilot checks; it is not included in the frozen analysis
+exports. Redirect-only tests and saved-session recovery make no new progress
+requests, and `saveTo=qualtrics` disables them along with other DataPipe saves.
 
 ## Save to DataPipe and Qualtrics
 

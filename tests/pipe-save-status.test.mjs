@@ -82,6 +82,19 @@ test("201 stored, 202 queued and other2xx accepted preserve response fields and 
   }
 });
 
+test("small progress saves can opt into keepalive without changing ordinary final-file requests", async () => {
+  const run = runtime(async () => response(201, { error: null }));
+  const filename = "Progress/Progress_full_subject_session_section-01.json";
+  const text = JSON.stringify({ sections_completed: 1 });
+  const result = await run.save("experiment12", filename, text, { keepalive: true });
+  assert.equal(result.save_state, "stored");
+  assert.equal(run.requests[0].keepalive, true);
+  assert.deepEqual(JSON.parse(run.requests[0].body), { experimentID: "experiment12", filename, data: text });
+  await run.save("experiment12", "MRT/MRT.tsv", "column\nvalue\n");
+  assert.equal(Object.hasOwn(run.requests[1], "keepalive"), false);
+  assert.equal(run.requests.length, 2);
+});
+
 test("HTTP failures cannot appear successful even without an explicit body error", async () => {
   for (const [status, body, expected] of [
     [400, { error: "Rejected", code: "INVALID" }, "rejected"],

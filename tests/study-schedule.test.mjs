@@ -6,6 +6,7 @@ import { webcrypto } from "node:crypto";
 import * as images from "../js/image-schedule.mjs";
 import { resolveStudyConfig, createMrtIntervalSchedule, sectionProgressMessage } from "../js/study-schedule.mjs";
 import { buildSectionBreak } from "../js/study-breaks.mjs";
+import { createParticipationProgress } from "../js/participation-progress.mjs";
 
 const read = path => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 const plain = value => JSON.parse(JSON.stringify(value));
@@ -53,7 +54,7 @@ async function assembled(mode) {
   const banners = [];
   const psych = { data: { addProperties() {}, get: () => ({ values: () => [] }) },
     run: value => { timeline = value; trialStarted(); } };
-  const context = vm.createContext({ ...images, resolveStudyConfig, createMrtIntervalSchedule, buildSectionBreak,
+  const context = vm.createContext({ ...images, resolveStudyConfig, createMrtIntervalSchedule, buildSectionBreak, createParticipationProgress,
     console, performance, URL, URLSearchParams, TextEncoder, crypto: webcrypto,
     window: { location: { search: `?mode=${mode}&subjectID=CHECK` }, addEventListener() {}, removeEventListener() {} },
     document: { addEventListener() {}, removeEventListener() {}, querySelector: () => banners[0], createElement: () => ({}), body: { appendChild: node => banners.push(node) } },
@@ -63,7 +64,7 @@ async function assembled(mode) {
     },
     Audio: class {}, initJsPsych: options => { trialStarted = options.on_trial_start; return psych; },
     jsPsychHtmlKeyboardResponse: {}, jsPsychImageKeyboardResponse: {},
-    jsPsychInstructions: {}, jsPsychPipe: {}, jsPsychPreload: {} });
+    jsPsychInstructions: {}, jsPsychPipe: { saveData() { assert.fail("assembling the schedule must not upload progress"); } }, jsPsychPreload: {} });
   const meta = read("metaemotion.js").replace(/^import .*\n/gm, "").replace(/^export /gm, "");
   vm.runInContext(read("js/response-controls.js") + "\n" + read("mrt.js") + "\n" + meta, context);
   const main = read("main.js").replace(/^import .*\n/gm, "")

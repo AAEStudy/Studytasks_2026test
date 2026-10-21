@@ -11,6 +11,7 @@ import { createSessionZip } from "./js/session-bundle.mjs?v=20261019-bundle";
 import { createQualtricsCodec, postQualtricsBundle } from "./js/qualtrics-bundle.mjs?v=20261019-save-tab";
 import { stageQualtricsSession, listPendingQualtricsSessions, completeQualtricsReturn } from "./js/qualtrics-outbox.mjs?v=20261019-save-tab";
 import { openQualtricsSaveTab, waitForQualtricsTabReceipt } from "./js/qualtrics-tab-handoff.mjs?v=20261019-save-tab";
+import { createParticipationProgress } from "./js/participation-progress.mjs?v=20261021-progress";
 
 // ===================== QUICK TEST CONTROLS =====================
 // Redirect-only check: uncomment REDIRECT_TEST_ONLY = true below to skip tasks/saves.
@@ -94,8 +95,9 @@ function safeFilenamePart(value){
 }
 
 const EXPORT_SCHEMA_VERSION = "fae-export-v3";
-const STUDY_VERSION = "FAE-2026-10-21-study-refinements";
+const STUDY_VERSION = "FAE-2026-10-21-progress-checkpoints";
 const SESSION_STARTED_AT_UTC = new Date().toISOString();
+const SESSION_STARTED_MONOTONIC_MS = performance.now();
 const SESSION_STAMP = sessionStamp(new Date(SESSION_STARTED_AT_UTC));
 const SESSION_RANDOM_ID = globalThis.crypto?.randomUUID?.()
   ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
@@ -442,6 +444,63 @@ function buildPipeSaveTrials(jsPsych){
   }));
 }
 
+function updateParticipationStatus(){
+  if (!participationProgress) return;
+  window.__FAEProgressStatus = {
+    subjectID, session_id: SESSION_ID,
+    checkpoints: participationProgress.records,
+    files: participationProgress.statuses
+  };
+}
+
+function initializeParticipationProgress(){
+  try {
+    participationProgress = createParticipationProgress({
+      experimentId: DATA_PIPE_EXPERIMENT_ID, subjectId: subjectID, sessionId: SESSION_ID,
+      runMode: RUN_MODE, studyVersion: STUDY_VERSION, totalSections: STUDY_CONFIG.sections.length,
+      startedAtUtc: SESSION_STARTED_AT_UTC, startedMonotonicMs: SESSION_STARTED_MONOTONIC_MS,
+      enabled: ACTIVE_SAVE_TO_DATA_PIPE,
+      save: (filename, text) => jsPsychPipe.saveData(DATA_PIPE_EXPERIMENT_ID, filename, text, { keepalive: true }),
+      environment: { now: () => performance.now(), wallClock: () => new Date().toISOString(), document },
+      onRecord: updateParticipationStatus, onStatus: updateParticipationStatus
+    });
+    updateParticipationStatus();
+  } catch (error) {
+    // Participation logging must never prevent task execution or final saving.
+    console.warn("Participation progress logging is unavailable:", error);
+  }
+}
+
+function recordParticipationCheckpoint(section){
+  if (!participationProgress) return null;
+  try {
+    // Read completed responses only. Building the whole timeline advances its
+    // planning cursors in advance, so those cursors cannot measure participation.
+    const rows = jsPsych.data.get().values();
+    const count = predicate => rows.filter(predicate).length;
+    const mrtTasks = sharedState.customData?.task || [];
+    const pauseTimes = sharedState.customData?.pause_time || [];
+    const pauseSeconds = mrtTasks.reduce((total, task, index) => {
+      const seconds = Number(pauseTimes[index]);
+      return total + (task === "pause" && Number.isFinite(seconds) && seconds > 0 ? seconds : 0);
+    }, 0);
+    const scheduledBreakSeconds = sharedState.scheduledBreaks.reduce((total, record) =>
+      total + Math.max(0, Number(record.break_duration_ms) || 0) / 1000, 0);
+    return participationProgress.checkpoint({
+      section: section.number,
+      comparisonsCompleted: count(row => row.task === "metaemotion" && row.event === "2ifc" && row.phase === "calibration"),
+      comparisonsPlanned: META_CALIBRATION_COMPARISONS,
+      mrtProbesCompleted: mrtTasks.filter(task => task === "thought_probe").length,
+      mrtProbesPlanned: MRT_TOTAL_BLOCKS,
+      finalJudgmentsCompleted: count(row => row.task === "metaemotion" && row.event === "meta_conf"),
+      finalJudgmentsPlanned: 60, scheduledBreakSeconds, pauseSeconds
+    });
+  } catch (error) {
+    console.warn("A participation checkpoint could not be recorded:", error);
+    return null;
+  }
+}
+
 // Prepare audio for MRT (uses same filenames as your MRT task; adjust if your repo differs)
 const metronomeAudio = new Audio("sounds/metronomeMono.mp3");
 
@@ -627,9 +686,12 @@ function audioUnlockTrial(nextSet = false){
 
 // Global shared state for interleaving
 const sharedState = { mrtCursor: 0, mrtInitialized: false, mrtMainStarted: false, trialNum: 0, probeBlockCounter: 0, studyCompleted: false, uploadStatuses: [], scheduledBreaks: [] };
+let participationProgress = null;
 
 function finishStudy(){
   if (sharedState.studyCompleted) return;
+  // Remove the visibility listener; pending checkpoint requests remain independent.
+  try { participationProgress?.dispose(); } catch {}
   if (shouldSaveToQualtrics() && !REDIRECT_TEST_ONLY && getParam('redirectTest') !== '1') {
     return sendResultsToQualtrics();
   }
@@ -714,6 +776,8 @@ async function start(){
     return;
   }
 
+  initializeParticipationProgress();
+
   // Init Meta-Emotion lists
   const metaState = await initMetaEmotion({
     subject: subjectID, calibrationLimit: META_CALIBRATION_COMPARISONS, jsPsych,
@@ -788,6 +852,15 @@ async function start(){
     }).timeline;
 
     if (mrtChunk.length > 0) {
+      const lastInterval = [...mrtChunk].reverse().find(trial => trial.data?.mrt_interval);
+      if (lastInterval) {
+        const originalFinish = lastInterval.on_timeline_finish;
+        lastInterval.on_timeline_finish = function(...args) {
+          if (typeof originalFinish === "function") originalFinish.apply(this, args);
+          // This records and dispatches without returning a promise to jsPsych.
+          recordParticipationCheckpoint(section);
+        };
+      }
       // The first set already has its own audio-enable transition and countdown.
       if (!firstMrtSet) timeline.push(audioUnlockTrial(true));
       timeline.push(...mrtChunk);

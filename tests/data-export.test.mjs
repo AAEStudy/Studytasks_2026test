@@ -7,6 +7,7 @@ import { webcrypto } from "node:crypto";
 import { splitStudyExports, restoreWideExports } from "../js/analysis-exports.mjs";
 import { createSessionZip, zipToBase64 } from "../js/session-bundle.mjs";
 import { resolveStudyConfig, createMrtIntervalSchedule } from "../js/study-schedule.mjs";
+import { createParticipationProgress } from "../js/participation-progress.mjs";
 
 globalThis.STUDY_RESPONSE_SETTINGS = { imageReplayLimit: 5 };
 const { exportMetaEmotion, parseCSV } = await import("../metaemotion.js");
@@ -83,7 +84,7 @@ function runtime(records = [], full = false) {
   const planned = full ? 380 : 6;
   const state = { subject: "CHECK", practicePairs: new Array(12), calibrationPairs: new Array(380), calibrationTargetCount: planned };
   const psych = { data: { addProperties() {}, get: () => collection(records) }, run() {} };
-  const context = vm.createContext({ console, performance, URLSearchParams, crypto: webcrypto, resolveStudyConfig, createMrtIntervalSchedule,
+  const context = vm.createContext({ console, performance, URLSearchParams, crypto: webcrypto, resolveStudyConfig, createMrtIntervalSchedule, createParticipationProgress,
     document: { addEventListener() {}, removeEventListener() {} },
     window: { location: { search: `?subjectID=CHECK&mode=${full ? "full" : "test"}` }, __metaState: state, addEventListener() {}, removeEventListener() {} },
     Audio: class {}, initJsPsych: () => psych, exportMetaEmotion, splitStudyExports, createSessionZip, zipToBase64,

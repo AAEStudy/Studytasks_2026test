@@ -9,6 +9,7 @@ import { createSessionZip, zipToBase64 } from "../js/session-bundle.mjs";
 import { createQualtricsCodec } from "../js/qualtrics-bundle.mjs";
 import { resolveStudyConfig, createMrtIntervalSchedule } from "../js/study-schedule.mjs";
 import { buildSectionBreak } from "../js/study-breaks.mjs";
+import { createParticipationProgress } from "../js/participation-progress.mjs";
 
 const read = path => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 const defaultReturn = "https://usf.az1.qualtrics.com/jfe/form/SV_8wijLZLkAmgskVE";
@@ -37,7 +38,7 @@ function collection(rows = []) {
     filter: criteria => collection(rows.filter(row => Object.entries(criteria).every(([key, value]) => row[key] === value))) };
 }
 
-function runtime(parameters = { subjectID: "ID0007" }, { redirectTestOnly = false, transport = {}, useDefaultSaveTargets = false, popupBlockedAttempts = 0 } = {}) {
+function runtime(parameters = { subjectID: "ID0007" }, { redirectTestOnly = false, transport = {}, useDefaultSaveTargets = false, popupBlockedAttempts = 0, instrumentIntervalFinishes = false } = {}) {
   // Existing direct-return checks isolate DataPipe. Dual-save checks opt into
   // the actual production defaults, without adding a saveTo URL override.
   parameters = { ...parameters };
@@ -46,6 +47,7 @@ function runtime(parameters = { subjectID: "ID0007" }, { redirectTestOnly = fals
   const timers = new Map(), listeners = new Map(), navigations = [], downloads = [], events = [], warnings = [];
   const fetches = [], builderCalls = [], audioPlays = [];
   const tabs = [], waiters = [], posts = [], completions = [];
+  const rows = [], progressRequests = [], intervalFinishes = [], documentListeners = new Map();
   let dataReads = 0;
   const setTimeout = (callback, delay) => {
     const id = ++timerId;
@@ -84,7 +86,12 @@ function runtime(parameters = { subjectID: "ID0007" }, { redirectTestOnly = fals
     static revokeObjectURL() {}
   }
   const document = {
-    addEventListener() {}, removeEventListener() {},
+    visibilityState: "visible",
+    addEventListener(type, callback) {
+      if (!documentListeners.has(type)) documentListeners.set(type, new Set());
+      documentListeners.get(type).add(callback);
+    },
+    removeEventListener(type, callback) { documentListeners.get(type)?.delete(callback); },
     body: { appendChild() {} },
     createElement(tag) {
       assert.equal(tag, "a");
@@ -109,7 +116,7 @@ function runtime(parameters = { subjectID: "ID0007" }, { redirectTestOnly = fals
     },
     removeEventListener(type, callback) { listeners.get(type)?.delete(callback); }
   };
-  const psych = { data: { addProperties() {}, get: () => { dataReads++; return collection(); } },
+  const psych = { data: { addProperties() {}, get: () => { dataReads++; return collection(rows); } },
     getDisplayElement: () => display, run: built => { timeline = built; } };
   const handoff = {
     openQualtricsSaveTab(suppliedWindow) {
@@ -167,7 +174,7 @@ function runtime(parameters = { subjectID: "ID0007" }, { redirectTestOnly = fals
     },
     listPendingQualtricsSessions: transport.listPendingQualtricsSessions || (async () => [])
   };
-  const context = vm.createContext({ ...schedule, resolveStudyConfig, createMrtIntervalSchedule, buildSectionBreak, splitStudyExports, createSessionZip, zipToBase64,
+  const context = vm.createContext({ ...schedule, resolveStudyConfig, createMrtIntervalSchedule, buildSectionBreak, createParticipationProgress, splitStudyExports, createSessionZip, zipToBase64,
     createQualtricsCodec: () => {
       const codec = createQualtricsCodec(), build = codec.build;
       codec.build = (...args) => { events.push({ type: 'hash', at: now }); return build(...args); };
@@ -185,20 +192,40 @@ function runtime(parameters = { subjectID: "ID0007" }, { redirectTestOnly = fals
     Audio: class { play() { audioPlays.push(now); return Promise.resolve(); } pause() {} },
     initJsPsych: options => { initOptions = options; return psych; },
     jsPsychHtmlKeyboardResponse: {}, jsPsychImageKeyboardResponse: {},
-    jsPsychInstructions: {}, jsPsychPipe: {}, jsPsychPreload: {} });
+    jsPsychInstructions: {}, jsPsychPipe: { saveData(experimentId, filename, text, options) {
+      const request = { experimentId, filename, text, options, at: now };
+      progressRequests.push(request);
+      assert.match(filename, /^Progress\//, "background transport is reserved for progress records");
+      return transport.saveProgressData ? transport.saveProgressData(request)
+        : Promise.resolve({ http_status: 201, save_state: "stored", error: null });
+    } }, jsPsychPreload: {} });
   const meta = read("metaemotion.js").replace(/^import .*\n/gm, "").replace(/^export /gm, "");
   vm.runInContext(read("js/response-controls.js") + "\n" + read("mrt.js") + "\n" + meta, context);
   for (const name of ["initMetaEmotion", "buildMRTPractice", "buildMRTChunk", "buildMetaEmotionPractice",
     "buildMetaEmotionCalibrationChunk", "buildMetaEmotionReview", "buildMetaEmotionMetaJ", "exportMetaEmotion"]) {
     const original = context[name];
     assert.equal(typeof original, "function", `the harness must track ${name}`);
-    context[name] = (...args) => { builderCalls.push(name); return original(...args); };
+    context[name] = (...args) => {
+      builderCalls.push(name);
+      const result = original(...args);
+      if (instrumentIntervalFinishes && name === "buildMRTChunk") {
+        for (const interval of result.timeline.filter(trial => trial.data?.mrt_interval)) {
+          const originalFinish = interval.on_timeline_finish;
+          interval.on_timeline_finish = function(...finishArgs) {
+            intervalFinishes.push({ interval, receiver: this, args: finishArgs });
+            if (typeof originalFinish === "function") return originalFinish.apply(this, finishArgs);
+          };
+        }
+      }
+      return result;
+    };
   }
   let main = read("main.js").replace(/^import .*\n/gm, "").replace(/start\(\);\s*$/, `
     globalThis.qa = { buildQualtricsReturnUrl, getQualtricsReturnUrl, finishStudy,
       sharedState, start, buildPipeSaveTrials, getResultFiles, getPipeResultFiles, shouldSaveToQualtrics, REDIRECT_TO_QUALTRICS,
       DEFAULT_QUALTRICS_RETURN_URL, getSessionBundleBytes, DATA_SAVE_TARGET,
-      ACTIVE_SAVE_TO_DATA_PIPE, SAVE_TO_QUALTRICS };
+      ACTIVE_SAVE_TO_DATA_PIPE, SAVE_TO_QUALTRICS, recordParticipationCheckpoint,
+      get participationProgress() { return participationProgress; } };
   `);
   if (redirectTestOnly) {
     assert.match(main, /^let REDIRECT_TEST_ONLY = false;/m, "the local override must exercise the real mode switch");
@@ -206,7 +233,8 @@ function runtime(parameters = { subjectID: "ID0007" }, { redirectTestOnly = fals
   }
   vm.runInContext(main, context);
   return { context, qa: context.qa, psych, display, buttons, navigations, downloads, events, warnings, advance,
-    tabs, waiters, posts, completions,
+    tabs, waiters, posts, completions, rows, progressRequests, intervalFinishes,
+    visibilityListenerCount: () => documentListeners.get("visibilitychange")?.size || 0,
     receiveReceipt(overrides = {}, index = waiters.length - 1) {
       const waiter = waiters[index];
       const callback = new URL(waiter.fields.fae_return_url);
@@ -223,6 +251,172 @@ function runtime(parameters = { subjectID: "ID0007" }, { redirectTestOnly = fals
     }
   };
 }
+
+function appendMrtRecord(state, task, values = {}) {
+  for (const [column, rows] of Object.entries(state.customData)) {
+    rows.push(column === "task" ? task : values[column] ?? "NA");
+  }
+}
+
+for (const mode of ["full", "test"]) test(`${mode}: only completed section boundaries save separate participation checkpoints`, async () => {
+  const run = runtime({ subjectID: "ID0007", mode }, { instrumentIntervalFinishes: true });
+  await run.qa.start();
+  assert.equal(run.progressRequests.length, 0, "constructing the whole timeline must not dispatch a checkpoint");
+  assert.equal(run.qa.sharedState.mrtCursor, mode === "full" ? 48 : 1,
+    "the planning cursor has already advanced before any participant responses");
+  assert.equal(run.qa.sharedState.resultExports, undefined);
+  run.context.exportMetaEmotion = () => assert.fail("a checkpoint must not build or freeze the analysis exports");
+  const intervals = run.timeline().filter(trial => trial.data?.mrt_interval);
+  const sections = mode === "full" ? [90, 100, 90, 100] : [6];
+  let comparisonsCompleted = 0, probesCompleted = 0;
+  appendMrtRecord(run.qa.sharedState, "practice_probe");
+  appendMrtRecord(run.qa.sharedState, "metronome");
+  appendMrtRecord(run.qa.sharedState, "pause", { pause_time: "5.5" });
+  run.rows.push({ task: "metaemotion", event: "2ifc", phase: "practice" },
+    { task: "other", event: "2ifc", phase: "calibration" });
+  for (const [index, comparisons] of sections.entries()) {
+    const section = index + 1;
+    run.rows.push(...Array.from({ length: comparisons }, () => ({ task: "metaemotion", event: "2ifc", phase: "calibration" })));
+    comparisonsCompleted += comparisons;
+    const nodes = intervals.filter(trial => trial.data.mrt_section === section);
+    run.advance(750000);
+    for (const [probeIndex, interval] of nodes.entries()) {
+      appendMrtRecord(run.qa.sharedState, "thought_probe");
+      probesCompleted++;
+      const receiver = { test: "original interval callback receiver" }, token = { section, probeIndex };
+      assert.equal(interval.on_timeline_finish?.call(receiver, token), undefined,
+        "jsPsych must receive no checkpoint promise at the section boundary");
+      assert.equal(run.intervalFinishes.at(-1).receiver, receiver);
+      assert.equal(run.intervalFinishes.at(-1).args[0], token,
+        "wrapping the last interval preserves the existing callback arguments");
+      assert.equal(run.qa.participationProgress.records.length,
+        index + (probeIndex === nodes.length - 1 ? 1 : 0), "intermediate MRT probes must not create uploads");
+    }
+    const checkpoint = run.qa.participationProgress.records.at(-1);
+    assert.equal(checkpoint.sections_completed, section);
+    assert.equal(checkpoint.sections_planned, sections.length);
+    assert.equal(checkpoint.calibration_comparisons_completed, comparisonsCompleted);
+    assert.equal(checkpoint.calibration_comparisons_planned, mode === "full" ? 380 : 6);
+    assert.equal(checkpoint.mrt_probes_completed, probesCompleted);
+    assert.equal(checkpoint.mrt_probes_planned, mode === "full" ? 48 : 1);
+    assert.equal(checkpoint.final_judgments_completed, 0);
+    assert.equal(checkpoint.final_judgments_planned, 60);
+    assert.equal(checkpoint.elapsed_seconds, section * 750);
+    assert.equal(checkpoint.p_key_pause_seconds, 5.5);
+    assert.equal(checkpoint.scheduled_break_seconds_completed, index * 120,
+      "the break after this checkpoint has not yet taken place");
+    assert.equal(checkpoint.primary_tasks_complete, section === sections.length);
+    assert.equal(checkpoint.github_tasks_complete, false);
+    assert.equal(run.qa.sharedState.resultExports, undefined);
+    assert.equal(run.qa.sharedState.bundleBytes, undefined);
+    assert.equal(run.qa.sharedState.uploadStatuses.length, 0);
+    assert.equal(run.context.window.__FAEUploadStatus, undefined);
+    assert.equal(run.progressRequests.length, index, "transport starts in the background after the callback returns");
+    nodes.at(-1).on_timeline_finish();
+    assert.equal(run.qa.participationProgress.records.length, section, "repeat completion cannot dispatch a duplicate file");
+    await flush();
+    const request = run.progressRequests.at(-1);
+    assert.equal(request.experimentId, "ThTYlS6YRHym");
+    assert.equal(request.filename,
+      `Progress/Progress_${mode}_ID0007_${checkpoint.session_id}_section-${String(section).padStart(2, "0")}.json`);
+    assert.equal(request.options.keepalive, true);
+    assert.deepEqual(JSON.parse(request.text), JSON.parse(JSON.stringify(checkpoint)));
+    assert.ok(Buffer.byteLength(request.text) < 4096, "checkpoints contain only small credit/progress metadata");
+    assert.equal(run.context.window.__FAEProgressStatus.checkpoints.length, section);
+    assert.equal(run.context.window.__FAEProgressStatus.files.length, section);
+    if (mode === "full") {
+      const nextTrial = run.timeline()[run.timeline().indexOf(nodes.at(-1)) + 1];
+      assert.equal(nextTrial.data.event, "scheduled_break");
+      nextTrial.on_finish({ section, break_duration_ms: 120000, minimum_met: true });
+    }
+  }
+  assert.equal(run.progressRequests.length, sections.length);
+  assert.equal(new Set(run.progressRequests.map(request => request.filename)).size, sections.length);
+  assert.equal(run.builderCalls.includes("exportMetaEmotion"), false);
+  assert.equal(run.navigations.length + run.tabs.length + run.downloads.length, 0);
+  assert.deepEqual(run.warnings, []);
+});
+
+for (const result of ["pending", "rejected"]) test(`a ${result} checkpoint cannot hold up final Drive saving or the return`, async () => {
+  let settle;
+  const pending = new Promise(resolve => { settle = resolve; });
+  const run = runtime({ subjectID: "ID0007", id: "0042", mode: "test" }, { useDefaultSaveTargets: true,
+    transport: { saveProgressData: () => result === "pending" ? pending : Promise.reject(new Error("Progress upload unavailable")) } });
+  await run.qa.start();
+  const interval = run.timeline().find(trial => trial.data?.mrt_interval);
+  assert.equal(interval.on_timeline_finish(), undefined);
+  await flush();
+  assert.equal(run.progressRequests.length, 1);
+  assert.equal(run.qa.sharedState.resultExports, undefined);
+  assert.equal(run.qa.sharedState.uploadStatuses.length, 0);
+  const pipes = run.timeline().filter(trial => trial.data?.event === "pipe_save");
+  assert.equal(pipes.length, 5);
+  for (const pipe of pipes) {
+    assert.ok(pipe.data_string().length > 0);
+    pipe.on_finish({ ...pipe.data, result: { http_status: 201, save_state: "stored", error: null } });
+  }
+  assert.equal(run.qa.sharedState.uploadStatuses.length, 5);
+  assert.equal(run.context.window.__FAEUploadStatus.files.length, 5);
+  assert.equal(run.qa.shouldSaveToQualtrics(), false, "checkpoint failure cannot trigger the final-data fallback");
+  run.timeline().at(-1).on_finish({ response: " " });
+  await run.onFinish();
+  assert.equal(run.visibilityListenerCount(), 0, "completion disposes visibility measurement");
+  assert.equal(run.qa.sharedState.studyCompleted, true);
+  run.advance(500);
+  assert.equal(run.navigations[0].url, defaultReturn + "?id=0042");
+  assert.equal(run.posts.length + run.tabs.length + run.downloads.length, 0);
+  if (result === "pending") {
+    settle({ http_status: 201, save_state: "stored", error: null });
+    await flush();
+    assert.equal(run.context.window.__FAEProgressStatus.files[0].save_state, "stored",
+      "disposing the tracker must leave its already-started request intact");
+  }
+  assert.equal(run.progressRequests.length, 1, "failed progress uploads never create an overlapping retry");
+});
+
+test("a pending checkpoint cannot delay the existing Qualtrics fallback or authenticated return", async () => {
+  const run = runtime({ subjectID: "ID0007", id: "0042", mode: "test" }, { useDefaultSaveTargets: true,
+    transport: { saveProgressData: () => new Promise(() => {}) } });
+  await run.qa.start();
+  run.timeline().find(trial => trial.data?.mrt_interval).on_timeline_finish();
+  await flush();
+  for (const pipe of run.timeline().filter(trial => trial.data?.event === "pipe_save")) {
+    pipe.on_finish({ ...pipe.data, result: { http_status: 202, save_state: "queued", error: null } });
+  }
+  run.timeline().at(-1).on_finish({ response: " " });
+  await run.onFinish();
+  assert.equal(run.progressRequests.length, 1);
+  assert.equal(run.posts.length, 1);
+  assert.equal(run.visibilityListenerCount(), 0);
+  run.receiveReceipt();
+  await until(() => run.completions.length === 1);
+  await flush();
+  run.advance(150);
+  assert.equal(run.navigations[0].url, defaultReturn + "?id=0042");
+  assert.equal(run.waiters[0].acknowledged, true);
+});
+
+test("redirect tests, retained-save recovery and explicit Qualtrics-only mode never send Drive checkpoints", async () => {
+  for (const parameters of [
+    { subjectID: "ID0007", redirectTest: "1" },
+    { subjectID: "ID0007", resumeSave: "1" },
+    { subjectID: "ID0007", saveTo: "qualtrics", mode: "test" }
+  ]) {
+    const run = runtime(parameters, { useDefaultSaveTargets: true });
+    await run.qa.start();
+    for (const trial of run.timeline() || []) if (trial.data?.mrt_interval) trial.on_timeline_finish?.();
+    await flush();
+    assert.equal(run.progressRequests.length, 0, JSON.stringify(parameters));
+    assert.equal(run.qa.sharedState.uploadStatuses.length, 0);
+    assert.equal(run.context.window.__FAEUploadStatus, undefined);
+    assert.equal(run.visibilityListenerCount(), 0);
+    if (parameters.redirectTest || parameters.resumeSave) {
+      assert.equal(run.qa.participationProgress, null);
+      assert.equal(run.context.window.__FAEProgressStatus, undefined);
+      assert.deepEqual(run.builderCalls, []);
+    }
+  }
+});
 
 test("Qualtrics return IDs follow launch ID, existing return ID, then exact ID-prefix fallback", () => {
   const run = runtime();

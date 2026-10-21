@@ -1,7 +1,7 @@
 # FAE analysis files and diagnostics
 
 Current export schema: `fae-export-v3`.
-Study version: `FAE-2026-10-21-study-refinements`.
+Study version: `FAE-2026-10-21-progress-checkpoints`.
 
 Each completed session saves four compact analysis files and one diagnostics
 JSON file. All five share the generated subject ID and session ID in their
@@ -126,6 +126,35 @@ Diagnostics are generated from the same frozen completed-task snapshot as the
 four analysis files. They do not contain the later upload HTTP results; those
 remain in the existing status-only browser manifest, `FAE:last-upload-status`.
 The external credit/return `id` is not added to any export.
+
+## Participation progress
+
+`Progress/Progress_<mode>_<subject>_<session>_section-<NN>.json` is an independent
+participation record, not an analysis file or a partial copy of the final data.
+It uses schema `fae-participation-v1`. One record is dispatched after each
+completed comparison-plus-MRT section, before that section's break: four in
+full mode, one in short mode. Under the full schedule, completed comparison
+counts are 90, 190, 280 and 380; completed MRT probe counts are 12, 24, 36 and 48.
+These counts are read from completed responses, not the prebuilt timeline.
+
+Records contain subject/session IDs, run mode, study version, page-start and
+checkpoint UTC timestamps, elapsed seconds/minutes, cumulative tab-visible and
+tab-hidden seconds, completed/planned section and outcome counts, completed
+scheduled-break time and P-key pause time. Visibility times are null if the
+browser cannot measure them. `primary_tasks_complete` becomes true at the last
+section; `github_tasks_complete` remains false because review and final judgments
+have not yet finished. Scheduled-break time includes only breaks completed
+before that checkpoint. Elapsed time includes practice, instructions, pauses
+and breaks; visibility is not an engagement measure.
+
+No raw responses, tapping rows, image ratings, numeric credit/return ID or survey
+URL is included. The small records use the existing DataPipe text route and
+separate `Progress/` folder. They do not freeze the completed-task snapshot,
+enter the Qualtrics ZIP, or participate in the five final-file success checks.
+Failure or a pending request never blocks task execution or return routing.
+Browser-only upload results and durations are exposed separately at
+`window.__FAEProgressStatus`; a queued or unconfirmed upload is not a confirmed
+stored checkpoint. No retries or unload-triggered extra uploads are added.
 
 ## Saving and compatibility
 

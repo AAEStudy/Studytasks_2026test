@@ -22,7 +22,7 @@
     return fallback;
   };
 
-  const save = async function(endpoint, expID, filename, data) {
+  const save = async function(endpoint, expID, filename, data, options = {}) {
     let httpStatus = null;
     let readingResponse = false;
     let timer;
@@ -49,6 +49,7 @@
           method: "POST",
           headers: { "Content-Type": "application/json", Accept: "*/*" },
           body: JSON.stringify({ experimentID: expID, filename, data }),
+          ...(options.keepalive === true ? { keepalive: true } : {}),
           ...(controller ? { signal: controller.signal } : {})
         });
         if (typeof response.status === "number" && Number.isFinite(response.status)) {
@@ -95,6 +96,6 @@
       if (timer !== undefined) clearTimeout(timer);
     }
   };
-  jsPsychPipe.saveData = (expID, filename, data) => save("https://pipe.jspsych.org/api/data/", expID, filename, data);
+  jsPsychPipe.saveData = (expID, filename, data, options) => save("https://pipe.jspsych.org/api/data/", expID, filename, data, options);
   jsPsychPipe.saveBase64Data = (expID, filename, data) => save("https://pipe.jspsych.org/api/base64/", expID, filename, data);
 })();
