@@ -1,4 +1,4 @@
-import { sectionProgressMessage } from "./study-schedule.mjs?v=20261020-full-schedule";
+import { sectionProgressMessage } from "./study-schedule.mjs?v=20261021-refinements";
 
 // Buttons, not a trial timeout, control departure. Mandatory timers only unlock
 // Continue; optional breaks may be skipped or ended early. Time is measured from
@@ -16,12 +16,12 @@ export function buildSectionBreak({ jsPsych, trialType = globalThis.jsPsychHtmlK
     stimulus: `<section class="study-progress-screen">
       <h2>${sectionProgressMessage(section)}</h2>
       <p>${section === 4
-        ? "The image comparisons and metronome tapping are complete. After this break, you will receive instructions for the final picture judgments. A short set of questionnaires follows the tasks."
+        ? "The image comparisons and metronome tapping are complete. After this break, you will receive instructions for the final picture judgments, which should only take around 5-7 minutes but are very important. A short set of questionnaires follows the tasks."
         : "Thank you for your effort. Each section includes picture comparisons followed by metronome tapping. Final picture judgments and questionnaires will follow the four sections."}</p>
       <p>${mandatory
         ? `Please take a break of at least <strong>${minutes} minutes</strong> before continuing.`
         : `You may take a <strong>${minutes}-minute break</strong> now, or continue immediately if you are ready.`}</p>
-      <p>You may stand up, stretch, or rest. Please keep this window open. Scheduled breaks do not count as P-key pauses.</p>
+      <p>You may take this time to stand up and stretch, wake yourself up, go to the bathroom, get some water, or do whatever else you may need to do before continuing. Please keep this window open.</p>
       <p class="study-break-status" data-break-status role="status"></p>
       <div class="study-break-actions">
         ${mandatory ? "" : `<button type="button" class="study-response-button" data-break-action="take">Take a ${minutes}-minute break</button>`}

@@ -1052,9 +1052,9 @@ var jsPsych = params.jsPsych;
         timeline: [tapping_main, main_pad_node, pause_node]
       };
       let countdown_main = [
-        add_countdown("Main trials starting in 3..."),
-        add_countdown("Main trials starting in 2..."),
-        add_countdown("Main trials starting in 1..."),
+        add_countdown("Metronome trials begin in 3..."),
+        add_countdown("Metronome trials begin in 2..."),
+        add_countdown("Metronome trials begin in 1..."),
         add_countdown("Go!", 650)
       ];
       function generateJitteredIntervals(numBlocks, baseTime, jitterRange) {
@@ -1150,7 +1150,7 @@ var jsPsych = params.jsPsych;
         params._state.mrtInitialized = true;
       }
 
-      // The first main countdown is scheduled separately from early practice.
+      // The first main entry has its own audio-enable transition after practice.
       if (!practiceOnly && mrt_main.length > 0 && !params._state.mrtMainStarted) {
         // Explicit user gesture for audio resume after the picture task.
         timeline.push({
@@ -1168,11 +1168,14 @@ var jsPsych = params.jsPsych;
           data: { task: "mrt", event: "practice_to_main_continue" }
         });
 
-        // 4. Countdown before main (exact original)
+        params._state.mrtMainStarted = true;
+      }
+
+      // Each returned chunk is a new sustained metronome block. Count down once
+      // before its first interval, rather than before every thought-probe interval.
+      if (!practiceOnly && mrt_main.length > 0) {
         timeline.push(add_countdown_pad());
         timeline = timeline.concat(countdown_main);
-
-        params._state.mrtMainStarted = true;
       }
 
       // ---- Append the requested MRT blocks for this chunk ----

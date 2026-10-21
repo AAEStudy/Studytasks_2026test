@@ -82,6 +82,36 @@ function mainProbe(runtime) {
     checkNode: Array.from(node.timeline).find(item => item.timeline?.some(child => child.data?.instructed_response_probe === 1)) };
 }
 
+test("each sustained metronome section counts down once before its probe intervals", () => {
+  const run = runtime({ state: { mrtInitialized: true } });
+  run.state.mrtIntervalSchedule = Array.from({ length: 48 }, (_, index) => ({
+    interval: index + 1, section: Math.floor(index / 12) + 1, probeInSection: index % 12 + 1,
+    targetSeconds: 42, tappingTrials: 1, tappingMs: 1300
+  }));
+  for (let section = 1; section <= 4; section++) {
+    const built = run.context.buildMRTChunk({ ...run.params, numBlocks: 48, blocksToTake: 12 });
+    const countdown = Array.from(built.timeline).filter(item =>
+      typeof item.stimulus === "string" && item.stimulus.includes("Metronome trials begin in"));
+    assert.deepEqual(countdown.map(item => item.stimulus), [3, 2, 1].map(number =>
+      `<p style="font-size: 18pt;">Metronome trials begin in ${number}...</p>`));
+    assert.ok(countdown.every(item => item.trial_duration === 1300 && item.response_ends_trial === false));
+    const first = built.timeline.indexOf(countdown[0]);
+    assert.equal(built.timeline[first - 1].stimulus, "");
+    assert.equal(built.timeline[first - 1].trial_duration, 650);
+    assert.equal(built.timeline[first + 3].stimulus, '<p style="font-size: 18pt;">Go!</p>');
+    assert.equal(built.timeline[first + 3].trial_duration, 650);
+    const intervals = Array.from(built.timeline).filter(item => item.data?.mrt_interval);
+    assert.equal(intervals.length, 12, "one countdown precedes all twelve intervals in this section");
+    assert.ok(intervals.every(item => item.data.mrt_section === section));
+    assert.equal(built.timeline.indexOf(intervals[0]), first + 4);
+    assert.equal(Array.from(built.timeline).filter(item => item.data?.event === "practice_to_main_continue").length,
+      section === 1 ? 1 : 0, "only the first section supplies the initial audio-enable transition");
+  }
+  assert.equal(run.state.mrtCursor, 48);
+  const exhausted = run.context.buildMRTChunk({ ...run.params, numBlocks: 48, blocksToTake: 12 });
+  assert.equal(exhausted.timeline.length, 0, "an exhausted schedule must not add a countdown");
+});
+
 const basisOptions = {
   C: "My memory of what I had been thinking about.",
   F: "A feeling of how focused or unfocused I had been.",

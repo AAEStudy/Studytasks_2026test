@@ -1,7 +1,7 @@
 # FAE analysis files and diagnostics
 
 Current export schema: `fae-export-v3`.
-Study version: `FAE-2026-10-20-drive-files`.
+Study version: `FAE-2026-10-21-study-refinements`.
 
 Each completed session saves four compact analysis files and one diagnostics
 JSON file. All five share the generated subject ID and session ID in their

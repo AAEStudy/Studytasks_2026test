@@ -32,7 +32,7 @@ each section runs its whole picture set and then one sustained MRT block:
 | 1 | 90 | 12 | Optional 2 minutes |
 | 2 | 100 | 12 | Mandatory minimum 3 minutes |
 | 3 | 90 | 12 | Optional 2 minutes |
-| 4 | 100 | 12 | Mandatory minimum 5 minutes |
+| 4 | 100 | 12 | Mandatory minimum 3 minutes |
 
 There are 380 comparisons and 48 main probes. The full schedule targets a
 42-second mean tapping interval with ±15-second jitter. It is generated once
@@ -47,7 +47,7 @@ Continue until their minimum time has elapsed. **No break restarts the task
 automatically or expires a participant's session.** The timers measure elapsed
 time, including time with this tab in the background. Quarter, halfway,
 three-quarter and primary-task-completion messages accompany the breaks.
-The final five-minute break precedes the final instructions, whole-set review
+The final three-minute break precedes the final instructions, whole-set review
 and existing brief SPACE screen, followed by 60 final judgments.
 
 For the **preserved short test**, append `&mode=test` to an existing task URL

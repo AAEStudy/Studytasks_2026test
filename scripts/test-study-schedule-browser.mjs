@@ -85,7 +85,7 @@ try {
   await go('overview');
   assert.match(await page.locator('body').innerText(), /four sections/);
   await screenshot('overview');
-  for (const [section, duration] of [[2,180000], [4,300000]]) {
+  for (const [section, duration] of [[2,180000], [4,180000]]) {
     await go(String(section));
     const next = page.locator('[data-break-action="continue"]');
     await next.waitFor();

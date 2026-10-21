@@ -58,7 +58,7 @@ function collection(records) {
     filter: criteria => collection(records.filter(row => Object.entries(criteria).every(([key, value]) => row[key] === value))) };
 }
 
-function runtime({ comparisonRemaining = 5, finalRemaining = 3 } = {}) {
+function runtime({ comparisonRemaining = 7, finalRemaining = 3 } = {}) {
   const clock = fakeClock(), document = eventTarget(), window = eventTarget(), display = eventTarget();
   Object.assign(window, { setTimeout: clock.setTimeout, setInterval: clock.setInterval,
     clearTimeout: clock.clear, clearInterval: clock.clear });
@@ -221,7 +221,7 @@ test("final instructions precede review, then a self-paced SPACE reminder separa
   assert.equal(run.records.length, 1);
   assert.equal(run.records[0].event, "review_to_judgment_transition");
   assert.equal(run.state.practiceReplaysRemaining, 5);
-  assert.equal(run.state.replaysRemaining, 5);
+  assert.equal(run.state.replaysRemaining, 7);
   assert.equal(run.state.finalReplaysRemaining, 3);
   const exported = run.context.exportMetaEmotion(run.state, run.state.jsPsych);
   assert.deepEqual({ ...exported.counts }, { practice: 0, calibration: 0, meta: 0 },
@@ -302,16 +302,19 @@ test("final replay and whole-set review instructions occupy separate pages with 
   const pages = Array.from(trial.pages, plain);
   assert.match(pages[1], /Remember to use the full range of answer options to indicate your level of confidence\./);
   assert.match(pages[2], /View again/);
+  assert.match(pages[2], /separate from the 7 uses allowed during the main image comparisons/);
   assert.doesNotMatch(pages[2], /\breview\b|one sequence|No response is needed/i);
   assert.doesNotMatch(pages[3], /View again|replay|remaining uses/i);
+  assert.match(trial.pages[3], /one <b>fast moving<\/b> sequence/);
   const reviewParagraphs = [...trial.pages[3].matchAll(/<p\b[^>]*>([\s\S]*?)<\/p>/g)]
     .map(([, html]) => plain(html)).filter(Boolean);
-  assert.deepEqual(reviewParagraphs, ["First, you will review the whole picture set. The images will be displayed in one sequence. No response is needed during that time. During the review, keep in mind the emotional feelings the whole set brings you as the images are displayed (rather than just one or two images). After the review, you will begin the final one by one picture judgments."]);
+  assert.deepEqual(reviewParagraphs, ["First, you will review the whole picture set. When you advance, the images will be displayed in one fast moving sequence. No response is needed during that time. During the review, keep in mind the emotional feelings the whole set brings you as the images are displayed (rather than just one or two images). After the review, you will begin the final one by one picture judgments."]);
 });
 
 test("comparison instructions retain independent 20/10-second page gates", () => {
   const run = runtime();
   const trial = run.context.buildMetaEmotionPractice(run.state)[0];
+  assert.match(trial.pages[1], /7 times during the main image comparison trials/);
   exerciseGates(run, trial, [20000, 10000]);
 });
 
@@ -320,7 +323,7 @@ test("final replays have an independent three-use cap and never consume comparis
   const timeline = run.context.buildMetaEmotionMetaJ(run.state, 1);
   const node = replayNode(timeline, "meta"), response = replayResponse(node);
   const confidence = flatten(timeline).find(trial => trial.data?.event === "meta_conf");
-  assert.equal(run.state.replaysRemaining, 5);
+  assert.equal(run.state.replaysRemaining, 7);
   assert.equal(run.state.finalReplaysRemaining, 3);
   for (let remaining = 3; remaining > 0; remaining--) {
     run.response(response);
@@ -329,14 +332,14 @@ test("final replays have an independent three-use cap and never consume comparis
     run.click("replay");
     assert.equal(node.loop_function(), true);
     assert.equal(run.state.finalReplaysRemaining, remaining - 1);
-    assert.equal(run.state.replaysRemaining, 5);
+    assert.equal(run.state.replaysRemaining, 7);
   }
   run.response(response);
   assert.equal(run.button("replay").disabled, true);
   const recordCount = run.records.length;
   run.click("replay");
   assert.equal(run.records.length, recordCount, "disabled replay requests cannot finish a screen");
-  assert.equal(run.state.replaysRemaining, 5);
+  assert.equal(run.state.replaysRemaining, 7);
   run.clock.advance(900);
   run.click("1");
   assert.equal(node.loop_function(), false);
@@ -345,7 +348,7 @@ test("final replays have an independent three-use cap and never consume comparis
   run.move(125);
   run.clock.advance(700);
   run.click("3");
-  assert.equal(run.state.replaysRemaining, 5);
+  assert.equal(run.state.replaysRemaining, 7);
   assert.equal(run.state.finalReplaysRemaining, 0);
   assert.equal(run.records.filter(row => row.event === "replay_request").length, 3);
   assert.equal(run.records.filter(row => row.event === "meta_type1").length, 1);
@@ -375,7 +378,7 @@ test("final replays have an independent three-use cap and never consume comparis
   run.click("1");
   const comparison = replayNode(run.context.buildMetaEmotionCalibrationChunk(run.state, 1, 1), "calibration");
   run.response(replayResponse(comparison));
-  assert.match(run.button("replay").textContent, /5 remaining/,
+  assert.match(run.button("replay").textContent, /7 remaining/,
     "all comparison replays remain available after exhausting final replays");
   assert.equal(run.button("replay").disabled, false);
 });
@@ -390,7 +393,7 @@ test("practice has its own persistent five-use budget and cannot consume formal 
     run.clock.advance(1);
     run.click("replay");
     assert.equal(run.state.practiceReplaysRemaining, remaining - 1);
-    assert.equal(run.state.replaysRemaining, 5, "practice cannot consume formal replays");
+    assert.equal(run.state.replaysRemaining, 7, "practice cannot consume formal replays");
     assert.equal(run.state.finalReplaysRemaining, 3);
   }
   run.response(replayResponse(practice));
@@ -403,6 +406,7 @@ test("practice has its own persistent five-use budget and cannot consume formal 
   run.key("1");
   const practiceRecord = run.records.find(row => row.event === "2ifc" && row.phase === "practice");
   assert.equal(practiceRecord.replays_remaining, 0);
+  assert.equal(practiceRecord.replay_limit, 5);
   assert.equal(practiceRecord.replay_count, 5);
   assert.deepEqual(Array.from(practiceRecord.replay_requests, request => request.remaining), [4, 3, 2, 1, 0]);
   assert.ok(practiceRecord.replay_requests.every(request => request.budget === "practice"));
@@ -415,7 +419,7 @@ test("practice has its own persistent five-use budget and cannot consume formal 
   run.clock.advance(1);
   run.key("1");
   assert.equal(run.state.practiceReplaysRemaining, 0);
-  assert.equal(run.state.replaysRemaining, 5);
+  assert.equal(run.state.replaysRemaining, 7);
   assert.equal(run.state.finalReplaysRemaining, 3);
 
   run.state.calibrationPairs.push({ p1: "7.jpg", p2: "8.jpg", cat: 0 });
@@ -423,9 +427,9 @@ test("practice has its own persistent five-use budget and cannot consume formal 
   for (let chunk = 1; chunk <= 2; chunk++) {
     const calibration = replayNode(run.context.buildMetaEmotionCalibrationChunk(run.state, 1, chunk), "calibration");
     const response = replayResponse(calibration);
-    for (let use = 0; use < (chunk === 1 ? 3 : 2); use++) {
+    for (let use = 0; use < (chunk === 1 ? 3 : 4); use++) {
       run.response(response);
-      assert.match(run.button("replay").textContent, new RegExp(`${(chunk === 1 ? 5 : 2) - use} remaining`));
+      assert.match(run.button("replay").textContent, new RegExp(`${(chunk === 1 ? 7 : 4) - use} remaining`));
       run.clock.advance(1);
       run.click("replay");
     }
@@ -483,12 +487,12 @@ test("practice has its own persistent five-use budget and cannot consume formal 
   run.click("3");
 
   const calRows = run.records.filter(row => row.event === "2ifc" && row.phase === "calibration");
-  assert.deepEqual(calRows.map(row => row.replays_remaining), [2, 0, 0]);
-  assert.ok(calRows.every(row => row.replay_limit === 5));
+  assert.deepEqual(calRows.map(row => row.replays_remaining), [4, 0, 0]);
+  assert.ok(calRows.every(row => row.replay_limit === 7));
   assert.ok(calRows.every(row => row.replay_requests.every(request => request.budget === "comparison")));
   assert.ok(calRows.every(row => row.replay_requests.every(request => request.replays_remaining === request.remaining)));
-  assert.deepEqual(Array.from(calRows[0].replay_requests, request => request.remaining), [4, 3, 2]);
-  assert.deepEqual(Array.from(calRows[1].replay_requests, request => request.remaining), [1, 0]);
+  assert.deepEqual(Array.from(calRows[0].replay_requests, request => request.remaining), [6, 5, 4]);
+  assert.deepEqual(Array.from(calRows[1].replay_requests, request => request.remaining), [3, 2, 1, 0]);
   const finalRecord = run.records.find(row => row.event === "meta_conf");
   assert.equal(finalRecord.replay_requests[0].budget, "final");
   assert.equal(finalRecord.replay_requests[0].remaining, 2);
@@ -507,7 +511,7 @@ test("practice has its own persistent five-use budget and cannot consume formal 
   const practiceRequests = JSON.parse(practiceCSV[1][practiceCSV[0].indexOf("replay_requests")]);
   assert.equal(practiceRequests.length, 5);
   assert.ok(practiceRequests.every(request => request.budget === "practice"));
-  assert.equal(calibrationCSV[1][calibrationCSV[0].indexOf("replays_remaining")], "2");
+  assert.equal(calibrationCSV[1][calibrationCSV[0].indexOf("replays_remaining")], "4");
   assert.equal(calibrationCSV[2][calibrationCSV[0].indexOf("replays_remaining")], "0");
   assert.equal(calibrationCSV[3][calibrationCSV[0].indexOf("replays_remaining")], "0");
   const finalCSV = run.context.parseCSV(exported.metaJCsvText);
@@ -519,7 +523,7 @@ test("practice has its own persistent five-use budget and cannot consume formal 
 test("initialized sessions receive independent practice and formal allowances plus the final cap", async () => {
   const run = runtime();
   const state = await run.context.initMetaEmotion({ subject: "CHECK", jsPsych: run.state.jsPsych, imageScheduleSeed: 20261014 });
-  assert.equal(state.replaysRemaining, 5);
+  assert.equal(state.replaysRemaining, 7);
   assert.equal(state.practiceReplaysRemaining, 5);
   assert.equal(state.finalReplaysRemaining, 3);
 });
@@ -580,7 +584,7 @@ test("each final confidence question requires 100px of new movement, 600ms and a
   assert.equal(run.records.length, 5, "keyboard-generated clicks cannot answer");
   run.click("3");
   assert.equal(run.records.length, 6);
-  assert.equal(run.state.replaysRemaining, 5, "ordinary judgments and confidence do not consume replay allowance");
+  assert.equal(run.state.replaysRemaining, 7, "ordinary judgments and confidence do not consume replay allowance");
   assert.equal(run.state.finalReplaysRemaining, 3);
   assert.equal(run.clock.pending(), 0, "completed confidence questions clear their timers");
   assert.equal(run.document.listenerCount("click"), 0);
@@ -651,7 +655,7 @@ test("three final checks accept immediate fresh clicks without requiring movemen
   const checkRows = run.records.filter(row => row.event === "meta_instructed_response");
   assert.equal(confidenceRows.length, 60);
   assert.equal(checkRows.length, 3);
-  assert.equal(run.state.replaysRemaining, 5, "confidence questions and checks cannot consume formal replays");
+  assert.equal(run.state.replaysRemaining, 7, "confidence questions and checks cannot consume formal replays");
   assert.equal(run.state.finalReplaysRemaining, 3, "checks cannot consume the final replay cap");
   assert.ok(confidenceRows.every(row => row.conf_key === "4" && row.confidence_label === "Very confident"));
   assert.ok(checkRows.every(row => row.conf_key === undefined && row.type1_key === undefined));
@@ -746,7 +750,7 @@ test("calibration checks use the same 1/2 keys at phase quarters across chunks",
   const checkRows = run.records.filter(row => row.event === "calibration_instructed_response");
   assert.equal(comparisonsRows.length, 25);
   assert.equal(checkRows.length, 4);
-  assert.equal(run.state.replaysRemaining, 5, "calibration checks cannot consume formal replays");
+  assert.equal(run.state.replaysRemaining, 7, "calibration checks cannot consume formal replays");
   assert.equal(run.state.practiceReplaysRemaining, 5);
   assert.equal(run.records.filter(row => row.event === "2ifc" && row.phase === "practice").length, 1);
   assert.ok(checkRows.every(row => row.choice_key === undefined), "checks cannot masquerade as scored comparisons");
@@ -848,7 +852,7 @@ test("final judgment reminders still appear after earlier reminders are exhauste
   assert.equal(confidences[2].speed_reminder_group, "final_judgment");
   assert.equal(confidences[2].speed_reminder_kinds, "emotion_judgment");
   assert.equal(run.state.practiceReplaysRemaining, 5);
-  assert.equal(run.state.replaysRemaining, 5);
+  assert.equal(run.state.replaysRemaining, 7);
   assert.equal(run.state.finalReplaysRemaining, 3);
   const exported = run.context.exportMetaEmotion(run.state, run.state.jsPsych, { session_id: "session-a" });
   const table = run.context.parseCSV(exported.metaJCsvText), [header] = table;

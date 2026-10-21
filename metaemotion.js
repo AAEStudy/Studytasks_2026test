@@ -136,6 +136,7 @@ function instructionScreen(title, body, tag, action = "begin") {
 
 const META_RESPONSE_FORMAT_VERSION = "emotion-mouse-replay-v18-middle-level";
 const FINAL_IMAGE_REPLAY_LIMIT = STUDY_RESPONSE_SETTINGS.finalImageReplayLimit ?? 3;
+const PRACTICE_IMAGE_REPLAY_LIMIT = STUDY_RESPONSE_SETTINGS.practiceImageReplayLimit ?? 5;
 const META_CONFIDENCE_GATES = Object.freeze({ minMs: 600, minMovePx: 100 });
 const META_CHECK_GATES = Object.freeze({ minMs: 0, minMovePx: 0, trackMovement: true });
 const FINAL_JUDGMENT_REMINDER_OPTIONS = Object.freeze({ reminderGroup: "final_judgment" });
@@ -287,7 +288,7 @@ function finalJudgmentInstructions(jsPsych) {
     },
     {
       title: "<u>Reviewing the whole picture set</u>",
-      body: `<p><b>First, you will review the whole picture set</b>. The images will be displayed in one sequence. <b>No response is needed during that time.</b> During the review, keep in mind the emotional feelings the whole set brings you as the images are displayed (rather than just one or two images). After the review, you will begin the final one by one picture judgments.</p>`
+      body: `<p><b>First, you will review the whole picture set</b>. When you advance, the images will be displayed in one <b>fast moving</b> sequence. <b>No response is needed during that time.</b> During the review, keep in mind the emotional feelings the whole set brings you as the images are displayed (rather than just one or two images). After the review, you will begin the final one by one picture judgments.</p>`
     }
   ], [20000, 20000, 15000, 15000], "meta_instructions", jsPsych, {
     pageClass: "emotion-final-instructions",
@@ -302,7 +303,8 @@ function responseMetadata(phase = "calibration") {
     fast_threshold_ms: STUDY_RESPONSE_SETTINGS.fastThresholdMs,
     fast_streak_length: STUDY_RESPONSE_SETTINGS.fastStreakLength,
     speed_reminder_limit: STUDY_RESPONSE_SETTINGS.maxSpeedReminders,
-    replay_limit: phase === "meta" ? FINAL_IMAGE_REPLAY_LIMIT : STUDY_RESPONSE_SETTINGS.imageReplayLimit,
+    replay_limit: phase === "meta" ? FINAL_IMAGE_REPLAY_LIMIT
+      : phase === "practice" ? PRACTICE_IMAGE_REPLAY_LIMIT : STUDY_RESPONSE_SETTINGS.imageReplayLimit,
     final_replay_limit: FINAL_IMAGE_REPLAY_LIMIT
   };
 }
@@ -321,7 +323,7 @@ function button(value, label) {
 function withReplay(state, jsPsych, pictures, responseTrial, phase, chunk) {
   const trialId = ++state.nextImageTrialId;
   const isPractice = phase === "practice";
-  if (state.practiceReplaysRemaining === undefined) state.practiceReplaysRemaining = STUDY_RESPONSE_SETTINGS.imageReplayLimit;
+  if (state.practiceReplaysRemaining === undefined) state.practiceReplaysRemaining = PRACTICE_IMAGE_REPLAY_LIMIT;
   if (state.replaysRemaining === undefined) state.replaysRemaining = STUDY_RESPONSE_SETTINGS.imageReplayLimit;
   if (state.finalReplaysRemaining === undefined) state.finalReplaysRemaining = FINAL_IMAGE_REPLAY_LIMIT;
   const budget = isPractice ? "practice" : phase === "meta" ? "final" : "comparison";
@@ -574,7 +576,7 @@ export async function initMetaEmotion(params){
     subject: params.subject,
     jsPsych: params.jsPsych,
     nextImageTrialId: 0,
-    practiceReplaysRemaining: STUDY_RESPONSE_SETTINGS.imageReplayLimit,
+    practiceReplaysRemaining: PRACTICE_IMAGE_REPLAY_LIMIT,
     replaysRemaining: STUDY_RESPONSE_SETTINGS.imageReplayLimit,
     finalReplaysRemaining: FINAL_IMAGE_REPLAY_LIMIT,
     practicePairs,

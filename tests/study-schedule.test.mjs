@@ -26,7 +26,7 @@ test("every full schedule has equal sustained blocks and retains bounded interva
   const config = resolveStudyConfig("?mode=full");
   assert.deepEqual(config.sections.map(section => section.comparisons), [90, 100, 90, 100]);
   assert.deepEqual(config.sections.map(section => [section.break.kind, section.break.durationMs]),
-    [["optional", 120000], ["mandatory", 180000], ["optional", 120000], ["mandatory", 300000]]);
+    [["optional", 120000], ["mandatory", 180000], ["optional", 120000], ["mandatory", 180000]]);
   for (let seed = 0; seed < 100; seed++) {
     let state = seed + 1;
     const random = () => ((state = (1664525 * state + 1013904223) >>> 0) / 2 ** 32);
@@ -91,6 +91,11 @@ for (const mode of ["full", "test"]) test(`${mode}: actual orchestration has all
     assert.equal(last - first + 1, section.probes, "MRT intervals must be consecutive within their section");
     const comparisons = flatten(run.timeline.slice(previous + 1, first)).filter(trial => trial.data?.event === "2ifc" && trial.data.phase === "calibration");
     assert.equal(comparisons.length, section.comparisons);
+    const countdowns = run.timeline.slice(previous + 1, first).filter(trial =>
+      typeof trial.stimulus === "string" && trial.stimulus.includes("Metronome trials begin in"));
+    assert.deepEqual(Array.from(countdowns, trial => trial.stimulus.replace(/<[^>]*>/g, "")),
+      ["Metronome trials begin in 3...", "Metronome trials begin in 2...", "Metronome trials begin in 1..."]);
+    assert.ok(countdowns.every(trial => trial.trial_duration === 1300 && trial.response_ends_trial === false));
     assert.equal(nodes.reduce((sum, node) => sum + node.timeline.filter(child => child.timeline?.[0]?.trial_duration === 1300).length, 0), full ? 388 : 31);
     if (full) {
       assert.equal(run.timeline[last + 1].data.event, "scheduled_break");
@@ -150,7 +155,7 @@ function breakHarness(kind, durationMs) {
     tick: () => refresh(), cleared: () => cleared };
 }
 
-for (const minimum of [180000, 300000]) test(`mandatory break enforces ${minimum} ms and never auto-resumes`, () => {
+for (const minimum of [180000]) test(`mandatory break enforces ${minimum} ms and never auto-resumes`, () => {
   const run = breakHarness("mandatory", minimum);
   assert.equal(run.trial.choices, "NO_KEYS");
   assert.equal(run.next.disabled, true);
@@ -192,8 +197,13 @@ test("progress wording distinguishes primary tasks from the remaining study", ()
   assert.match(sectionProgressMessage(1), /one-quarter of the primary tasks/);
   assert.match(sectionProgressMessage(2), /halfway through the primary tasks/);
   assert.match(sectionProgressMessage(3), /three-quarters of the primary tasks/);
-  const final = buildSectionBreak({ jsPsych: {}, trialType: {}, section: 4, breakSpec: {kind:"mandatory", durationMs:300000} });
+  assert.equal(sectionProgressMessage(4), "Congratulations - you have completed four sections of the primary tasks! One final, but critical task section remains!");
+  const final = buildSectionBreak({ jsPsych: {}, trialType: {}, section: 4, breakSpec: {kind:"mandatory", durationMs:180000} });
   assert.match(final.stimulus, /final picture judgments/);
+  assert.match(final.stimulus, /which should only take around 5-7 minutes but are very important\./);
+  assert.match(final.stimulus, /at least <strong>3 minutes<\/strong>/);
+  assert.match(final.stimulus, /You may take this time to stand up and stretch, wake yourself up, go to the bathroom, get some water, or do whatever else you may need to do before continuing\./);
+  assert.doesNotMatch(final.stimulus, /Scheduled breaks do not count|5.minute break/);
   assert.match(final.stimulus, /questionnaires/);
   assert.doesNotMatch(final.stimulus, /completed.*(?:whole|entire) study/);
 });

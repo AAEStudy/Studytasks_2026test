@@ -3,10 +3,10 @@
 //
 // Data saving sends five text files to Drive via DataPipe, with Qualtrics fallback.
 
-import { initMetaEmotion, buildMetaEmotionPractice, buildMetaEmotionCalibrationChunk, buildMetaEmotionReview, buildMetaEmotionMetaJ, exportMetaEmotion } from "./metaemotion.js?v=20261018-middle-level";
+import { initMetaEmotion, buildMetaEmotionPractice, buildMetaEmotionCalibrationChunk, buildMetaEmotionReview, buildMetaEmotionMetaJ, exportMetaEmotion } from "./metaemotion.js?v=20261021-refinements";
 import { splitStudyExports } from "./js/analysis-exports.mjs?v=20261020-full-schedule";
-import { resolveStudyConfig, createMrtIntervalSchedule } from "./js/study-schedule.mjs?v=20261020-drive-full";
-import { buildSectionBreak } from "./js/study-breaks.mjs?v=20261020-full-schedule";
+import { resolveStudyConfig, createMrtIntervalSchedule } from "./js/study-schedule.mjs?v=20261021-refinements";
+import { buildSectionBreak } from "./js/study-breaks.mjs?v=20261021-refinements";
 import { createSessionZip } from "./js/session-bundle.mjs?v=20261019-bundle";
 import { createQualtricsCodec, postQualtricsBundle } from "./js/qualtrics-bundle.mjs?v=20261019-save-tab";
 import { stageQualtricsSession, listPendingQualtricsSessions, completeQualtricsReturn } from "./js/qualtrics-outbox.mjs?v=20261019-save-tab";
@@ -94,7 +94,7 @@ function safeFilenamePart(value){
 }
 
 const EXPORT_SCHEMA_VERSION = "fae-export-v3";
-const STUDY_VERSION = "FAE-2026-10-20-drive-files";
+const STUDY_VERSION = "FAE-2026-10-21-study-refinements";
 const SESSION_STARTED_AT_UTC = new Date().toISOString();
 const SESSION_STAMP = sessionStamp(new Date(SESSION_STARTED_AT_UTC));
 const SESSION_RANDOM_ID = globalThis.crypto?.randomUUID?.()
@@ -732,7 +732,7 @@ async function start(){
     timeline.push(transitionScreen(`<h2>Study Tasks Overview</h2>
       <p>After practicing both tasks, you will complete <b>four sections</b>. Each section contains picture comparisons followed by metronome tapping.</p>
       <p>Progress messages will let you know when you are one-quarter, halfway, and three-quarters through these primary tasks.</p>
-      <p>You may take a <b>2-minute break</b> after the first and third sections. There is a required <b>3-minute break halfway through</b> and a required <b>5-minute break after the fourth section</b>.</p>
+      <p>You may take a <b>2-minute break</b> after the first and third sections. There is a required <b>3-minute break halfway through</b> and a required <b>3-minute break after the fourth section</b>.</p>
       <p>After those sections, you will complete the final picture judgments and return to the questionnaires.</p>
       <p>Press <b>SPACE</b> to begin.</p>`, {event: "study_overview"}));
   }

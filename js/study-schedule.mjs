@@ -1,6 +1,6 @@
 // One switch for ordinary launches; ?mode=test / ?mode=full overrides it per run.
 export const DEFAULT_RUN_MODE = "full";
-export const STUDY_SCHEDULE_VERSION = "four-sections-20261020";
+export const STUDY_SCHEDULE_VERSION = "four-sections-20261021";
 export const TAP_CYCLE_MS = 1300;
 
 export function resolveStudyConfig(search = "", defaultMode = DEFAULT_RUN_MODE) {
@@ -11,7 +11,7 @@ export function resolveStudyConfig(search = "", defaultMode = DEFAULT_RUN_MODE) 
   const sections = full ? [90, 100, 90, 100].map((comparisons, index) => ({
     number: index + 1, comparisons, probes: 12,
     break: { kind: index % 2 === 0 ? "optional" : "mandatory",
-      durationMs: index === 3 ? 300000 : index === 1 ? 180000 : 120000 }
+      durationMs: index % 2 === 0 ? 120000 : 180000 }
   })) : [{ number: 1, comparisons: 6, probes: 1, break: null }];
   return {
     mode, scheduleVersion: full ? STUDY_SCHEDULE_VERSION : "legacy-short-20261019",
@@ -64,6 +64,6 @@ export function sectionProgressMessage(section) {
     "Congratulations—you have completed about one-quarter of the primary tasks!",
     "Congratulations—you are halfway through the primary tasks!",
     "Congratulations—you have completed about three-quarters of the primary tasks!",
-    "Congratulations—you have completed all four sections of the primary tasks!"
+    "Congratulations - you have completed four sections of the primary tasks! One final, but critical task section remains!"
   ][section - 1];
 }
